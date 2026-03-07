@@ -1,0 +1,62 @@
+---
+# ============================================================================
+# DNS Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/network/dns
+
+argument_specs:
+  main:
+    short_description: DNS resolver configuration with intelligent backend detection
+    description:
+      - Auto-detects DNS management system (Tailscale, systemd-resolved, resolvconf, direct)
+      - Respects Tailscale MagicDNS when detected
+      - Configures systemd-resolved via drop-in file
+      - Supports resolvconf head file for priority DNS
+      - Falls back to direct /etc/resolv.conf management
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # DNS Configuration
+      # ========================================================================
+      net_dns_configure:
+        description: Enable DNS resolver configuration
+        type: bool
+        default: false
+
+      net_dns_servers:
+        description: |
+          DNS server IP addresses.
+          Common choices:
+            - Cloudflare: 1.1.1.1, 1.0.0.1
+            - Quad9: 9.9.9.9, 149.112.112.112
+            - Google: 8.8.8.8, 8.8.4.4
+            - Mullvad: 194.242.2.2
+        type: list
+        elements: str
+        default: []
+      net_dns_search:
+        description: DNS search domains for short hostname resolution
+        type: list
+        elements: str
+        default: []
+      net_dns_stub_resolver:
+        description: |
+          Enable systemd-resolved stub resolver (127.0.0.53).
+          When true: /etc/resolv.conf → stub-resolv.conf
+          When false: /etc/resolv.conf → resolv.conf (direct nameservers)
+          Recommended: false for servers
+        type: bool
+        default: false
+
+      net_dns_mdns:
+        description: Enable Multicast DNS (mDNS) for local network name resolution
+        type: bool
+        default: false
+
+      net_dns_llmnr:
+        description: Enable Link-Local Multicast Name Resolution (LLMNR)
+        type: bool
+        default: false

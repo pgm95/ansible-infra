@@ -1,0 +1,25 @@
+---
+# ============================================================================
+# NTP Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# Configure NTP time synchronization for system services.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Manage NTP time synchronization services
+
+# ============================================================================
+# NTP Configuration
+# ============================================================================
+
+net_ntp_configure: false # (boolean) Enable NTP time synchronization
+net_ntp_servers: [] # (list) NTP server hostnames or IPs
+                                                    # Example: ["pool.ntp.org", "time.cloudflare.com"]
+                                                    # Common choices:
+                                                    #   - NTP Pool: pool.ntp.org, 0.pool.ntp.org
+                                                    #   - Cloudflare: time.cloudflare.com
+                                                    #   - Google: time.google.com

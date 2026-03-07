@@ -1,0 +1,77 @@
+---
+# ============================================================================
+# SSH Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/ssh
+
+argument_specs:
+  main:
+    short_description: SSH server hardening configuration
+    description:
+      - Configures SSH security settings via drop-in file
+      - Supports authentication method control
+      - Manages connection keepalive settings
+      - Deploys to /etc/ssh/sshd_config.d/99-ansible.conf
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Authentication Configuration
+      # ========================================================================
+      ssh_password_authentication:
+        description: Enable/disable password authentication
+        type: bool
+        default: false
+
+      ssh_pubkey_authentication:
+        description: Enable/disable public key authentication
+        type: bool
+        default: true
+
+      ssh_permit_empty_passwords:
+        description: Allow empty passwords (security risk)
+        type: bool
+        default: false
+
+      ssh_challenge_response_authentication:
+        description: Enable/disable challenge-response authentication
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Access Control
+      # ========================================================================
+      ssh_permit_root_login:
+        description: "Root login method"
+        type: str
+        default: prohibit-password
+        choices:
+          - "yes"
+          - "no"
+          - prohibit-password
+          - forced-commands-only
+
+      ssh_use_pam:
+        description: Enable/disable PAM authentication
+        type: bool
+        default: true
+
+      ssh_max_auth_tries:
+        description: Maximum authentication attempts per connection
+        type: int
+        default: 3
+
+      # ========================================================================
+      # Connection Management
+      # ========================================================================
+      ssh_client_alive_interval:
+        description: Seconds between keepalive messages (0=disabled)
+        type: int
+        default: 300
+
+      ssh_client_alive_count_max:
+        description: Missed keepalives before disconnect
+        type: int
+        default: 2

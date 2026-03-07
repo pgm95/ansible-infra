@@ -1,0 +1,30 @@
+---
+# ============================================================================
+# QEMU Agent Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/qemu_agent
+
+argument_specs:
+  main:
+    short_description: Auto-detect and install QEMU Guest Agent
+    description:
+      - Detects QEMU/KVM virtualization environment
+      - Checks for virtio guest agent port availability
+      - Installs qemu-guest-agent package only when appropriate
+      - Enables graceful shutdown, IP reporting, and snapshots
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Feature Control
+      # ========================================================================
+      qemu_agent_enabled:
+        description: |
+          Enable/disable QEMU guest agent installation.
+          Safe to enable globally - auto-detects VM environment.
+          Skips installation on bare metal, non-QEMU VMs, or
+          VMs without virtio-serial port.
+        type: bool
+        default: false

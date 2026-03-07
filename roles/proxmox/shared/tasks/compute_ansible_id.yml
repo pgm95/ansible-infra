@@ -1,0 +1,48 @@
+---
+# Shared Proxmox Task - Compute ansible_id
+#
+# Computes unique ansible_id hash from hostname + vmid for reconciliation
+# Used by both LXC and VM roles for consistent identification
+#
+# Required variables:
+#   _hostname: The resource hostname (lxc_hostname or vm_hostname)
+#   _vmid: The resource VMID (lxc_vmid or vm_vmid)
+#
+# Output variables:
+#   ansible_id: 8-character hash of hostname + vmid
+#   ansible_id_tag: Formatted tag string "ansible_<hash>"
+
+- name: Validate identity variables for ansible_id computation
+  ansible.builtin.assert:
+    that:
+      - _hostname is defined
+      - _hostname | string | length > 0
+      - _vmid is defined
+      - _vmid | string | length > 0
+    fail_msg: >-
+      Both _hostname and _vmid must be defined for ansible_id computation.
+      Got _hostname: {{ _hostname | default('undefined') }},
+      _vmid: {{ _vmid | default('undefined') }}.
+    success_msg: "Identity variables validated: {{ _hostname }} (VMID: {{ _vmid }})"
+
+- name: Validate VMID is a valid number
+  ansible.builtin.assert:
+    that:
+      - _vmid | string | regex_search('^[0-9]+$') is not none
+      - _vmid | int >= 100
+      - _vmid | int <= 999999999
+    fail_msg: "VMID must be a number between 100 and 999999999, got: {{ _vmid }}"
+    success_msg: "VMID is valid: {{ _vmid }}"
+
+- name: Compute ansible_id from hostname and vmid
+  ansible.builtin.set_fact:
+    ansible_id: "{{ (_hostname ~ _vmid) | hash('sha256') | truncate(8, True, '') }}"
+
+- name: Set ansible_id tag format
+  ansible.builtin.set_fact:
+    ansible_id_tag: "ansible_{{ ansible_id }}"
+
+- name: Display ansible_id
+  ansible.builtin.debug:
+    msg: "Computed ansible_id: {{ ansible_id }} (tag: {{ ansible_id_tag }})"
+    verbosity: 1

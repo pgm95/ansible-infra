@@ -1,0 +1,13 @@
+{# Features configuration for pct create --features parameter #}
+{#- Build mount options list for privileged containers -#}
+{%- set mount_opts = [] -%}
+{%- if lxc_feature_nfs and lxc_privileged -%}
+  {%- set _ = mount_opts.append('nfs') -%}
+{%- endif -%}
+{%- if lxc_feature_cifs and lxc_privileged -%}
+  {%- set _ = mount_opts.append('cifs') -%}
+{%- endif -%}
+
+fuse={{ '1' if lxc_feature_fuse else '0' }},mknod={{ '1' if lxc_feature_mknod else '0' }},nesting={{ '1' if lxc_feature_nesting else '0' }}
+{%- if lxc_feature_keyctl and not lxc_privileged %},keyctl=1{% endif %}
+{%- if mount_opts | length > 0 %},mount={{ mount_opts | join(';') }}{% endif %}

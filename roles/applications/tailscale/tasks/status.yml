@@ -1,0 +1,23 @@
+---
+# Display Tailscale connection status and configuration summary
+
+- name: Tailscale | Get status
+  ansible.builtin.command: tailscale status
+  register: __tailscale_status
+  changed_when: false
+  failed_when: false
+
+- name: Tailscale | Show connection info
+  ansible.builtin.debug:
+    msg:
+      - "Tailscale configured successfully!"
+      - "Hostname: {{ _ts_hostname }}"
+      - "Tags: {{ _ts_tags | join(', ') if _ts_tags | length > 0 else 'None' }}"
+      - "OAuth Ephemeral: {{ _ts_oauth_ephemeral }}"
+      - "Exit Node/Subnet Router: {{ 'Yes' if _is_exit_node_or_router else 'No' }}"
+      - "IP Forwarding: {{ 'Enabled' if _is_exit_node_or_router else 'Not configured' }}"
+      - "Custom IP: {{ _ts_ip if _ts_ip != '' else 'Not configured' }}"
+      - "Status:"
+      - "{{ __tailscale_status.stdout_lines }}"
+    verbosity: 1
+  when: __tailscale_status.rc == 0

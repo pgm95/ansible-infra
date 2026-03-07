@@ -1,0 +1,86 @@
+#cloud-config
+
+# ============================================================================
+# Disk Configuration - Templated
+# ============================================================================
+
+# Host ZFS handles: compression, checksums, snapshots, TRIM (if autotrim=on)
+# Guest optimizations: noatime to reduce CoW write amplification
+# Device paths use /dev/disk/by-id/ for deterministic references regardless of kernel enumeration order (avoids /dev/sdX instability)
+{# Collect additional disks (index 1+) that define a guest mount point #}
+{% set _ns = namespace(mountable=[]) %}
+{% for disk in vm_disks[1:] %}
+{%   if disk.mp is defined and disk.mp %}
+{%     set _ns.mountable = _ns.mountable + [{'mp': disk.mp, 'scsi_index': loop.index}] %}
+{%   endif %}
+{% endfor %}
+{% if _ns.mountable %}
+
+disk_setup:
+{% for d in _ns.mountable %}
+  /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi{{ d.scsi_index }}:
+    table_type: gpt
+    layout: true
+    overwrite: false
+{% endfor %}
+
+fs_setup:
+{% for d in _ns.mountable %}
+  - label: disk{{ d.scsi_index }}
+    filesystem: ext4
+    device: /dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi{{ d.scsi_index }}-part1
+    overwrite: false
+{% endfor %}
+
+mounts:
+{% for d in _ns.mountable %}
+  - [/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi{{ d.scsi_index }}-part1, "{{ d.mp }}", ext4, "defaults,nofail,noatime", "0", "2"]
+{% endfor %}
+
+bootcmd:
+{% for d in _ns.mountable %}
+  - mkdir -p {{ d.mp }}
+{% endfor %}
+{% endif %}
+
+# ============================================================================
+# Other Configuration - Hardcoded
+# ============================================================================
+
+timezone: US/Eastern
+disable_root: false
+
+packages:
+  - qemu-guest-agent
+
+runcmd:
+  - systemctl enable --now qemu-guest-agent
+  - systemctl restart systemd-resolved
+  - systemctl restart systemd-networkd
+  - networkctl reload
+
+write_files:
+  - path: /etc/systemd/resolved.conf.d/99-ansible-cicustom-dns.conf
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Resolve]
+      DNS=10.10.10.1
+      Domains=home.arpa
+      DNSStubListener=no
+      MulticastDNS=no
+      LLMNR=no
+
+  # Fix DHCP hostname registration for Debian cloud images
+  # Cloud-init's network config doesn't include SendHostname, causing DHCP to register "localhost"
+  # This drop-in ensures hostname is sent to DHCP server for DNS registration
+  - path: /etc/systemd/network/99-ansible-cicustom-dhcp.network
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Match]
+      Name=eth*
+
+      [DHCP]
+      SendHostname=yes
+# ============================================================================

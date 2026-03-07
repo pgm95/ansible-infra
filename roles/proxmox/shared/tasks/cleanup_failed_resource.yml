@@ -1,0 +1,53 @@
+---
+# Shared Proxmox Task - Cleanup Failed Resource
+#
+# Removes partially created VM/LXC on failure
+# Used in rescue blocks of both roles
+#
+# Required variables:
+#   _resource_type: "lxc" or "vm"
+#   _vmid: The resource VMID to cleanup
+#   _resource_exists: Whether resource existed before creation attempt
+#   pve_host: Target Proxmox host (from host_vars)
+#   proxmox_api_* variables: API auth (from inventory/group_vars/proxmox.yml)
+
+- name: Cleanup failed resource (if partially created)
+  when:
+    - _vmid is defined
+    - _resource_exists is defined
+    - not _resource_exists
+  block:
+    - name: Remove failed LXC container
+      community.proxmox.proxmox:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs }}"
+        node: "{{ hostvars[pve_host].proxmox_node_name | default(pve_host) }}"
+        vmid: "{{ _vmid }}"
+        state: absent
+        force: true
+      delegate_to: localhost
+      failed_when: false
+      when: _resource_type == 'lxc'
+
+    - name: Remove failed VM
+      community.proxmox.proxmox_kvm:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs }}"
+        node: "{{ hostvars[pve_host].proxmox_node_name | default(pve_host) }}"
+        vmid: "{{ _vmid }}"
+        state: absent
+        force: true
+      delegate_to: localhost
+      failed_when: false
+      when: _resource_type == 'vm'
+
+    - name: Display cleanup result
+      ansible.builtin.debug:
+        msg: "Cleaned up partially created {{ _resource_type | upper }} with VMID {{ _vmid }}"
+        verbosity: 1

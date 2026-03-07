@@ -1,0 +1,171 @@
+---
+# ============================================================================
+# Tailscale Role - Pre-Deployment Validation
+# ============================================================================
+# Validates configuration before Tailscale installation and setup
+
+# ============================================================================
+# Authentication Validation
+# ============================================================================
+
+- name: Tailscale | Validate auth key is defined
+  ansible.builtin.assert:
+    that:
+      - _ts_authkey is defined
+      - _ts_authkey | length > 0
+    fail_msg: >-
+      Tailscale auth key '_ts_authkey' is missing or empty. Define
+      tailscale_oauth_authkeys in group_vars or host_vars with an OAuth client
+      credential (tskey-client-*, auth_keys scope). Create one at
+      https://login.tailscale.com/admin/settings/oauth.
+    success_msg: "Auth key validated"
+  when: not _ts_up_skip
+
+- name: Tailscale | Validate OAuth key requires tags
+  ansible.builtin.assert:
+    that:
+      - _ts_tags | length > 0
+    fail_msg: >-
+      OAuth client keys (tskey-client-*) require at least one tag for ACL
+      enforcement, but tailscale_tags is empty. Add tailscale_tags to
+      host_vars/{{ inventory_hostname }}.yml (e.g. tailscale_tags: ['server']).
+    success_msg: "OAuth tags validated: {{ _ts_tags | join(', ') }}"
+  when:
+    - _ts_authkey is defined
+    - _ts_authkey is string
+    - _ts_authkey is search('tskey-client-')
+
+# ============================================================================
+# API Token Validation
+# ============================================================================
+
+- name: Tailscale | Validate devices token format
+  ansible.builtin.assert:
+    that:
+      - _ts_devices_token is search('^tskey-client-')
+    fail_msg: >-
+      Invalid devices token format -- must start with tskey-client-*,
+      got: {{ _ts_devices_token[:15] | default('undefined') }}...
+      Verify tailscale_oauth_devices contains an OAuth client credential with
+      'devices' write scope. Create one at
+      https://login.tailscale.com/admin/settings/oauth.
+    success_msg: "Devices token format validated"
+  when:
+    - _ts_devices_token is defined
+    - _ts_devices_token | length > 0
+
+- name: Tailscale | Validate custom IP requires devices token
+  ansible.builtin.assert:
+    that:
+      - _ts_devices_token is defined
+      - _ts_devices_token | length > 0
+    fail_msg: >-
+      tailscale_ip is set to '{{ _ts_ip }}' but no devices token is configured.
+      Define tailscale_oauth_devices in group_vars or host_vars with an OAuth
+      client credential (tskey-client-*, devices write scope). Create one at
+      https://login.tailscale.com/admin/settings/oauth.
+    success_msg: "Custom IP configuration validated"
+  when:
+    - _ts_ip is defined
+    - _ts_ip | length > 0
+
+# ============================================================================
+# IP Address Validation
+# ============================================================================
+
+- name: Tailscale | Validate IP is within CGNAT range
+  ansible.builtin.assert:
+    that:
+      - (_ts_ip + '/10') | ansible.utils.ipaddr('network') == '100.64.0.0'
+    fail_msg: >-
+      tailscale_ip '{{ _ts_ip }}' is outside the valid CGNAT range 100.64.0.0/10
+      (100.64.0.0 - 100.127.255.255).
+    success_msg: "IP {{ _ts_ip }} is within valid CGNAT range"
+  when:
+    - _ts_ip is defined
+    - _ts_ip | length > 0
+
+- name: Tailscale | Validate IP is not in reserved ranges
+  ansible.builtin.assert:
+    that:
+      - (_ts_ip + '/24') | ansible.utils.ipaddr('network') != '100.100.0.0'
+      - (_ts_ip + '/24') | ansible.utils.ipaddr('network') != '100.100.100.0'
+      - (_ts_ip + '/23') | ansible.utils.ipaddr('network') != '100.115.92.0'
+      - _ts_ip not in ['100.100.100.100', '100.101.102.103']
+    fail_msg: >-
+      tailscale_ip '{{ _ts_ip }}' is in a reserved block.
+      Reserved for Tailscale internal use:
+      100.100.0.0/24, 100.100.100.0/24, 100.115.92.0/23
+      100.100.100.100 (DNS), 100.101.102.103 (tshello example service).
+    success_msg: "IP {{ _ts_ip }} is not in any reserved range"
+  when:
+    - _ts_ip is defined
+    - _ts_ip | length > 0
+
+- name: Tailscale | Validate IP is not already assigned on tailnet
+  when:
+    - _ts_ip is defined
+    - _ts_ip | length > 0
+    - _ts_devices_token is defined
+    - _ts_devices_token | length > 0
+  block:
+    - name: Tailscale | Exchange OAuth credentials for validation
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/oauth/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          client_id: "{{ _ts_devices_token.split('-')[2] }}"
+          client_secret: "{{ _ts_devices_token }}"
+        status_code: 200
+        timeout: "{{ tailscale_api_timeout | default(30) }}"
+      register: __ts_validate_oauth
+      no_log: true
+      retries: 3
+      delay: 2
+      until: __ts_validate_oauth is succeeded
+
+    - name: Tailscale | Fetch tailnet device list
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/tailnet/-/devices?fields=default"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ __ts_validate_oauth.json.access_token }}"
+        status_code: 200
+        timeout: "{{ tailscale_api_timeout | default(30) }}"
+      register: __ts_tailnet_devices
+      no_log: true
+
+    - name: Tailscale | Assert IP is not assigned to another device
+      ansible.builtin.assert:
+        that:
+          - _ts_ip not in __ts_assigned_ips
+        fail_msg: >-
+          tailscale_ip '{{ _ts_ip }}' is already assigned to another device.
+          Currently in use on the tailnet: {{ __ts_assigned_ips | join(', ') }}.
+        success_msg: "IP {{ _ts_ip }} is available on the tailnet"
+      vars:
+        __ts_assigned_ips: >-
+          {{
+            __ts_tailnet_devices.json.devices
+            | default([])
+            | rejectattr('hostname', 'equalto', _ts_hostname)
+            | map(attribute='addresses')
+            | flatten
+            | select('search', '^100\.')
+            | list
+          }}
+
+# ============================================================================
+# Validation Summary
+# ============================================================================
+
+- name: Tailscale | Display validation summary
+  ansible.builtin.debug:
+    msg:
+      - "Tailscale configuration validated successfully"
+      - "  - Hostname: {{ _ts_hostname }}"
+      - "  - Tags: {{ _ts_tags | join(', ') if _ts_tags | length > 0 else 'none' }}"
+      - "  - Custom IP: {{ _ts_ip if _ts_ip | length > 0 else 'auto' }}"
+      - "  - Args: {{ _ts_args if _ts_args | length > 0 else 'default' }}"
+    verbosity: 1

@@ -1,0 +1,97 @@
+---
+# ============================================================================
+# SSH Role - Server Hardening Configuration
+# ============================================================================
+# Deploys SSH security settings via drop-in file
+
+# ============================================================================
+# Pre-Configuration Validation
+# ============================================================================
+
+- name: Validate ssh_permit_root_login value
+  ansible.builtin.assert:
+    that:
+      - ssh_permit_root_login in ['yes', 'no', 'prohibit-password', 'forced-commands-only']
+    fail_msg: >-
+      Invalid ssh_permit_root_login value: '{{ ssh_permit_root_login }}'.
+      Must be one of: yes, no, prohibit-password, forced-commands-only.
+    success_msg: "PermitRootLogin validated: {{ ssh_permit_root_login }}"
+
+- name: Validate ssh_max_auth_tries range
+  ansible.builtin.assert:
+    that:
+      - ssh_max_auth_tries | int >= 1
+      - ssh_max_auth_tries | int <= 10
+    fail_msg: >-
+      ssh_max_auth_tries must be between 1 and 10,
+      got: {{ ssh_max_auth_tries }}. Too low locks out users, too high
+      increases brute-force risk.
+    success_msg: "MaxAuthTries validated: {{ ssh_max_auth_tries }}"
+
+- name: Validate keepalive settings
+  ansible.builtin.assert:
+    that:
+      - ssh_client_alive_interval | int >= 0
+      - ssh_client_alive_count_max | int >= 0
+    fail_msg: >-
+      Keepalive values must be non-negative integers.
+      Got ssh_client_alive_interval: {{ ssh_client_alive_interval }},
+      ssh_client_alive_count_max: {{ ssh_client_alive_count_max }}.
+    success_msg: "Keepalive settings validated"
+
+- name: Warn if password authentication enabled
+  ansible.builtin.debug:
+    msg: |
+      WARNING: Password authentication is enabled (ssh_password_authentication: true)
+      This is less secure than key-based authentication.
+      Consider: ssh_password_authentication: false
+  when: ssh_password_authentication | bool
+
+# ============================================================================
+# SSH Configuration Deployment
+# ============================================================================
+
+- name: Check if sshd_config.d directory exists
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config.d
+  register: __sshd_config_dir
+
+- name: Ensure sshd_config.d directory exists
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: not __sshd_config_dir.stat.exists
+
+- name: Deploy SSH hardening configuration
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-ansible.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    content: |
+      # Managed by Ansible
+      PasswordAuthentication {{ ssh_password_authentication | ternary('yes', 'no') }}
+      PermitRootLogin {{ ssh_permit_root_login }}
+      PubkeyAuthentication {{ ssh_pubkey_authentication | ternary('yes', 'no') }}
+      PermitEmptyPasswords {{ ssh_permit_empty_passwords | ternary('yes', 'no') }}
+      ChallengeResponseAuthentication {{ ssh_challenge_response_authentication | ternary('yes', 'no') }}
+      UsePAM {{ ssh_use_pam | ternary('yes', 'no') }}
+      MaxAuthTries {{ ssh_max_auth_tries }}
+      ClientAliveInterval {{ ssh_client_alive_interval }}
+      ClientAliveCountMax {{ ssh_client_alive_count_max }}
+    validate: "sshd -t -f /etc/ssh/sshd_config -f %s"
+  notify: SSH | Reload sshd
+
+- name: Display SSH configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "SSH hardening configuration deployed:"
+      - "  - PermitRootLogin: {{ ssh_permit_root_login }}"
+      - "  - PasswordAuthentication: {{ ssh_password_authentication }}"
+      - "  - PubkeyAuthentication: {{ ssh_pubkey_authentication }}"
+      - "  - MaxAuthTries: {{ ssh_max_auth_tries }}"
+    verbosity: 1

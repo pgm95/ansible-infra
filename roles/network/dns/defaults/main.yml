@@ -1,0 +1,55 @@
+---
+# ============================================================================
+# DNS Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# Configure DNS resolvers with intelligent detection and integration.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Manage DNS resolution services
+
+# ============================================================================
+# DNS Configuration
+# ============================================================================
+# Intelligently detects and integrates with host DNS management system:
+# - Tailscale: Skips configuration (respects MagicDNS)
+# - systemd-resolved: Configures via drop-in file /etc/systemd/resolved.conf.d/99-ansible.conf
+# - resolvconf: Uses /etc/resolvconf/resolv.conf.d/head (priority DNS)
+# - Direct: Manages /etc/resolv.conf directly (fallback)
+
+net_dns_configure: false # (boolean) Enable DNS resolver configuration
+net_dns_servers: [] # (list) DNS server IP addresses
+                                                    # Example: ["1.1.1.1", "1.0.0.1", "9.9.9.9"]
+                                                    #   Common choices:
+                                                    #   - Cloudflare: 1.1.1.1, 1.0.0.1
+                                                    #   - Quad9: 9.9.9.9, 149.112.112.112
+                                                    #   - Google: 8.8.8.8, 8.8.4.4
+                                                    #   - Mullvad: 194.242.2.2
+
+net_dns_search: [] # (list) DNS search domains (optional)
+                                                    # Example: ["example.com", "internal.local"]
+                                                    # Used for short hostname resolution
+
+net_dns_stub_resolver: false # (boolean) Enable systemd-resolved stub resolver (127.0.0.53)
+                                                    # When true: /etc/resolv.conf → stub-resolv.conf (nameserver 127.0.0.53)
+                                                    # When false: /etc/resolv.conf → resolv.conf (direct nameservers)
+                                                    # Recommended: false (use direct DNS for servers)
+
+net_dns_mdns: false # (boolean) Enable Multicast DNS (mDNS) for local network name resolution
+                                                    # Recommended: false (disable for servers)
+
+net_dns_llmnr: false # (boolean) Enable Link-Local Multicast Name Resolution (LLMNR)
+                                                    # Recommended: false (disable for servers)
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# __resolv_conf_content: {}                         # Slurped content of /etc/resolv.conf for detection
+# __tailscale_dns_found: false                      # Boolean: Tailscale DNS management detected
+# __systemd_resolved_status: {}                     # systemd-resolved service status
+# __resolvconf_check: {}                            # resolvconf binary existence check
+# __dns_manager: ""                                 # Detected DNS management system

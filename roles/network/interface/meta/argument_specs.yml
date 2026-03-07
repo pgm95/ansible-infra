@@ -1,0 +1,60 @@
+---
+# ============================================================================
+# Network Interface Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/network/interface
+
+argument_specs:
+  main:
+    short_description: Network interface configuration (static/DHCP)
+    description:
+      - Configures primary network interface
+      - Supports static IP and DHCP modes
+      - Manages /etc/network/interfaces
+      - "Note: Most VPS providers configure networking automatically"
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Feature Control
+      # ========================================================================
+      net_iface_configure:
+        description: Enable/disable network interface configuration
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Interface Configuration
+      # ========================================================================
+      net_iface_name:
+        description: Interface name (e.g., "eth0", "ens3"). Empty or "auto" defaults to eth0
+        type: str
+        default: ""
+
+      net_iface_mode:
+        description: "IP assignment mode: static or dhcp"
+        type: str
+        default: static
+        choices:
+          - static
+          - dhcp
+
+      # ========================================================================
+      # Static IP Configuration (when mode=static)
+      # ========================================================================
+      net_iface_address:
+        description: Static IP address with optional CIDR notation
+        type: str
+        default: ""
+
+      net_iface_netmask:
+        description: Subnet mask (used if address has no CIDR)
+        type: str
+        default: "255.255.255.0"
+
+      net_iface_gateway:
+        description: Default gateway IP address
+        type: str
+        default: ""

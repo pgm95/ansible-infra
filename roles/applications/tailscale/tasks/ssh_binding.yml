@@ -1,0 +1,74 @@
+---
+# Bind SSH to Tailscale IP address + localhost for restricted access
+
+- name: Tailscale | Configure SSH binding to network
+  when: tailscale_bind_ssh | default(false) | bool
+  block:
+    - name: Tailscale | Get current status
+      ansible.builtin.command: tailscale status --json
+      register: __ts_ssh_status
+      changed_when: false
+      failed_when: false
+
+    - name: Tailscale | Check if running
+      ansible.builtin.set_fact:
+        __ts_ssh_running: "{{ __ts_ssh_status.rc == 0 }}"
+
+    - name: Tailscale | Parse IPv4 address
+      ansible.builtin.set_fact:
+        __ts_ssh_ipv4: "{{ (__ts_ssh_status.stdout | from_json).Self.TailscaleIPs | select('search', '^100\\.') | first | default('') }}"
+      when: __ts_ssh_running | bool
+
+    - name: Tailscale | Skip SSH binding if not available
+      ansible.builtin.debug:
+        msg: "WARNING: Tailscale not running or no IPv4 address assigned. Skipping SSH binding for safety."
+      when: not __ts_ssh_running | bool or (__ts_ssh_ipv4 | default('')) == ''
+
+    - name: Tailscale | Create SSH config for binding
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/55-tailscale.conf
+        content: |
+          # Ansible managed - Tailscale SSH binding
+          # Restricts SSH access to Tailscale network + localhost only
+          # WARNING: SSH becomes dependent on Tailscale availability
+
+          ListenAddress {{ __ts_ssh_ipv4 }}:22
+          ListenAddress 127.0.0.1:22
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+        validate: "/usr/sbin/sshd -t -f %s"
+      notify: Tailscale | Restart sshd
+      when:
+        - __ts_ssh_running | bool
+        - __ts_ssh_ipv4 | default('') != ''
+
+    - name: Tailscale | Display connection configuration instructions
+      ansible.builtin.debug:
+        msg: |
+          SSH binding enabled. SSH restricted to Tailscale IP {{ __ts_ssh_ipv4 }} + localhost.
+
+          REQUIRED: Update .env for future Ansible connections:
+          {{ inventory_hostname | upper | regex_replace('-', '_') }}_TS_IP={{ __ts_ssh_ipv4 }}
+        verbosity: 1
+      when:
+        - __ts_ssh_running | bool
+        - __ts_ssh_ipv4 | default('') != ''
+
+  rescue:
+    - name: Tailscale | Report SSH binding failure
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: Failed to configure SSH binding to Tailscale.
+          Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+          SSH will remain accessible via default configuration.
+
+- name: Tailscale | Remove SSH binding when disabled
+  when: not (tailscale_bind_ssh | default(false) | bool)
+  block:
+    - name: Tailscale | Remove SSH config file
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d/55-tailscale.conf
+        state: absent
+      notify: Tailscale | Restart sshd

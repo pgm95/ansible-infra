@@ -1,0 +1,335 @@
+---
+# ============================================================================
+# Docker Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/applications/docker
+
+argument_specs:
+  main:
+    short_description: Install and configure Docker CE with Swarm support
+    description:
+      - Installs Docker CE from official repository
+      - Configures daemon.json with comprehensive options
+      - Supports Docker Swarm cluster orchestration
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Role Enablement
+      # ========================================================================
+      docker_enabled:
+        description: Enable Docker installation and configuration
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Data & Storage Configuration
+      # ========================================================================
+      docker_data_root:
+        description: Docker root data directory (data-root in daemon.json)
+        type: str
+        default: /var/lib/docker
+
+      docker_storage_driver:
+        description: "Storage driver: overlay2, btrfs, zfs, etc (empty = auto)"
+        type: str
+        default: ""
+
+      # ========================================================================
+      # Network Configuration
+      # ========================================================================
+      docker_mtu:
+        description: Default MTU for networks (0 = auto, e.g., 1400 for tunneled traffic)
+        type: int
+        default: 0
+
+      docker_bridge_ip:
+        description: Custom docker0 bridge IP in CIDR (e.g., "172.17.0.1/16")
+        type: str
+        default: ""
+
+      docker_default_address_pools:
+        description: Default address pools for bridge networks
+        type: list
+        elements: dict
+        default: []
+      docker_dns_servers:
+        description: DNS servers for containers
+        type: list
+        elements: str
+        default: []
+      docker_dns_search:
+        description: DNS search domains
+        type: list
+        elements: str
+        default: []
+      docker_dns_options:
+        description: DNS options
+        type: list
+        elements: str
+        default: []
+      docker_iptables_enabled:
+        description: Enable iptables rules for container networking
+        type: bool
+        default: true
+
+      docker_ip_forward:
+        description: Enable IP forwarding (net.ipv4.ip_forward)
+        type: bool
+        default: true
+
+      docker_ipv6_enabled:
+        description: Enable IPv6 networking
+        type: bool
+        default: false
+
+      docker_fixed_cidr_v6:
+        description: IPv6 subnet for containers (e.g., "2001:db8::/64")
+        type: str
+        default: ""
+
+      # ========================================================================
+      # Logging Configuration
+      # ========================================================================
+      docker_log_driver:
+        description: "Logging driver: json-file, journald, syslog, etc"
+        type: str
+        default: json-file
+        choices:
+          - json-file
+          - journald
+          - syslog
+          - gelf
+          - fluentd
+          - awslogs
+          - splunk
+          - none
+
+      docker_log_max_size:
+        description: Maximum log file size before rotation
+        type: str
+        default: "50m"
+
+      docker_log_max_file:
+        description: Maximum number of log files to retain
+        type: str
+        default: "3"
+
+      docker_log_compress:
+        description: Compress rotated log files (json-file driver)
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Runtime Configuration
+      # ========================================================================
+      docker_live_restore:
+        description: Keep containers running during daemon downtime
+        type: bool
+        default: true
+
+      docker_userland_proxy:
+        description: Use userland proxy for loopback traffic
+        type: bool
+        default: true
+
+      docker_default_ulimits:
+        description: Default ulimits for containers
+        type: dict
+        default: {}
+      # ========================================================================
+      # Registry Configuration
+      # ========================================================================
+      docker_registry_mirrors:
+        description: Registry mirrors
+        type: list
+        elements: str
+        default: []
+      docker_insecure_registries:
+        description: Insecure registries (HTTP or self-signed)
+        type: list
+        elements: str
+        default: []
+      # ========================================================================
+      # Metrics Configuration
+      # ========================================================================
+      docker_metrics_enabled:
+        description: Enable Prometheus metrics endpoint
+        type: bool
+        default: false
+
+      docker_metrics_addr:
+        description: Metrics endpoint address
+        type: str
+        default: "127.0.0.1:9323"
+
+      docker_experimental:
+        description: Enable experimental features
+        type: bool
+        default: false
+
+      docker_node_generic_resources:
+        description: >-
+          Non-GPU generic resources for Swarm scheduling. Mapped to
+          node-generic-resources in daemon.json. For GPU resources,
+          use docker_gpu_enabled instead of adding "gpu=1" here.
+        type: list
+        elements: str
+        default: []
+      # ========================================================================
+      # GPU Configuration
+      # ========================================================================
+      docker_gpu_enabled:
+        description: >-
+          Enable GPU support for Docker. Deploys udev rules to set
+          permissive DRM device permissions (/etc/udev/rules.d/99-dri.rules)
+          and auto-appends "gpu=1" to node-generic-resources in daemon.json
+          for Swarm GPU scheduling.
+        type: bool
+        default: false
+      # ========================================================================
+      # Docker Swarm Configuration
+      # ========================================================================
+      docker_swarm_enabled:
+        description: Enable Swarm mode on this host
+        type: bool
+        default: false
+
+      docker_swarm_role:
+        description: "Node role: manager or worker"
+        type: str
+        default: worker
+        choices:
+          - manager
+          - worker
+
+      docker_swarm_init:
+        description: Initialize new swarm (true ONLY on first manager)
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Swarm Network Settings
+      # ========================================================================
+      docker_swarm_advertise_addr:
+        description: Advertise address (empty = auto-detect)
+        type: str
+        default: ""
+
+      docker_swarm_listen_addr:
+        description: >-
+          Listen address for management traffic. Defaults to
+          advertise_addr:2377 if advertise_addr is set, otherwise 0.0.0.0:2377.
+        type: str
+        default: ""
+
+      docker_swarm_data_path_addr:
+        description: Address/interface for data traffic (empty = auto)
+        type: str
+        default: ""
+
+      docker_swarm_data_path_port:
+        description: UDP port for VXLAN overlay traffic
+        type: int
+        default: 4789
+
+      # ========================================================================
+      # Swarm Overlay Network Defaults
+      # ========================================================================
+      docker_swarm_default_addr_pool:
+        description: Overlay network pools
+        type: list
+        elements: str
+        default: []
+      docker_swarm_subnet_size:
+        description: Default subnet size for overlay networks
+        type: int
+        default: 24
+
+      # ========================================================================
+      # Swarm Security & Raft Configuration
+      # ========================================================================
+      docker_swarm_autolock:
+        description: Encrypt Raft logs at rest (requires unlock on restart)
+        type: bool
+        default: false
+
+      docker_swarm_election_tick:
+        description: Raft election timeout in ticks
+        type: int
+        default: 10
+
+      docker_swarm_heartbeat_tick:
+        description: Raft heartbeat interval in ticks
+        type: int
+        default: 1
+
+      docker_swarm_cert_expiry:
+        description: Node certificate expiry (e.g., "2160h" for 90 days)
+        type: str
+        default: ""
+
+      docker_swarm_timeout:
+        description: Docker API timeout in seconds (increase for WAN/Tailscale)
+        type: int
+        default: 120
+
+      docker_swarm_vxlan_interface:
+        description: >-
+          Interface to restrict VXLAN traffic to. When set, creates an iptables rule
+          to drop port 4789/UDP traffic arriving on other interfaces. Use for nodes
+          with public IPs where overlay traffic should only flow over Tailscale/VPN.
+        type: str
+        default: ""
+
+      # ========================================================================
+      # Swarm Node Configuration
+      # ========================================================================
+      docker_swarm_labels:
+        description: Node labels for placement constraints
+        type: dict
+        default: {}
+      docker_swarm_availability:
+        description: "Node availability: active, pause, drain"
+        type: str
+        default: active
+        choices:
+          - active
+          - pause
+          - drain
+
+      # ========================================================================
+      # Swarm Join Configuration
+      # ========================================================================
+      docker_swarm_manager_token:
+        description: Manager join token
+        type: str
+        default: ""
+        no_log: true
+
+      docker_swarm_worker_token:
+        description: Worker join token
+        type: str
+        default: ""
+        no_log: true
+
+      docker_swarm_manager_addrs:
+        description: Manager addresses for joining
+        type: list
+        elements: str
+        default: []
+      # ========================================================================
+      # Package Installation
+      # ========================================================================
+      docker_packages:
+        description: Docker packages to install
+        type: list
+        elements: str
+        default:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin

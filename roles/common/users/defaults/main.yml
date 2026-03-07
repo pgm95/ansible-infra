@@ -1,0 +1,50 @@
+---
+# ============================================================================
+# Users Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# User and group management with SSH key deployment and sudo access.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Create users, configure SSH keys, manage sudo access
+
+# ============================================================================
+# User Management
+# ============================================================================
+
+users_list: [] # (list) User definitions with properties:
+#   - name: (string, required) Username
+#   - password: (string, required) Plain text password (auto-hashed to SHA512)
+#   - uid: (integer, optional) User ID
+#   - group: (string, optional) Primary group name
+#   - gid: (integer, optional) Primary group ID
+#   - groups: (list, optional) Additional groups
+#   - shell: (string, optional) Login shell (default: /bin/bash)
+#   - system: (boolean, optional) System account (default: false)
+#   - create_home: (boolean, optional) Create home directory (default: true)
+#   - home: (string, optional) Home directory path (default: /home/{name})
+#   - sudo_access: (boolean, optional) Grant sudo privileges (default: false)
+#   - ssh_keys: (boolean, optional) Deploy SSH keys (default: false)
+
+# ============================================================================
+# SSH Key Management
+# ============================================================================
+# SSH keys are stored in vault as vault_ssh_authorized_keys (list of strings)
+# Example vault entry:
+#   vault_ssh_authorized_keys:
+#     - "ssh-ed25519 AAAA... user@host"
+#     - "ssh-rsa AAAA... user2@host"
+#
+# Keys are deployed to root (exclusive=false) and users with ssh_keys: true (exclusive=true)
+
+# ============================================================================
+# Sudo Configuration
+# ============================================================================
+
+users_sudo_nopasswd: false # (boolean) Allow sudo without password (security consideration)
+                                                    # true: NOPASSWD:ALL (no password required)
+                                                    # false: Requires password for sudo commands

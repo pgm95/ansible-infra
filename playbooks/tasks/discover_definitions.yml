@@ -1,0 +1,63 @@
+---
+# ============================================================================
+# Shared Playbook Task - Discover Proxmox Resource Definitions
+# ============================================================================
+# Discovers VM or LXC definitions from host_vars and registers them dynamically
+#
+# Required variables:
+#   _resource_type: "lxc" or "vm"
+#   _host_vars_subdir: Subdirectory name (e.g., "lxc" or "vm")
+#   _group_name: Primary group name (e.g., "lxc" or "vm")
+#   _hostname_var: Variable name for hostname (e.g., "lxc_hostname" or "vm_hostname")
+#   proxmox_dns_domain: DNS domain for SSH connections
+
+- name: Find definition files
+  ansible.builtin.find:
+    paths: "{{ inventory_dir }}/host_vars/{{ _host_vars_subdir }}"
+    patterns: "*.yml"
+  register: _definition_files
+
+- name: Display discovered resources
+  ansible.builtin.debug:
+    msg: >-
+      Discovered {{ _definition_files.files | length }} {{ _resource_type | upper }}(s):
+      {{ _definition_files.files | map(attribute='path') | map('basename') | map('regex_replace', '\\.yml$', '') | list | join(', ') }}
+
+- name: Register resources dynamically
+  ansible.builtin.add_host:
+    name: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+    groups:
+      - "{{ _group_name }}"
+    # ansible_connection and ansible_user inherited from group_vars/{lxc,vm}.yml
+    # ansible_host must be set here (dynamic per-host DNS resolution)
+    ansible_host: "{{ item.path | basename | regex_replace('\\.yml$', '') }}.{{ proxmox_dns_domain }}"
+    _inventory_dir: "{{ inventory_dir }}"
+  loop: "{{ _definition_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+  when: _definition_files.files | length > 0
+
+- name: Load host-specific variables
+  ansible.builtin.include_vars:
+    file: "{{ item.path }}"
+  delegate_to: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+  delegate_facts: true
+  loop: "{{ _definition_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+  when: _definition_files.files | length > 0
+
+- name: Add hosts to their target PVE group
+  ansible.builtin.group_by:
+    key: "{{ hostvars[_host_name].pve_host }}"
+  loop: "{{ _definition_files.files }}"
+  loop_control:
+    label: "{{ _host_name }}"
+  vars:
+    _host_name: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+  when: _definition_files.files | length > 0
+
+- name: No definitions found warning
+  ansible.builtin.debug:
+    msg: "No {{ _resource_type }} definitions found in {{ inventory_dir }}/host_vars/{{ _host_vars_subdir }}/"
+  when: _definition_files.files | length == 0

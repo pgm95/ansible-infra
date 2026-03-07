@@ -1,0 +1,31 @@
+#:schema https://mise.jdx.dev/schema/mise-task.json
+#:tombi schema.strict = false
+
+["vps:deploy"]
+description = " " # "Deploy VPS to specific host(s)"
+usage = '''
+arg "[hosts]" help="Hostnames (e.g. host1,host2)"
+arg "[tags]" help="Ansible tags (e.g. common,network)"
+'''
+env = { DEPLOY_GROUP = "vps" }
+file = ".mise/scripts/deploy.sh"
+
+["vps:check"]
+description = " " # "Dry-run VPS deployment"
+env = { DEPLOY_GROUP = "vps", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
+file = ".mise/scripts/deploy.sh"
+
+["vps:first-run"]
+description = " " # "First-time deployment with password authentication"
+usage = 'arg "[password]" help="Root password (leave empty for prompt)"'
+run = '''
+#!/usr/bin/env bash
+if [ -n "${usage_password:-}" ]; then
+  mkdir -p .tmp
+  echo "$usage_password" > .tmp/vps-firstrun-pass
+  ansible-playbook playbooks/vps.yml --connection-password-file .tmp/vps-firstrun-pass --user root
+  rm -f .tmp/vps-firstrun-pass
+else
+  ansible-playbook playbooks/vps.yml --ask-pass --user root
+fi
+'''

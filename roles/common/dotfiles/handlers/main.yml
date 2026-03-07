@@ -1,0 +1,3 @@
+---
+# Dotfiles role handlers
+# deploy.sh handles all file operations directly; no handlers needed.

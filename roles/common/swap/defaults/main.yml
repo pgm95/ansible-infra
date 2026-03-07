@@ -1,0 +1,19 @@
+---
+# ============================================================================
+# Swap Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# Swap management for container and VM workloads.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Disable swap for Kubernetes/container hosts
+
+# ============================================================================
+# Feature Control
+# ============================================================================
+
+swap_disable: false # (boolean) Disable swap (recommended for container workloads)

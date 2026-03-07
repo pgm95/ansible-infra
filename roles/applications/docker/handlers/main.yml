@@ -1,0 +1,24 @@
+---
+# Docker role handlers
+
+- name: Docker | Restart docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  notify: Docker | Wait for docker ready
+
+- name: Docker | Wait for docker ready
+  ansible.builtin.wait_for:
+    path: /var/run/docker.sock
+    state: present
+    timeout: 30
+
+- name: Docker | Reload udev rules
+  ansible.builtin.shell: udevadm control --reload-rules && udevadm trigger
+  changed_when: true
+
+- name: Docker | Save iptables rules
+  ansible.builtin.command: netfilter-persistent save
+  listen: Docker | Save iptables rules
+  changed_when: true

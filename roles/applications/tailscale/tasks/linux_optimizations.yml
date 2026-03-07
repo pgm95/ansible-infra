@@ -1,0 +1,130 @@
+---
+# Linux kernel and network optimizations for Tailscale exit nodes and subnet routers
+
+- name: Tailscale | Linux optimizations for exit nodes and subnet routers
+  when: _is_exit_node_or_router | bool
+  block:
+    - name: Tailscale | Install ethtool for UDP optimizations
+      ansible.builtin.apt:
+        name: ethtool
+        state: present
+        update_cache: false
+      when: ansible_os_family == "Debian"
+
+    - name: Tailscale | Check if sysctl.d directory exists
+      ansible.builtin.stat:
+        path: /etc/sysctl.d
+      register: _sysctl_d_dir
+
+    - name: Tailscale | Configure IP forwarding via sysctl.d
+      when: _sysctl_d_dir.stat.exists
+      block:
+        - name: Tailscale | Configure IPv4 forwarding in sysctl.d
+          ansible.builtin.lineinfile:
+            path: /etc/sysctl.d/99-tailscale.conf
+            line: "net.ipv4.ip_forward = 1"
+            create: true
+            mode: "0644"
+            backup: true
+          notify: Tailscale | Apply sysctl settings
+          register: __ipv4_forwarding
+
+        - name: Tailscale | Configure IPv6 forwarding in sysctl.d
+          ansible.builtin.lineinfile:
+            path: /etc/sysctl.d/99-tailscale.conf
+            line: "net.ipv6.conf.all.forwarding = 1"
+            create: true
+            mode: "0644"
+            backup: true
+          notify: Tailscale | Apply sysctl settings
+          register: __ipv6_forwarding
+
+    - name: Tailscale | Configure IP forwarding via sysctl.conf
+      when: not _sysctl_d_dir.stat.exists
+      block:
+        - name: Tailscale | Configure IPv4 forwarding in sysctl.conf
+          ansible.builtin.lineinfile:
+            path: /etc/sysctl.conf
+            line: "net.ipv4.ip_forward = 1"
+            backup: true
+          notify: Tailscale | Apply sysctl settings
+          register: __ipv4_forwarding
+
+        - name: Tailscale | Configure IPv6 forwarding in sysctl.conf
+          ansible.builtin.lineinfile:
+            path: /etc/sysctl.conf
+            line: "net.ipv6.conf.all.forwarding = 1"
+            backup: true
+          notify: Tailscale | Apply sysctl settings
+          register: __ipv6_forwarding
+
+    - name: Tailscale | Get primary network interface
+      ansible.builtin.set_fact:
+        _primary_interface:
+          stdout: "{{ ansible_default_ipv4.interface | default('') }}"
+          rc: "{{ 0 if ansible_default_ipv4.interface is defined else 1 }}"
+
+    - name: Tailscale | Configure UDP throughput improvements
+      when: _primary_interface.rc == 0 and _primary_interface.stdout != ""
+      block:
+        - name: Tailscale | Check current ethtool UDP settings
+          ansible.builtin.shell: "set -o pipefail; ethtool -k {{ _primary_interface.stdout }} | grep -E 'rx-udp-gro-forwarding|rx-gro-list'"
+          register: __current_ethtool_settings
+          changed_when: false
+          failed_when: false
+
+        - name: Tailscale | Apply ethtool UDP optimizations
+          ansible.builtin.command: "ethtool -K {{ _primary_interface.stdout }} rx-udp-gro-forwarding on rx-gro-list off"
+          notify: Tailscale | Apply ethtool UDP settings
+          changed_when: true
+          failed_when: false
+          when:
+            - __current_ethtool_settings.rc == 0
+            - >
+              'rx-udp-gro-forwarding: off' in __current_ethtool_settings.stdout or
+              'rx-gro-list: on' in __current_ethtool_settings.stdout
+
+        - name: Tailscale | Check if networkd-dispatcher is available
+          ansible.builtin.systemd_service:
+            name: networkd-dispatcher
+          register: __networkd_dispatcher_status
+          failed_when: false
+
+        - name: Tailscale | Create networkd-dispatcher script for persistent ethtool settings
+          when:
+            - __networkd_dispatcher_status.status is defined
+            - __networkd_dispatcher_status.status.LoadState == "loaded"
+          block:
+            - name: Tailscale | Ensure networkd-dispatcher routable.d directory exists
+              ansible.builtin.file:
+                path: /etc/networkd-dispatcher/routable.d
+                state: directory
+                mode: "0755"
+
+            - name: Tailscale | Create ethtool configuration script
+              ansible.builtin.copy:
+                dest: /etc/networkd-dispatcher/routable.d/50-tailscale
+                content: |
+                  #!/bin/sh
+                  # Managed by Ansible - tailscale role
+                  # Persist UDP optimizations for Tailscale exit nodes/subnet routers
+
+                  ethtool -K {{ _primary_interface.stdout }} rx-udp-gro-forwarding on rx-gro-list off
+                mode: "0755"
+                backup: true
+              register: __ethtool_script_created
+
+            - name: Tailscale | Test ethtool configuration script # noqa: no-handler
+              ansible.builtin.command: /etc/networkd-dispatcher/routable.d/50-tailscale
+              register: __script_test
+              changed_when: false
+              failed_when: false
+              when: __ethtool_script_created is changed
+
+            - name: Tailscale | Report ethtool script test result
+              ansible.builtin.debug:
+                msg: "{{ 'UDP optimization script tested successfully' if __script_test.rc == 0 else 'Warning: UDP optimization script test failed' }}"
+                verbosity: 1
+              when:
+                - __ethtool_script_created is changed
+                - __script_test is defined

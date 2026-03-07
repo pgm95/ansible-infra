@@ -1,0 +1,122 @@
+---
+# ============================================================================
+# Users Role - User and Group Management
+# ============================================================================
+# Creates users, deploys SSH keys, and configures sudo access
+
+# ============================================================================
+# Root SSH Access (Always Enabled for Recovery)
+# ============================================================================
+
+- name: Validate SSH keys are defined in vault
+  ansible.builtin.assert:
+    that:
+      - vault_ssh_authorized_keys is defined
+      - vault_ssh_authorized_keys | length > 0
+    fail_msg: >-
+      vault_ssh_authorized_keys is missing or empty. Add at least one SSH
+      public key to vault.yml to ensure access to managed hosts.
+    success_msg: "SSH keys validated: {{ vault_ssh_authorized_keys | length }} key(s)"
+  tags: [users, validation]
+
+- name: Add SSH keys to root user
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ vault_ssh_authorized_keys | join('\n') }}"
+    state: present
+    exclusive: false # Don't remove existing keys
+  no_log: true
+  when: vault_ssh_authorized_keys is defined and vault_ssh_authorized_keys | length > 0
+
+# ============================================================================
+# User Management Validation
+# ============================================================================
+
+- name: Validate user password requirements
+  ansible.builtin.assert:
+    that:
+      - item.password is defined
+      - item.password | length > 0
+    fail_msg: >-
+      User '{{ item.name }}' has an interactive shell
+      ({{ item.shell | default('/bin/bash') }}) but no password is defined.
+      Set a password in vault or use a non-interactive shell
+      (e.g. /usr/sbin/nologin).
+    success_msg: "User '{{ item.name }}' password validated"
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+  when:
+    - users_list | default([]) | length > 0
+    - item.shell | default('/bin/bash') not in ['/usr/sbin/nologin', '/bin/false', '/usr/bin/nologin', '/bin/true']
+    - item.name != 'root'
+
+- name: Create user groups if specified
+  ansible.builtin.group:
+    name: "{{ item.group }}"
+    gid: "{{ item.gid | default(omit) }}"
+    state: present
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}" # Only show username in logs, not full item with password
+  when:
+    - users_list | default([]) | length > 0
+    - item.group is defined
+    - item.name != 'root'
+
+- name: Create configured users
+  vars:
+    __user_password: "{{ (item.password | password_hash('sha512')) if (item.password | default('')) else omit }}"
+    __user_groups: "{{ item.groups | default([]) | join(',') }}"
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    password: "{{ __user_password }}"
+    uid: "{{ item.uid | default(omit) }}"
+    group: "{{ item.group | default(omit) }}"
+    groups: "{{ __user_groups }}"
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    system: "{{ item.system | default(false) }}"
+    create_home: "{{ item.create_home | default(true) }}"
+    home: "{{ item.home | default(omit) }}"
+    append: true
+    update_password: on_create
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}" # Only show username in logs, not full item with password
+  no_log: true # Prevent password exposure in verbose mode
+  when:
+    - users_list | default([]) | length > 0
+    - item.name != 'root'
+
+- name: Configure sudo access for users
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/{{ item.name }}
+    line: "{{ item.name }} ALL=(ALL) {{ 'NOPASSWD:' if users_sudo_nopasswd | bool else '' }}ALL"
+    create: true
+    validate: "visudo -cf %s"
+    mode: "0440"
+    backup: true
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}" # Only show username in logs, not full item with password
+  when:
+    - users_list | default([]) | length > 0
+    - item.sudo_access | default(false) | bool
+    - item.name != 'root' # Root already has full sudo
+
+- name: Add SSH keys for users
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ vault_ssh_authorized_keys | join('\n') }}"
+    state: present
+    exclusive: true
+  no_log: true
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}" # Only show username in logs, not full item with password
+  when:
+    - users_list | default([]) | length > 0
+    - item.ssh_keys | default(false) | bool # Changed default to false (safer)
+    - item.name != 'root' # Root keys handled separately
+    - vault_ssh_authorized_keys is defined and vault_ssh_authorized_keys | length > 0

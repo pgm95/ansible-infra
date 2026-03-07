@@ -1,0 +1,37 @@
+---
+# NTP time synchronization via systemd-timesyncd
+
+### Validation
+- name: Validate NTP configuration
+  when: net_ntp_configure | bool
+  ansible.builtin.assert:
+    that:
+      - net_ntp_servers is defined
+      - net_ntp_servers | length > 0
+    fail_msg: "net_ntp_servers must contain at least one NTP server when net_ntp_configure is true"
+    quiet: true
+
+### NTP Configuration (Time Synchronization)
+- name: Configure NTP (systemd-timesyncd)
+  when: net_ntp_configure | bool
+  block:
+    - name: Ensure systemd-timesyncd drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/timesyncd.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Configure systemd-timesyncd via drop-in file
+      ansible.builtin.template:
+        src: ntp_systemd_timesyncd.j2
+        dest: /etc/systemd/timesyncd.conf.d/99-ansible.conf
+        mode: "0644"
+        backup: true
+      notify: NTP | Restart systemd-timesyncd
+
+    - name: Enable and start systemd-timesyncd
+      ansible.builtin.systemd:
+        name: systemd-timesyncd
+        enabled: true
+        state: started
+        daemon_reload: true

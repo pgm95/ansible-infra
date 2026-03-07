@@ -1,0 +1,37 @@
+---
+# Swap management - disable swap for container/VM workloads
+
+- name: Check current swap status
+  ansible.builtin.command:
+    cmd: swapon --show --noheadings
+  register: __swap_status
+  changed_when: false
+  failed_when: false
+
+- name: Disable swap immediately
+  ansible.builtin.command:
+    cmd: swapoff -a
+  when:
+    - swap_disable
+    - __swap_status.stdout | length > 0
+  changed_when: true
+  register: __swap_disabled
+
+- name: Remove swap entries from /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    state: absent
+    regexp: "^[^#].*\\s+swap\\s+"
+    backup: true
+  when: swap_disable
+  register: __fstab_modified
+
+- name: Display swap status
+  ansible.builtin.debug:
+    msg: |
+      Swap configuration updated:
+      - Swap disabled: {{ __swap_disabled.changed | default(false) }}
+      - Fstab modified: {{ __fstab_modified.changed | default(false) }}
+      - Current swap: {{ __swap_status.stdout if __swap_status.stdout else 'none' }}
+    verbosity: 1
+  when: swap_disable

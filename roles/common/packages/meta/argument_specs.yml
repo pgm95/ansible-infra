@@ -1,0 +1,96 @@
+---
+# ============================================================================
+# Packages Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/packages
+
+argument_specs:
+  main:
+    short_description: System package installation with apt lock handling
+    description:
+      - Installs base system packages
+      - Optional shell enhancement packages
+      - Optional network diagnostic tools
+      - Handles unattended-upgrades conflicts
+      - Proper apt lock management
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Installation Control
+      # ========================================================================
+      packages_fullupgrade:
+        description: Perform full system upgrade (apt upgrade full)
+        type: bool
+        default: true
+
+      packages_install_base:
+        description: Install base packages (curl, wget, git, etc.)
+        type: bool
+        default: true
+
+      packages_install_shell:
+        description: Install shell enhancement packages (ripgrep, fzf, bat, etc.)
+        type: bool
+        default: false
+
+      packages_install_network:
+        description: Install network diagnostic tools (nmap, traceroute, etc.)
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Base Packages (Essential System Tools)
+      # ========================================================================
+      packages_base_list:
+        description: Core packages installed when packages_install_base is true
+        type: list
+        elements: str
+        default:
+          - apt-transport-https
+          - ca-certificates
+          - xz-utils
+          - gnupg
+          - rsync
+          - curl
+          - wget
+          - bash
+          - git
+
+      # ========================================================================
+      # Shell Enhancement Packages (Developer Tools)
+      # ========================================================================
+      packages_shell_list:
+        description: Shell tools installed when packages_install_shell is true
+        type: list
+        elements: str
+        default:
+          - bash-completion
+          - ripgrep
+          - screen
+          - sudo
+          - less
+          - tree
+          - gawk
+          - nano
+          - bat
+          - fzf
+          - lsd
+          - jq
+
+      # ========================================================================
+      # Network Diagnostic Packages (Troubleshooting Tools)
+      # ========================================================================
+      packages_network_list:
+        description: Network tools installed when packages_install_network is true
+        type: list
+        elements: str
+        default:
+          - bind9-dnsutils
+          - traceroute
+          - net-tools
+          - ethtool
+          - whois
+          - nmap

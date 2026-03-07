@@ -1,0 +1,14 @@
+---
+# Applied to all VPS hosts in static inventory
+
+# Network Configuration
+net_dns_configure: true
+net_dns_servers:
+  - 1.1.1.1
+  - 9.9.9.9
+net_dns_search: []
+net_ntp_configure: true
+net_ntp_servers:
+  - pool.ntp.org
+  - time.nist.gov
+  - time.cloudflare.com

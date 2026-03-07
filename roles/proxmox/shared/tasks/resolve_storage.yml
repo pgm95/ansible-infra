@@ -1,0 +1,59 @@
+---
+# Shared Proxmox Task - Storage Resolution
+#
+# Auto-selects storage pool based on content type requirements.
+# Shared between LXC and VM roles for DRY principle.
+#
+# Required variables:
+#   _storage_specified: User-specified storage (empty = auto-select)
+#   _content_type: Required content type - "rootdir" (LXC) or "images" (VM)
+#
+# Output variables:
+#   _resolved_storage: The storage pool to use
+#   _storage_info: Full storage info from API (for additional queries)
+
+- name: Auto-select storage if not specified
+  when: _storage_specified | length == 0
+  block:
+    - name: Get storage information (API)
+      community.proxmox.proxmox_storage_info:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs }}"
+      delegate_to: localhost
+      register: __storage_info
+
+    - name: Select first storage that supports {{ _content_type }}
+      ansible.builtin.set_fact:
+        _resolved_storage: >-
+          {{ (__storage_info.proxmox_storages
+              | rejectattr('disable', 'defined')
+              | selectattr('content', 'search', _content_type)
+              | list | first).storage }}
+      when: (__storage_info.proxmox_storages | default([])) | length > 0
+
+    - name: Fail if no suitable storage found
+      ansible.builtin.fail:
+        msg: |
+          No storage pool found supporting '{{ _content_type }}' content type.
+
+          What's wrong:
+            Auto-selection failed - no enabled storage pools support the required content type.
+
+          Why it matters:
+            {{ 'LXC containers' if _content_type == 'rootdir' else 'VM disk images' }} require
+            storage with '{{ _content_type }}' content type enabled.
+
+          How to fix:
+            Either specify storage explicitly in host_vars:
+              {{ 'lxc_default_storage' if _content_type == 'rootdir' else 'vm_default_storage' }}: "local-lvm"
+
+            Or enable '{{ _content_type }}' content on a storage pool in Proxmox.
+      when: (__storage_info.proxmox_storages | default([])) | length == 0
+
+- name: Use specified storage
+  ansible.builtin.set_fact:
+    _resolved_storage: "{{ _storage_specified }}"
+  when: _storage_specified | length > 0

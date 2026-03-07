@@ -1,0 +1,10 @@
+---
+# Samba role handlers
+
+- name: Samba | Restart Samba Services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ samba_services }}"
+  listen: Samba | Restart samba services

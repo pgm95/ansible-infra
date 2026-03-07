@@ -1,0 +1,12 @@
+---
+# DNS role handlers
+
+- name: DNS | Update resolvconf
+  ansible.builtin.command: resolvconf -u
+  changed_when: true
+
+- name: DNS | Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+    daemon_reload: true

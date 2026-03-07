@@ -1,0 +1,314 @@
+---
+# ============================================================================
+# LXC Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/proxmox/lxc
+
+argument_specs:
+  main:
+    short_description: Provision LXC containers on Proxmox VE
+    description:
+      - Creates and configures LXC containers on Proxmox VE hosts
+      - Supports unprivileged containers with device passthrough
+      - Handles UID/GID mapping and feature configuration
+    author:
+      - Your Name
+
+    options:
+      # ========================================================================
+      # Required Variables
+      # ========================================================================
+      pve_host:
+        description: Target Proxmox host for container creation
+        type: str
+        required: true
+
+      lxc_vmid:
+        description: Container VMID (100-999999999)
+        type: str
+        required: true
+
+      lxc_hostname:
+        description: Container hostname
+        type: str
+        required: true
+
+      # ========================================================================
+      # Container Basics
+      # ========================================================================
+      lxc_description:
+        description: Container description shown in Proxmox UI
+        type: str
+        default: ""
+
+      lxc_privileged:
+        description: Run as privileged container (not recommended)
+        type: bool
+        default: false
+
+      lxc_os_version:
+        description: "Debian version: 13=Trixie, 12=Bookworm, 11=Bullseye"
+        type: str
+        default: "12"
+
+      lxc_tags:
+        description: "PVE tags (semicolon-separated): tag1;tag2;tag3"
+        type: str
+        default: "ansible"
+
+      lxc_start_on_boot:
+        description: Start container when Proxmox boots
+        type: bool
+        default: false
+
+      lxc_startup_order:
+        description: Boot priority (0=any, 1-99=ordered)
+        type: int
+        default: 0
+
+      # ========================================================================
+      # Resources
+      # ========================================================================
+      lxc_cores:
+        description: Number of CPU cores
+        type: int
+        default: 2
+
+      lxc_memory:
+        description: RAM in MiB
+        type: int
+        default: 1024
+
+      lxc_swap:
+        description: Swap in MiB (0=disable)
+        type: int
+        default: 1024
+
+      # ========================================================================
+      # Storage Configuration
+      # ========================================================================
+      lxc_default_storage:
+        description: Default storage pool (empty=auto-select)
+        type: str
+        default: ""
+
+      lxc_disks:
+        description: |
+          Disk configuration list. First disk (index 0) is rootfs.
+          Additional disks become mount points (mp0, mp1, ...).
+          Each dict supports: size (int, required), mp (str), storage (str),
+          backup (bool), acl (bool), quota (bool), replicate (bool), ro (bool).
+        type: list
+        elements: dict
+        default:
+          - size: 4
+
+      # ========================================================================
+      # Network Configuration
+      # ========================================================================
+      lxc_net_bridge:
+        description: Network bridge on Proxmox host
+        type: str
+        default: "vmbr0"
+
+      lxc_net_ipv4_method:
+        description: "IPv4 method: auto, dhcp, static, none"
+        type: str
+        default: "auto"
+        choices:
+          - auto
+          - dhcp
+          - static
+          - none
+
+      lxc_net_ipv4_static:
+        description: Static IPv4 address in CIDR notation
+        type: str
+        default: ""
+
+      lxc_net_ipv4_gateway:
+        description: IPv4 gateway (required for static)
+        type: str
+        default: ""
+
+      lxc_net_ipv6_method:
+        description: "IPv6 method: auto, dhcp, static, none, or empty to omit"
+        type: str
+        default: "auto"
+        choices:
+          - ""
+          - auto
+          - dhcp
+          - static
+          - none
+
+      lxc_net_ipv6_static:
+        description: Static IPv6 address in CIDR notation
+        type: str
+        default: ""
+
+      lxc_net_ipv6_gateway:
+        description: IPv6 gateway (required for static)
+        type: str
+        default: ""
+
+      lxc_net_vlan:
+        description: VLAN tag (empty=untagged)
+        type: str
+        default: ""
+
+      lxc_net_mac:
+        description: MAC address (empty=auto-generate)
+        type: str
+        default: ""
+
+      lxc_net_mtu:
+        description: MTU size (empty=1500)
+        type: str
+        default: ""
+
+      lxc_net_nameserver:
+        description: DNS server (empty=use host)
+        type: str
+        default: ""
+
+      lxc_net_search_domain:
+        description: Search domain (empty=use host)
+        type: str
+        default: ""
+
+      # ========================================================================
+      # Access Configuration
+      # ========================================================================
+      lxc_root_password:
+        description: Root password (from vault)
+        type: str
+        no_log: true
+
+      # ========================================================================
+      # Features
+      # ========================================================================
+      lxc_feature_fuse:
+        description: FUSE support (rclone, mergerfs, AppImage)
+        type: bool
+        default: false
+
+      lxc_feature_mknod:
+        description: Device node creation capability
+        type: bool
+        default: false
+
+      lxc_feature_nesting:
+        description: Nested virtualization (required for Docker)
+        type: bool
+        default: false
+
+      lxc_feature_keyctl:
+        description: Keyring support (unprivileged only)
+        type: bool
+        default: false
+
+      lxc_feature_nfs:
+        description: NFS mounts (privileged only)
+        type: bool
+        default: false
+
+      lxc_feature_cifs:
+        description: CIFS/SMB mounts (privileged only)
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Devices
+      # ========================================================================
+      lxc_device_tun:
+        description: TUN device for VPN
+        type: bool
+        default: false
+
+      lxc_device_vaapi:
+        description: GPU video encode/decode
+        type: bool
+        default: false
+
+      lxc_device_framebuffer:
+        description: Framebuffer device
+        type: bool
+        default: false
+
+      lxc_device_kfd:
+        description: AMD GPU compute
+        type: bool
+        default: false
+
+      lxc_device_usb_serial:
+        description: USB serial devices (ttyUSB*)
+        type: bool
+        default: false
+
+      lxc_device_usb_acm:
+        description: USB ACM devices (ttyACM*)
+        type: bool
+        default: false
+
+      # ========================================================================
+      # UID/GID Mapping
+      # ========================================================================
+      lxc_idmap_uid:
+        description: UID for 1:1 mapping (empty=disabled)
+        type: str
+        default: ""
+
+      lxc_idmap_gid:
+        description: GID for 1:1 mapping (empty=disabled)
+        type: str
+        default: ""
+
+      lxc_idmap_gid_match_devices:
+        description: Use mapped GID for hardware devices
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Bind Mounts
+      # ========================================================================
+      lxc_bind_mounts:
+        description: "List of bind mounts in 'host:container' format"
+        type: list
+        elements: str
+        default: []
+      # ========================================================================
+      # Console
+      # ========================================================================
+      lxc_console_dev_enable:
+        description: Attach /dev/console device
+        type: bool
+        default: false
+
+      lxc_console_tty:
+        description: Number of TTY devices (0-6)
+        type: int
+        default: 0
+
+      lxc_console_mode:
+        description: "Console mode: shell, tty, console"
+        type: str
+        default: "shell"
+        choices:
+          - shell
+          - tty
+          - console
+
+      # ========================================================================
+      # Role Operational
+      # ========================================================================
+      lxc_start_after_create:
+        description: Start container after creation
+        type: bool
+        default: true
+
+      lxc_wait_for_network:
+        description: Wait for network after starting
+        type: bool
+        default: true

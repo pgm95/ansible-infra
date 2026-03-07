@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/requirements.json
+
+collections:
+  - name: ansible.posix
+  - name: ansible.utils
+  - name: community.docker
+  - name: community.general
+  - name: community.proxmox
+  - name: artis3n.tailscale

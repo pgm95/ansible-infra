@@ -1,0 +1,158 @@
+---
+# ============================================================================
+# Docker Role - Installation and Configuration
+# ============================================================================
+# Installs Docker CE from official repository with comprehensive configuration
+
+# ============================================================================
+# Pre-Installation Validation
+# ============================================================================
+
+- name: Gather facts from target host
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "!min"
+      - distribution
+      - distribution_release
+      - architecture
+
+- name: Validate target OS is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] is defined
+      - ansible_facts['distribution'] | lower in ['debian', 'ubuntu']
+    fail_msg: >-
+      Unsupported OS detected: {{ ansible_facts.get('distribution', 'unknown') }}.
+      This role only supports Debian and Ubuntu. Use a supported distribution
+      or install Docker manually.
+    success_msg: "Target OS validated: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_release'] }}"
+
+# ============================================================================
+# Docker Installation
+# ============================================================================
+
+- name: Docker installation workflow
+  block:
+    - name: Set Docker distribution name
+      ansible.builtin.set_fact:
+        __docker_distribution: "{{ ansible_facts['distribution'] | lower }}"
+
+    - name: Create keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Check if Docker GPG key exists
+      ansible.builtin.stat:
+        path: /etc/apt/keyrings/docker.asc
+      register: __gpg_key_stat
+
+    - name: Add Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/{{ __docker_distribution }}/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+      register: __gpg_key_result
+      when: not __gpg_key_stat.stat.exists
+
+    - name: Determine Docker architecture
+      ansible.builtin.set_fact:
+        __docker_arch: >-
+          {{ 'amd64' if ansible_facts['architecture'] == 'x86_64'
+             else 'arm64' if ansible_facts['architecture'] == 'aarch64'
+             else ansible_facts['architecture'] }}
+
+    - name: Add Docker repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ __docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/{{ __docker_distribution }}
+          {{ ansible_facts['distribution_release'] }} stable
+        state: present
+        filename: docker
+        update_cache: true
+      register: __repo_result
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        name: "{{ docker_packages }}"
+        state: present
+        update_cache: true
+
+  rescue:
+    - name: Display installation error
+      ansible.builtin.debug:
+        msg:
+          - "Docker installation failed"
+          - "Distribution: {{ __docker_distribution | default('unknown') }}"
+          - "Architecture: {{ __docker_arch | default('unknown') }}"
+          - "GPG key status: {{ 'downloaded' if __gpg_key_result is defined and __gpg_key_result is succeeded else 'failed' }}"
+          - "Repository status: {{ 'added' if __repo_result is defined and __repo_result is succeeded else 'failed' }}"
+
+    - name: Cleanup on failure - Remove broken GPG key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/docker.asc
+        state: absent
+      when: __gpg_key_result is defined and __gpg_key_result is failed
+
+    - name: Cleanup on failure - Remove broken repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ __docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/{{ __docker_distribution }}
+          {{ ansible_facts['distribution_release'] }} stable
+        state: absent
+        filename: docker
+      when: __repo_result is defined and __repo_result is failed
+      failed_when: false
+
+    - name: Fail with actionable message
+      ansible.builtin.fail:
+        msg: |
+          Docker installation failed. Check the error messages above.
+
+          Common issues:
+            - Network connectivity to download.docker.com
+            - Unsupported distribution release
+            - GPG key verification failure
+
+          How to fix:
+            1. Check network connectivity: curl -fsSL https://download.docker.com/linux/{{ __docker_distribution }}/gpg
+            2. Verify distribution release: {{ ansible_facts['distribution_release'] }}
+            3. Re-run the playbook after fixing the underlying issue
+
+# ============================================================================
+# Docker Configuration
+# ============================================================================
+
+- name: Configure GPU support
+  ansible.builtin.include_tasks: gpu.yml
+  when: docker_gpu_enabled
+
+- name: Configure Docker daemon
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_daemon_config | to_nice_json }}\n"
+    mode: "0644"
+    backup: true
+  notify: Docker | Restart docker
+
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Display Docker configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "Docker installed and configured successfully"
+      - "  - Data root: {{ docker_data_root }}"
+      - "  - Storage driver: {{ docker_storage_driver if docker_storage_driver else 'auto' }}"
+      - "  - MTU: {{ docker_mtu if docker_mtu > 0 else 'auto' }}"
+      - "  - Log driver: {{ docker_log_driver }}"
+      - "  - Swarm enabled: {{ docker_swarm_enabled }}"
+    verbosity: 1

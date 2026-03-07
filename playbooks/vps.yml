@@ -1,0 +1,117 @@
+---
+# ============================================================================
+# VPS Deployment Playbook
+# ============================================================================
+# Purpose: Provisions VPS/bare-metal servers with base system and applications
+#
+# Role Execution Pattern:
+#   This playbook uses BOTH include_role (in tasks) AND roles: section.
+#   This is intentional for the following reasons:
+#
+#   1. include_role (tasks section): Used for roles requiring conditional
+#      execution or that need handler flushing between them:
+#      - hostname: conditionally applied (when: hostname_configure)
+#      - ssh: requires immediate handler flush to reload sshd
+#
+#   2. roles: section: Used for standard role execution where handlers
+#      can be deferred to the end of the play.
+#
+#   This hybrid approach ensures SSH configuration is reloaded immediately
+#   (critical for connectivity) while other roles use standard execution.
+
+- name: Setup VPS
+  hosts: vps
+  become: true
+  gather_facts: false # Gather selectively for performance
+  pre_tasks:
+    # Gather facts only when needed by specific roles
+    - name: Gather facts for network and system configuration
+      ansible.builtin.setup:
+      when: >
+        'interface' in ansible_run_tags or
+        'hostname' in ansible_run_tags or
+        'tailscale' in ansible_run_tags or
+        'qemu' in ansible_run_tags or
+        'all' in ansible_run_tags
+      tags: ["always"]
+
+    - name: Display user configuration status
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'Will create ' + (users_list | length | string) + ' user(s)'
+             if (users_list is defined and users_list | length > 0)
+             else 'No users configured - root-only system' }}
+      tags: ["always", "users"]
+
+  # Role execution order:
+  # - hostname: Sets hostname/FQDN (no service restart)
+  # - interface: Configures IP/gateway (restarts networking service if enabled)
+  # - dns: Configures DNS resolvers (restarts systemd-resolved)
+  # - ntp: Configures NTP servers (restarts systemd-timesyncd)
+  # This order prevents interface from disrupting DNS/NTP configuration
+  tasks:
+    - name: Apply hostname configuration
+      ansible.builtin.include_role:
+        name: common/hostname
+        apply:
+          tags: [common, hostname]
+      tags: [common, hostname]
+      when: hostname_configure
+
+    - name: Apply SSH hardening
+      ansible.builtin.include_role:
+        name: common/ssh
+        apply:
+          tags: [common, ssh]
+      tags: [common, ssh]
+
+    - name: Flush handlers to reload SSH immediately
+      ansible.builtin.meta: flush_handlers
+      tags: [common, ssh]
+
+  roles:
+    - role: common/users
+      tags: [common, users]
+
+    - role: common/packages
+      tags: [common, packages]
+
+    - role: common/swap
+      tags: [common, swap]
+
+    - role: common/dotfiles
+      tags: [common, dotfiles]
+      when: dotfiles_enabled
+
+    - role: common/qemu_agent
+      tags: [common, qemu]
+      when: qemu_agent_enabled
+
+    - role: network/dns
+      tags: [network, dns]
+
+    - role: network/ntp
+      tags: [network, ntp]
+
+    - role: network/interface
+      tags: [network, interface]
+      when: net_iface_configure
+
+    - role: applications/tailscale
+      tags: [application, tailscale, vpn]
+      when:
+        - not ansible_check_mode # Skip in check mode due to collection limitation
+        - not k3s_enabled | default(false) # K3s playbook handles Tailscale when K3s is enabled
+        - tailscale_enabled
+
+    - role: applications/docker
+      tags: [application, docker]
+      when:
+        - not k3s_enabled | default(false)
+        - docker_enabled
+
+    - role: applications/samba
+      tags: [application, samba]
+      when:
+        - not k3s_enabled | default(false)
+        - samba_enabled

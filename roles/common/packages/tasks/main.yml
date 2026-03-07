@@ -1,0 +1,92 @@
+---
+# System package installation with apt lock handling
+
+- name: Package management with unattended-upgrades handling
+  block:
+    - name: Disable unattended-upgrades during playbook run
+      ansible.builtin.systemd:
+        name: unattended-upgrades
+        state: stopped
+      failed_when: false
+      changed_when: false
+
+    - name: Wait for dpkg lock-frontend to be available
+      ansible.builtin.wait_for:
+        path: /var/lib/dpkg/lock-frontend
+        state: absent
+        timeout: 10
+      failed_when: false
+      register: __dpkg_frontend_lock
+
+    - name: Wait for apt lists lock to be available
+      ansible.builtin.wait_for:
+        path: /var/lib/apt/lists/lock
+        state: absent
+        timeout: 10
+      failed_when: false
+      register: __apt_lists_lock
+
+    - name: Wait for apt archives lock to be available
+      ansible.builtin.wait_for:
+        path: /var/cache/apt/archives/lock
+        state: absent
+        timeout: 10
+      failed_when: false
+      register: __apt_archives_lock
+
+    - name: Verify all package management locks released
+      ansible.builtin.assert:
+        that:
+          - __dpkg_frontend_lock is succeeded
+          - __apt_lists_lock is succeeded
+          - __apt_archives_lock is succeeded
+        fail_msg: "Package management locks still held after 60 seconds. Manual intervention required."
+        success_msg: "All package management locks released successfully"
+
+    - name: Update package cache before installs
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+
+    - name: Upgrade system
+      ansible.builtin.apt:
+        upgrade: full
+      when: packages_fullupgrade | bool
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name: "{{ packages_base_list }}"
+        state: present
+      when:
+        - packages_install_base | bool
+        - not ansible_check_mode
+
+    - name: Install shell packages
+      ansible.builtin.apt:
+        name: "{{ packages_shell_list }}"
+        state: present
+      when:
+        - packages_install_shell | bool
+        - not ansible_check_mode
+
+    - name: Install network packages
+      ansible.builtin.apt:
+        name: "{{ packages_network_list }}"
+        state: present
+      when:
+        - packages_install_network | bool
+        - not ansible_check_mode
+
+    - name: Clean cache and unneeded packages after installs
+      ansible.builtin.apt:
+        autoremove: true
+        autoclean: true
+      when: packages_fullupgrade | bool
+
+  always:
+    - name: Re-enable unattended-upgrades
+      ansible.builtin.systemd:
+        name: unattended-upgrades
+        state: started
+      failed_when: false
+      changed_when: false

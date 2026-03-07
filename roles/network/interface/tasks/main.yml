@@ -1,0 +1,108 @@
+---
+# ============================================================================
+# Network Interface Role - Static/DHCP Configuration
+# ============================================================================
+# WARNING: Most VPS providers configure this automatically
+# Only use if you need to override provider's network configuration
+
+# ============================================================================
+# Pre-Configuration Validation
+# ============================================================================
+
+- name: Validate interface mode
+  ansible.builtin.assert:
+    that:
+      - net_iface_mode in ['static', 'dhcp']
+    fail_msg: >-
+      Invalid net_iface_mode: '{{ net_iface_mode | default('undefined') }}'.
+      Must be 'static' or 'dhcp'.
+    success_msg: "Interface mode validated: {{ net_iface_mode }}"
+  when: net_iface_configure | bool
+
+- name: Validate static IP configuration
+  ansible.builtin.assert:
+    that:
+      - net_iface_address is defined
+      - net_iface_address | length > 0
+      - net_iface_gateway is defined
+      - net_iface_gateway | length > 0
+    fail_msg: >-
+      Static IP configuration is incomplete -- both address and gateway are
+      required. Got net_iface_address: {{ net_iface_address | default('undefined') }},
+      net_iface_gateway: {{ net_iface_gateway | default('undefined') }}.
+      Incomplete network config may lock you out of the server.
+    success_msg: "Static IP configuration validated: {{ net_iface_address }} via {{ net_iface_gateway }}"
+  when:
+    - net_iface_configure | bool
+    - net_iface_mode == 'static'
+
+- name: Validate IP address format
+  ansible.builtin.assert:
+    that:
+      - net_iface_address is regex('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(/[0-9]+)?$')
+    fail_msg: >-
+      Invalid IP address format: '{{ net_iface_address }}'.
+      Use dotted-quad notation, optionally with CIDR prefix
+      (e.g. 192.168.1.100/24).
+    success_msg: "IP address format validated"
+  when:
+    - net_iface_configure | bool
+    - net_iface_mode == 'static'
+    - net_iface_address is defined
+    - net_iface_address | length > 0
+
+- name: Validate gateway format
+  ansible.builtin.assert:
+    that:
+      - net_iface_gateway is regex('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: >-
+      Invalid gateway format: '{{ net_iface_gateway }}'.
+      Use dotted-quad notation without CIDR prefix (e.g. 192.168.1.1).
+    success_msg: "Gateway format validated"
+  when:
+    - net_iface_configure | bool
+    - net_iface_mode == 'static'
+    - net_iface_gateway is defined
+    - net_iface_gateway | length > 0
+
+# ============================================================================
+# Interface Configuration
+# ============================================================================
+
+- name: Determine network interface name
+  ansible.builtin.set_fact:
+    _resolved_interface: "{{ net_iface_name if (net_iface_name is defined and net_iface_name != 'auto' and net_iface_name | length > 0) else 'eth0' }}"
+  when: net_iface_configure | bool
+
+- name: Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "Network interface configuration:"
+      - "  - Interface: {{ _resolved_interface }}"
+      - "  - Mode: {{ net_iface_mode }}"
+      - "  - Address: {{ net_iface_address | default('DHCP') }}"
+      - "  - Gateway: {{ net_iface_gateway | default('DHCP') }}"
+    verbosity: 1
+  when: net_iface_configure | bool
+
+- name: Configure network interface (static)
+  when:
+    - net_iface_configure | bool
+    - net_iface_mode == 'static'
+  ansible.builtin.template:
+    src: interface_static.j2
+    dest: /etc/network/interfaces
+    mode: "0644"
+    backup: true
+  notify: Interface | Restart networking
+
+- name: Configure network interface (DHCP)
+  when:
+    - net_iface_configure | bool
+    - net_iface_mode == 'dhcp'
+  ansible.builtin.template:
+    src: interface_dhcp.j2
+    dest: /etc/network/interfaces
+    mode: "0644"
+    backup: true
+  notify: Interface | Restart networking

@@ -1,0 +1,56 @@
+---
+# ============================================================================
+# Network Interface Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# Configure static IP or DHCP on primary network interface.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Override VPS provider network configuration when needed
+# WARNING: Most VPS providers configure networking automatically.
+#          Only use if you need to override provider's configuration.
+
+# ============================================================================
+# Feature Control
+# ============================================================================
+
+net_iface_configure: false # (boolean) Enable/disable network interface configuration
+# Set to true only when overriding provider defaults
+
+# ============================================================================
+# Interface Configuration
+# ============================================================================
+
+net_iface_name: "" # (string) Interface name (e.g., "eth0", "ens3", "enp0s3")
+                                                    # Leave empty or set to "auto" to auto-detect (defaults to eth0)
+
+net_iface_mode: "static" # (string) IP assignment mode: "static" | "dhcp"
+
+# ============================================================================
+# Static IP Configuration (when mode=static)
+# ============================================================================
+
+net_iface_address: "" # (string) Static IP address with optional CIDR notation
+                                                    # Examples: "192.168.1.100" or "192.168.1.100/24"
+
+net_iface_netmask: "255.255.255.0" # (string) Subnet mask (used if address has no CIDR)
+                                                    # Common values: 255.255.255.0 (/24), 255.255.0.0 (/16)
+
+net_iface_gateway: "" # (string) Default gateway IP address
+                                                    # Example: "192.168.1.1"
+
+# ============================================================================
+# DNS Configuration
+# ============================================================================
+# NOTE: DNS configuration is managed by the network_services role.
+# This role only configures IP address, netmask, and gateway.
+# Use network_services role to configure DNS resolvers.
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# _resolved_interface: ""                           # Resolved interface name (used in templates)

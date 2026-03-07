@@ -1,0 +1,146 @@
+---
+# ============================================================================
+# Tailscale Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/applications/tailscale
+
+argument_specs:
+  main:
+    short_description: Install and configure Tailscale VPN
+    description:
+      - Installs Tailscale via artis3n.tailscale role
+      - Supports OAuth authentication with tags
+      - Custom IP assignment via Tailscale API
+      - Linux kernel optimizations for exit nodes
+      - Optional SSH binding to Tailscale network
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Role Enablement
+      # ========================================================================
+      tailscale_enabled:
+        description: Enable Tailscale VPN installation and configuration
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Package Configuration
+      # ========================================================================
+      tailscale_state:
+        description: Package state (latest, present, or version number)
+        type: str
+        default: latest
+
+      tailscale_release_stability:
+        description: Release channel (stable, unstable)
+        type: str
+        default: stable
+        choices:
+          - stable
+          - unstable
+
+      # ========================================================================
+      # OAuth Configuration
+      # ========================================================================
+      tailscale_oauth_authkeys:
+        description: >-
+          OAuth client credential (tskey-client-*) with auth_keys scope.
+          Required for device enrollment. Define in group_vars or host_vars.
+        type: str
+        required: true
+
+      tailscale_oauth_devices:
+        description: >-
+          OAuth client credential (tskey-client-*) with devices write scope.
+          Required when tailscale_ip is set. Can be the same credential as
+          tailscale_oauth_authkeys if it has both scopes.
+        type: str
+        default: ""
+
+      tailscale_tags:
+        description: Tags for OAuth client keys (required for tskey-client-*)
+        type: list
+        elements: str
+        default: []
+      tailscale_oauth_ephemeral:
+        description: Mark device as ephemeral (auto-cleanup on disconnect)
+        type: bool
+        default: false
+
+      tailscale_oauth_preauthorized:
+        description: Skip manual authorization in admin console
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Custom IP Configuration
+      # ========================================================================
+      tailscale_ip:
+        description: Custom Tailscale IP address (e.g., "100.64.0.10")
+        type: str
+        default: ""
+
+      # ========================================================================
+      # API Configuration
+      # ========================================================================
+      tailscale_device_registration_delay:
+        description: Seconds to wait for device registration
+        type: int
+        default: 5
+
+      tailscale_device_registration_retries:
+        description: Max retries for device registration checks
+        type: int
+        default: 6
+
+      tailscale_api_timeout:
+        description: API request timeout in seconds
+        type: int
+        default: 30
+
+      # ========================================================================
+      # Connection Configuration
+      # ========================================================================
+      tailscale_hostname:
+        description: Hostname for Tailscale (empty = inventory hostname)
+        type: str
+        default: ""
+
+      tailscale_args:
+        description: Additional tailscale up arguments (e.g., "--accept-routes --ssh")
+        type: str
+        default: ""
+
+      tailscale_up_skip:
+        description: Skip tailscale up command (for testing)
+        type: bool
+        default: false
+
+      tailscale_up_timeout:
+        description: Tailscale up command timeout in seconds
+        type: int
+        default: 120
+
+      # ========================================================================
+      # SSH Binding Configuration
+      # ========================================================================
+      tailscale_bind_ssh:
+        description: Bind SSH to Tailscale IP address + localhost only
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Debugging Configuration
+      # ========================================================================
+      tailscale_verbose:
+        description: Enable verbose output from artis3n.tailscale role
+        type: bool
+        default: false
+
+      tailscale_insecurely_log_authkey:
+        description: Log authkey in output (INSECURE, for debugging only)
+        type: bool
+        default: false

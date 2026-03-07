@@ -1,0 +1,82 @@
+{# ============================================================================ #}
+{# LXC Extra Configuration Template                                            #}
+{# ============================================================================ #}
+{# Generates additional LXC configuration for post-creation setup              #}
+{# Conditions determine which sections are included                            #}
+
+{# ============================================================================ #}
+{# UID/GID Mapping (Unprivileged Containers Only)                              #}
+{# ============================================================================ #}
+{% if not lxc_privileged and lxc_idmap_uid and lxc_idmap_gid %}
+# BEGIN ANSIBLE MANAGED - UID/GID MAPPING
+lxc.idmap: u 0 100000 {{ lxc_idmap_uid }}
+lxc.idmap: u {{ lxc_idmap_uid }} {{ lxc_idmap_uid }} 1
+lxc.idmap: u {{ lxc_idmap_uid | int + 1 }} {{ 100000 + lxc_idmap_uid | int + 1 }} {{ 65536 - lxc_idmap_uid | int - 1 }}
+lxc.idmap: g 0 100000 {{ lxc_idmap_gid }}
+lxc.idmap: g {{ lxc_idmap_gid }} {{ lxc_idmap_gid }} 1
+lxc.idmap: g {{ lxc_idmap_gid | int + 1 }} {{ 100000 + lxc_idmap_gid | int + 1 }} {{ 65536 - lxc_idmap_gid | int - 1 }}
+# END ANSIBLE MANAGED - UID/GID MAPPING
+{% endif %}
+
+{# ============================================================================ #}
+{# TUN Device Configuration (VPN Support)                                       #}
+{# ============================================================================ #}
+{% if lxc_device_tun | default(false) %}
+# BEGIN ANSIBLE MANAGED - TUN DEVICE
+lxc.cgroup2.devices.allow: c 10:200 rwm
+lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
+# END ANSIBLE MANAGED - TUN DEVICE
+{% endif %}
+
+{# ============================================================================ #}
+{# Privileged Container Device Passthrough                                      #}
+{# ============================================================================ #}
+{# For USB/serial only. GPU workloads needing specific UID access (e.g.,        #}
+{# Jellyfin UID 1000) should use unprivileged + lxc_idmap_* + detect_devices    #}
+{# instead — privileged mode does not manage guest-side group membership.       #}
+{% if lxc_privileged %}
+{# VAAPI GPU (Privileged) #}
+{% if lxc_device_vaapi | default(false) %}
+# BEGIN ANSIBLE MANAGED - VAAPI GPU (PRIVILEGED)
+lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir
+lxc.cgroup2.devices.allow: c 226:* rwm
+# END ANSIBLE MANAGED - VAAPI GPU (PRIVILEGED)
+{% endif %}
+
+{# Framebuffer (Privileged) #}
+{% if lxc_device_framebuffer | default(false) %}
+# BEGIN ANSIBLE MANAGED - FRAMEBUFFER (PRIVILEGED)
+lxc.cgroup2.devices.allow: c 29:0 rwm
+lxc.mount.entry: /dev/fb0 dev/fb0 none bind,optional,create=file
+# END ANSIBLE MANAGED - FRAMEBUFFER (PRIVILEGED)
+{% endif %}
+
+{# AMD KFD GPU Compute (Privileged) #}
+{% if lxc_device_kfd | default(false) %}
+# BEGIN ANSIBLE MANAGED - AMD KFD (PRIVILEGED)
+lxc.cgroup2.devices.allow: c 511:0 rwm
+lxc.mount.entry: /dev/kfd dev/kfd none bind,optional,create=file
+# END ANSIBLE MANAGED - AMD KFD (PRIVILEGED)
+{% endif %}
+
+{# USB Serial Devices (Privileged) #}
+{% if lxc_device_usb_serial | default(false) %}
+# BEGIN ANSIBLE MANAGED - USB SERIAL (PRIVILEGED)
+lxc.cgroup2.devices.allow: c 188:* rwm
+lxc.mount.entry: /dev/serial/by-id dev/serial/by-id none bind,optional,create=dir
+{% for device in ttyusb_devices | default([]) %}
+lxc.mount.entry: {{ device }} {{ device | regex_replace('^/', '') }} none bind,optional,create=file
+{% endfor %}
+# END ANSIBLE MANAGED - USB SERIAL (PRIVILEGED)
+{% endif %}
+
+{# USB ACM Devices (Privileged) #}
+{% if lxc_device_usb_acm | default(false) %}
+# BEGIN ANSIBLE MANAGED - USB ACM (PRIVILEGED)
+lxc.cgroup2.devices.allow: c 189:* rwm
+{% for device in ttyacm_devices | default([]) %}
+lxc.mount.entry: {{ device }} {{ device | regex_replace('^/', '') }} none bind,optional,create=file
+{% endfor %}
+# END ANSIBLE MANAGED - USB ACM (PRIVILEGED)
+{% endif %}
+{% endif %}

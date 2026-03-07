@@ -1,0 +1,86 @@
+---
+# Applied to all containers via dynamic inventory (groups: ['lxc'])
+
+# SSH Connection Settings (required for provisioning)
+ansible_connection: ssh # (string) Connection type for Ansible
+ansible_user: root # (string) SSH user for provisioning
+
+# LXC Role Configuration
+lxc_start_after_create: true # (boolean) Start container after creation
+lxc_wait_for_network: true # (boolean) Wait for network to be ready
+
+# Container Basics
+lxc_vmid: "" # (string) Container VMID, empty = auto-assign
+lxc_hostname: "" # (string) Container hostname, empty = inventory_hostname
+lxc_description: "" # (string) Container description in Proxmox UI
+lxc_privileged: false # (boolean) Privileged container (not recommended)
+lxc_os_version: "12" # (string) Debian version: 13=Trixie, 12=Bookworm, 11=Bullseye
+lxc_tags: "" # (string) PVE tags, semicolon-separated: "tag1;tag2;tag3"
+lxc_start_on_boot: false # (boolean) Start container when Proxmox boots
+lxc_startup_order: 0 # (integer) Boot priority: 0=any, 1-99=ordered
+
+# Resources
+lxc_cores: 2 # (integer) CPU cores
+lxc_memory: 1024 # (integer) RAM in MiB
+lxc_swap: 1024 # (integer) Swap in MiB, 0=disable
+
+# Storage Configuration
+# First disk (index 0) is rootfs. Additional disks (index 1+) become mount points.
+# All disks inherit unspecified properties from lxc_default_storage
+lxc_default_storage: "" # (string) Default storage pool, empty = auto-select
+lxc_disks:
+  - size: 4 # (integer) Disk size in GiB - REQUIRED
+    mp: "" # (string) Mount point: implicit "/" for rootfs, REQUIRED for additional
+    storage: "" # (string) Storage pool, empty = lxc_default_storage
+    backup: true # (boolean) Include disk in Proxmox backups
+    acl: false # (boolean) ACL support for Samba
+    quota: false # (boolean) Enable disk quota
+    replicate: true # (boolean) Replication support
+    ro: false # (boolean) Read-only mount
+
+# Network Configuration
+lxc_net_bridge: "vmbr0" # (string) Network bridge on Proxmox host
+lxc_net_ipv4_method: "auto" # (string) IPv4 method: auto, dhcp, static, none
+lxc_net_ipv4_static: "" # (string) Static IPv4 in CIDR notation
+lxc_net_ipv4_gateway: "" # (string) IPv4 gateway (required for static)
+lxc_net_ipv6_method: "auto" # (string) IPv6 method: auto, dhcp, static, none
+lxc_net_ipv6_static: "" # (string) Static IPv6 in CIDR notation
+lxc_net_ipv6_gateway: "" # (string) IPv6 gateway (required for static)
+lxc_net_vlan: "" # (string) VLAN tag, empty = untagged
+lxc_net_mac: "" # (string) MAC address, empty = auto-generate
+lxc_net_mtu: "" # (string) MTU size, empty = 1500
+lxc_net_nameserver: "" # (string) DNS server, empty = use host
+lxc_net_search_domain: "" # (string) Search domain, empty = use host
+lxc_net_apt_cacher_ip: "" # (string) Apt-cacher-ng server IP
+
+# Access Configuration
+lxc_root_password: "{{ vault_lxc_root_pass | default('') }}" # (string) Root password (from vault)
+
+# Features (disabled by default)
+lxc_feature_fuse: false # (boolean) FUSE support (rclone, mergerfs, AppImage)
+lxc_feature_mknod: false # (boolean) Device node creation capability
+lxc_feature_nesting: false # (boolean) Nested virtualization (required for Docker)
+lxc_feature_keyctl: false # (boolean) Keyring support (unprivileged only)
+lxc_feature_nfs: false # (boolean) NFS mounts (privileged only)
+lxc_feature_cifs: false # (boolean) CIFS/SMB mounts (privileged only)
+
+# Devices (disabled by default)
+lxc_device_tun: false # (boolean) TUN device for VPN
+lxc_device_vaapi: false # (boolean) GPU video encode/decode
+lxc_device_framebuffer: false # (boolean) Framebuffer device
+lxc_device_kfd: false # (boolean) AMD GPU compute
+lxc_device_usb_serial: false # (boolean) USB serial devices (ttyUSB*)
+lxc_device_usb_acm: false # (boolean) USB ACM devices (ttyACM*)
+
+# UID/GID Mapping (disabled by default)
+lxc_idmap_uid: "" # (string) UID for 1:1 mapping, empty = disabled
+lxc_idmap_gid: "" # (string) GID for 1:1 mapping, empty = disabled
+lxc_idmap_gid_match_devices: false # (boolean) Use mapped GID for hardware devices
+
+# Bind Mounts (none by default)
+lxc_bind_mounts: [] # (list) Bind mounts in "host:container" format
+
+# Console Configuration
+lxc_console_dev_enable: false # (boolean) Attach /dev/console device
+lxc_console_tty: 0 # (integer) Number of TTY devices (0-6)
+lxc_console_mode: "shell" # (string) Console mode: shell, tty, console

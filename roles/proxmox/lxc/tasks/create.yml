@@ -1,0 +1,259 @@
+---
+# LXC Role Container Creation Tasks
+# Creates containers using native pct create with automatic device detection
+
+# Validation already performed in main.yml via validate_state.yml
+# We only reach this point if container needs to be created
+# Container facts are already set in validate_state.yml
+
+# Stage SSH keys from vault onto Proxmox host for pct create --ssh-public-keys
+- name: LXC | Set SSH keys staging path
+  ansible.builtin.set_fact:
+    __lxc_ssh_keys_file: /root/.ansible-lxc-ssh-keys.pub
+
+- name: LXC | Stage SSH public keys on Proxmox host
+  ansible.builtin.copy:
+    content: "{{ vault_ssh_authorized_keys | join('\n') }}\n"
+    dest: "{{ __lxc_ssh_keys_file }}"
+    mode: "0600"
+  when: vault_ssh_authorized_keys | default([]) | length > 0
+
+# Device Detection (unprivileged containers only)
+- name: LXC | Detect and configure devices
+  ansible.builtin.include_tasks: detect_devices.yml
+  when: not lxc_privileged
+
+# Build pct create Command
+- name: LXC | Include command builder tasks
+  ansible.builtin.include_tasks: build_pct_command.yml
+
+# Display Configuration Summary
+- name: LXC | Display container creation parameters
+  ansible.builtin.debug:
+    msg:
+      - "Creating LXC container:"
+      - "  Name: {{ lxc_container_name }}"
+      - "  ID: {{ lxc_final_vmid }}"
+      - "  OS: Debian {{ lxc_os_version }}"
+      - "  Resources: {{ lxc_cores }} cores, {{ lxc_memory }}MB RAM"
+      - >-
+        Disks: {{ lxc_disks | length }} (rootfs: {{ lxc_disks[0].size }}GB{{
+        ', +' ~ (lxc_disks | length - 1) ~ ' storage' if lxc_disks | length > 1 else '' }})
+      - "  Network: {{ lxc_net_ipv4_method }} on {{ lxc_net_bridge }}"
+      - "  Privileged: {{ lxc_privileged }}"
+      - "  Devices: {{ lxc_dev_args | default([]) | length if not lxc_privileged else 'privileged mode' }}"
+    verbosity: 1
+
+# Execute Container Creation
+- name: LXC | Create LXC container with pct
+  ansible.builtin.command: "{{ pct_create_cmd }}"
+  register: pct_result
+  changed_when: true
+
+- name: LXC | Display creation result
+  ansible.builtin.debug:
+    msg: "Container {{ lxc_final_vmid }} created successfully"
+    verbosity: 1
+
+# Validate Configuration
+- name: LXC | Read generated LXC configuration file
+  ansible.builtin.slurp:
+    path: "/etc/pve/lxc/{{ lxc_final_vmid }}.conf"
+  register: lxc_conf_file
+
+- name: LXC | Parse LXC configuration
+  ansible.builtin.set_fact:
+    lxc_actual_config: "{{ lxc_conf_file.content | b64decode }}"
+
+- name: LXC | Display actual configuration
+  ansible.builtin.debug:
+    msg: "{{ lxc_actual_config }}"
+    verbosity: 2
+
+- name: LXC | Verify core configuration
+  ansible.builtin.assert:
+    that:
+      - "'hostname: ' + (lxc_hostname | default(inventory_hostname)) in lxc_actual_config"
+      - "'cores: ' + (lxc_cores | string) in lxc_actual_config"
+      - "'memory: ' + (lxc_memory | string) in lxc_actual_config"
+      - "'swap: ' + (lxc_swap | string) in lxc_actual_config"
+      - "'bridge=' + lxc_net_bridge in lxc_actual_config"
+      - "{{ 'unprivileged: 0' in lxc_actual_config if lxc_privileged else 'unprivileged: 1' in lxc_actual_config }}"
+    fail_msg: >-
+      Container config in /etc/pve/lxc/{{ lxc_final_vmid }}.conf does not
+      match requested settings (hostname={{ lxc_hostname | default(inventory_hostname) }},
+      cores={{ lxc_cores }}, memory={{ lxc_memory }}, swap={{ lxc_swap }},
+      bridge={{ lxc_net_bridge }}, unprivileged={{ '0' if lxc_privileged else '1' }}).
+      Review pct create output and Proxmox logs.
+    success_msg: "Core configuration verified (hostname, resources, network, container type)"
+
+- name: LXC | Verify enabled features
+  ansible.builtin.assert:
+    that:
+      - "not lxc_feature_nesting | bool or 'nesting=1' in lxc_actual_config"
+      - "not lxc_feature_fuse | bool or 'fuse=1' in lxc_actual_config"
+    fail_msg: >-
+      Feature verification failed for /etc/pve/lxc/{{ lxc_final_vmid }}.conf.
+      Expected nesting={{ 'nesting=1' if lxc_feature_nesting else 'not requested' }},
+      fuse={{ 'fuse=1' if lxc_feature_fuse else 'not requested' }}.
+      Check the pct create output and consider adding features manually.
+    success_msg: "All requested features verified"
+
+- name: LXC | Check for device passthrough configuration
+  ansible.builtin.set_fact:
+    conf_has_devices: "{{ lxc_actual_config | regex_search('dev\\d+:') is not none }}"
+  when: not lxc_privileged
+
+- name: LXC | Verify device passthrough was applied
+  ansible.builtin.assert:
+    that: conf_has_devices | bool
+    fail_msg: >-
+      Device passthrough was requested but no 'devN:' entries found in
+      /etc/pve/lxc/{{ lxc_final_vmid }}.conf. Verify device detection ran
+      correctly, that devices exist on the Proxmox host, and that
+      lxc_privileged is false.
+    success_msg: "Device passthrough verified"
+  when:
+    - not lxc_privileged
+    - lxc_dev_args is defined
+    - lxc_dev_args | length > 0
+
+- name: LXC | Check for existing manual configurations
+  ansible.builtin.set_fact:
+    conf_has_idmap: "{{ 'lxc.idmap' in lxc_actual_config }}"
+    conf_has_tun: "{{ '/dev/net/tun' in lxc_actual_config }}"
+
+- name: LXC | Determine required manual configurations
+  ansible.builtin.set_fact:
+    needs_idmap_config: "{{ (lxc_idmap_uid != '' or lxc_idmap_gid != '') and not conf_has_idmap and not lxc_privileged }}"
+    needs_tun_config: "{{ lxc_device_tun and not conf_has_tun }}"
+
+- name: LXC | Calculate if any manual configuration is needed
+  ansible.builtin.set_fact:
+    needs_manual_config: "{{ needs_idmap_config or needs_tun_config }}"
+
+# Post-Creation Manual Configuration (if needed)
+- name: LXC | Apply post-creation configuration using Ansible tasks
+  ansible.builtin.include_tasks: post_configure.yml
+  when: needs_manual_config | bool
+
+# Re-read Final Configuration
+- name: LXC | Read final configuration after manual edits
+  ansible.builtin.slurp:
+    path: "/etc/pve/lxc/{{ lxc_final_vmid }}.conf"
+  register: lxc_final_conf
+  when: needs_manual_config | bool
+
+- name: LXC | Store final configuration as fact
+  ansible.builtin.set_fact:
+    lxc_final_config: "{{ lxc_final_conf.content | b64decode }}"
+    cacheable: true
+  when: needs_manual_config | bool
+
+- name: LXC | Display final configuration
+  ansible.builtin.debug:
+    msg: "{{ lxc_final_config }}"
+    verbosity: 2
+  when: needs_manual_config | bool
+
+# Start Container
+- name: LXC | Start container after creation
+  ansible.builtin.command: pct start {{ lxc_final_vmid }}
+  register: container_start
+  changed_when: container_start.rc == 0
+  when: lxc_start_after_create | default(true)
+
+- name: LXC | Check container start result
+  ansible.builtin.debug:
+    msg: "Container started successfully"
+    verbosity: 1
+  when: lxc_start_after_create | default(true)
+
+# IP Discovery
+- name: LXC | Discover container network
+  when:
+    - lxc_start_after_create | default(true)
+    - lxc_wait_for_network | default(true)
+    - container_start is not failed
+  block:
+    - name: LXC | Wait for container network to be ready
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: LXC | Get container IP address
+      ansible.builtin.shell: |
+        set -o pipefail
+        pct exec {{ lxc_final_vmid }} -- ip -4 addr show eth0 2>/dev/null | grep -oP 'inet \K[\d.]+' | head -1
+      args:
+        executable: /bin/bash
+      register: container_ip_raw
+      retries: 5
+      delay: 2
+      until: container_ip_raw.stdout != ''
+      changed_when: false
+
+    - name: LXC | Set discovered IP
+      ansible.builtin.set_fact:
+        discovered_ip: "{{ container_ip_raw.stdout | trim }}"
+
+    - name: LXC | Test SSH connectivity
+      ansible.builtin.wait_for:
+        host: "{{ discovered_ip }}"
+        port: 22
+        timeout: 30
+        delay: 2
+        state: started
+      register: ssh_test
+
+    - name: LXC | Display success
+      ansible.builtin.debug:
+        msg: "SSH connectivity confirmed to {{ discovered_ip }}"
+        verbosity: 1
+
+  rescue:
+    - name: LXC | IP discovery failed - using DNS
+      ansible.builtin.debug:
+        msg: |
+          Container created, will use DNS for connectivity
+             Hostname: {{ lxc_container_name }}
+             Note: Direct IP discovery failed, provisioning will use DNS resolution
+
+# Store Creation Results
+- name: LXC | Store creation results for later use
+  ansible.builtin.set_fact:
+    lxc_creation_data:
+      changed: true
+      ct_id: "{{ lxc_final_vmid }}"
+      ct_hostname: "{{ lxc_container_name }}"
+      ct_privileged: "{{ lxc_privileged }}"
+      ansible_host: "{{ discovered_ip | default('unknown') }}"
+      config_path: "/etc/pve/lxc/{{ lxc_final_vmid }}.conf"
+      template: "{{ lxc_template_volid }}"
+      storage: "{{ lxc_final_default_storage }}"
+      disks: "{{ lxc_disks | length }}"
+      features:
+        nesting: "{{ lxc_feature_nesting }}"
+        gpu_passthrough: "{{ lxc_device_vaapi }}"
+        idmap: "{{ conf_has_idmap }}"
+      msg: "Container {{ lxc_final_vmid }} created successfully"
+
+- name: LXC | Add to created containers list
+  ansible.builtin.set_fact:
+    lxc_created_containers: "{{ lxc_created_containers | default([]) + [lxc_creation_data] }}"
+
+# Clean up staged SSH keys
+- name: LXC | Remove staged SSH keys from Proxmox host
+  ansible.builtin.file:
+    path: "{{ __lxc_ssh_keys_file }}"
+    state: absent
+  when: __lxc_ssh_keys_file is defined
+
+# Display Next Steps
+- name: LXC | Display next steps
+  ansible.builtin.debug:
+    msg:
+      - "Container {{ lxc_final_vmid }} created successfully!"
+      - ""
+      - "Container automatically registered for provisioning"
+      - "Play 3 will provision via SSH using DNS-resolved hostname"
+    verbosity: 1

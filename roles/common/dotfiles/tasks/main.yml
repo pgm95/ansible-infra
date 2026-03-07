@@ -1,0 +1,132 @@
+---
+## Dotfiles deployment via the repository's own deploy.sh script
+## The role handles transport (clone → sync → invoke); the script handles placement logic.
+## deploy.sh components/flags are passed through verbatim via dotfiles_deploy_args.
+
+- name: Dotfiles deployment
+  when: dotfiles_enabled | bool
+  block:
+    # ========================================================================
+    # Phase 1: Clone/Update Repository on Control Node
+    # ========================================================================
+
+    - name: Dotfiles | Ensure local cache directory exists
+      ansible.builtin.file:
+        path: "{{ dotfiles_cache_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Dotfiles | Clone or update dotfiles repository
+      ansible.builtin.git:
+        repo: "https://oauth2:{{ vault_github_dotfiles_token }}@{{ dotfiles_repo_url | regex_replace('^https://', '') }}"
+        dest: "{{ dotfiles_cache_dir }}"
+        version: "{{ dotfiles_repo_branch }}"
+        update: true
+        force: "{{ dotfiles_force_update }}"
+      delegate_to: localhost
+      become: false
+      when: not ansible_check_mode
+      run_once: true
+      register: __git_result
+      changed_when: __git_result.changed and (__git_result.before | default('') != __git_result.after | default(''))
+      failed_when:
+        - __git_result.failed | default(false)
+        - not dotfiles_continue_on_error
+      no_log: true
+
+    # ========================================================================
+    # Phase 2: Sync Repository to Remote Host
+    # ========================================================================
+
+    - name: Dotfiles | Ensure remote staging directory exists
+      ansible.builtin.file:
+        path: "{{ dotfiles_staging_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Dotfiles | Synchronize repository to remote staging directory
+      ansible.posix.synchronize:
+        src: "{{ dotfiles_cache_dir }}/"
+        dest: "{{ dotfiles_staging_dir }}/"
+        archive: true
+        checksum: true
+        delete: true
+        recursive: true
+        rsync_opts:
+          - "--exclude=.git"
+      when: not ansible_check_mode
+
+    # ========================================================================
+    # Phase 3: Deploy to Root User
+    # ========================================================================
+
+    - name: Dotfiles | Run deploy.sh for root
+      ansible.builtin.command:
+        cmd: "bash {{ dotfiles_staging_dir }}/deploy.sh {{ dotfiles_deploy_args }}"
+      when:
+        - dotfiles_deploy_to_root | bool
+        - not ansible_check_mode
+      register: __deploy_root
+      changed_when: "'[CHANGED]' in (__deploy_root.stdout | default(''))"
+
+    # ========================================================================
+    # Phase 4: Deploy to Regular Users
+    # ========================================================================
+
+    - name: Dotfiles | Deploy to regular users
+      when:
+        - dotfiles_deploy_to_users | bool
+        - users_list | default([]) | length > 0
+        - not ansible_check_mode
+      block:
+        - name: Dotfiles | Identify users with home directories
+          ansible.builtin.set_fact:
+            __target_users: >-
+              {{
+                users_list
+                | selectattr('name', 'defined')
+                | selectattr('create_home', 'undefined')
+                | list
+                +
+                users_list
+                | selectattr('name', 'defined')
+                | selectattr('create_home', 'equalto', true)
+                | list
+              }}
+
+        - name: Dotfiles | Run deploy.sh for each user
+          ansible.builtin.command:
+            cmd: >-
+              bash {{ dotfiles_staging_dir }}/deploy.sh
+              --home /home/{{ item.name }}
+              {{ dotfiles_deploy_args }}
+          loop: "{{ __target_users }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: __deploy_users
+          changed_when: "'[CHANGED]' in (__deploy_users.stdout | default(''))"
+
+        - name: Dotfiles | Fix ownership for user home directories
+          ansible.builtin.file:
+            path: "/home/{{ item.name }}"
+            owner: "{{ item.name }}"
+            group: "{{ item.group | default(item.name) }}"
+            recurse: true
+          loop: "{{ __target_users }}"
+          loop_control:
+            label: "{{ item.name }}"
+          changed_when: false
+
+  rescue:
+    - name: Dotfiles | Log deployment failure
+      ansible.builtin.debug:
+        msg: "Dotfiles deployment failed but continuing (dotfiles_continue_on_error is true)"
+      when: dotfiles_continue_on_error | bool
+
+    - name: Dotfiles | Fail if not configured to continue
+      ansible.builtin.fail:
+        msg: "Dotfiles deployment failed and dotfiles_continue_on_error is false"
+      when: not dotfiles_continue_on_error | bool

@@ -1,0 +1,135 @@
+---
+# ============================================================================
+# VM Role - QM Command Construction (Dictionary-Based)
+# ============================================================================
+# Builds complete qm create command using dictionary approach for maintainability
+# Uses community.proxmox API modules for storage/VMID detection
+
+# ============================================================================
+# Identity Resolution
+# ============================================================================
+- name: VM | Resolve VM hostname
+  ansible.builtin.set_fact:
+    vm_final_hostname: "{{ vm_hostname if vm_hostname | length > 0 else inventory_hostname }}"
+
+- name: VM | Use specified VMID
+  ansible.builtin.set_fact:
+    vm_final_vmid: "{{ vm_vmid }}"
+
+# ============================================================================
+# Storage Resolution (Shared Task)
+# ============================================================================
+# Priority: vm_disks[0].storage > vm_default_storage > auto-select
+
+- name: VM | Resolve VM storage
+  ansible.builtin.include_tasks: "{{ _proxmox_shared_tasks }}/resolve_storage.yml"
+  vars:
+    _storage_specified: "{{ vm_disks[0].storage | default(vm_default_storage) | default('') }}"
+    _content_type: "images"
+
+- name: VM | Set final storage from resolved value
+  ansible.builtin.set_fact:
+    vm_final_storage: "{{ _resolved_storage }}"
+
+# ============================================================================
+# Network Configuration (Template-Based)
+# ============================================================================
+- name: VM | Build network configuration
+  ansible.builtin.set_fact:
+    vm_net0_param: "{{ lookup('template', 'net0.j2') | trim }}"
+
+- name: VM | Build cloud-init IP configuration
+  ansible.builtin.set_fact:
+    vm_cloudinit_ipconfig: "{{ lookup('template', 'ipconfig0.j2') | trim }}"
+  when: vm_cloudinit_enabled
+
+# ============================================================================
+# Build Command Using Dictionary Pattern
+# ============================================================================
+# All parameters defined in one place for easy maintenance
+
+- name: VM | Build required parameters dictionary
+  ansible.builtin.set_fact:
+    __qm_required:
+      vmid: "{{ vm_final_vmid }}"
+      name: "--name {{ vm_final_hostname }}"
+      cores: "--cores {{ vm_cores }}"
+      sockets: "--sockets {{ vm_sockets }}"
+      memory: "--memory {{ vm_memory }}"
+      net0: "--net0 '{{ vm_net0_param }}'"
+      ostype: "--ostype {{ vm_ostype }}"
+      cpu: "--cpu {{ vm_cpu_type }}"
+      machine: "--machine {{ vm_machine_type }}"
+      bios: "--bios {{ vm_bios_type }}"
+      boot: "--boot order={{ vm_boot_order }}"
+      scsihw: "--scsihw {{ vm_scsi_controller }}"
+      vga: "--vga {{ vm_vga_type }}"
+
+- name: VM | Build optional parameters dictionary
+  ansible.builtin.set_fact:
+    __qm_optional:
+      serial: "{{ '--serial0 socket' if vm_vga_type is match('serial[0-3]') else '' }}"
+      balloon: "{{ '--balloon ' ~ vm_balloon if vm_balloon | int > 0 else '' }}"
+      description: "{{ '--description ' ~ (vm_description | quote) if vm_description | length > 0 else '' }}"
+      tags: "--tags '{{ ansible_id_tag }}{{ ';' ~ vm_tags if vm_tags | length > 0 else '' }}'"
+      onboot: "--onboot {{ '1' if vm_start_on_boot else '0' }}"
+      startup: "{{ '--startup order=' ~ vm_startup_order if vm_startup_order | int > 0 else '' }}"
+      protection: "--protection {{ '1' if vm_protection else '0' }}"
+      template: "--template {{ '1' if vm_template else '0' }}"
+      kvm: "--kvm {{ '1' if vm_kvm_enabled else '0' }}"
+      acpi: "--acpi {{ '1' if vm_acpi_enabled else '0' }}"
+      agent: "--agent enabled={{ '1' if vm_agent_enabled else '0' }}"
+      keyboard: "--keyboard {{ vm_keyboard_layout }}"
+      tablet: "--tablet {{ '1' if vm_tablet_enabled else '0' }}"
+      reboot: "--reboot {{ '1' if vm_reboot_allowed else '0' }}"
+      hotplug: "{{ '--hotplug ' ~ vm_hotplug_features if vm_hotplug_features | length > 0 else '' }}"
+      pool: "{{ '--pool ' ~ vm_pool if vm_pool | length > 0 else '' }}"
+
+- name: VM | Build cloud-init parameters dictionary
+  ansible.builtin.set_fact:
+    __qm_cloudinit:
+      ide2: "--ide2 {{ vm_final_storage }}:cloudinit"
+      citype: "--citype {{ vm_cloudinit_type }}"
+      ciuser: "--ciuser {{ vm_cloudinit_user }}"
+      cipassword: "{{ '--cipassword ' ~ (vm_cloudinit_password | quote) if vm_cloudinit_password | length > 0 else '' }}"
+      sshkeys: "--sshkeys {{ vm_temp_dir }}/ssh-keys.pub"
+      ipconfig0: "--ipconfig0 '{{ vm_cloudinit_ipconfig }}'"
+      ciupgrade: "--ciupgrade {{ '1' if vm_cloudinit_upgrade else '0' }}"
+      nameserver: "{{ '--nameserver ' ~ vm_cloudinit_nameserver if vm_cloudinit_nameserver | length > 0 else '' }}"
+      searchdomain: "{{ '--searchdomain ' ~ vm_cloudinit_searchdomain if vm_cloudinit_searchdomain | length > 0 else '' }}"
+  when: vm_cloudinit_enabled
+
+- name: VM | Set empty cloud-init parameters when disabled
+  ansible.builtin.set_fact:
+    __qm_cloudinit: {}
+  when: not vm_cloudinit_enabled
+
+# ============================================================================
+# Construct Final Command
+# ============================================================================
+- name: VM | Construct qm create command
+  ansible.builtin.set_fact:
+    qm_create_cmd: >-
+      qm create {{ __qm_required.vmid }}
+      {{ __qm_required.name }}
+      {{ __qm_required.cores }}
+      {{ __qm_required.sockets }}
+      {{ __qm_required.memory }}
+      {{ __qm_required.net0 }}
+      {{ __qm_required.ostype }}
+      {{ __qm_required.cpu }}
+      {{ __qm_required.machine }}
+      {{ __qm_required.bios }}
+      {{ __qm_required.boot }}
+      {{ __qm_required.scsihw }}
+      {{ __qm_required.vga }}
+      {{ __qm_optional.values() | select | join(' ') }}
+      {{ __qm_cloudinit.values() | select | join(' ') }}
+      {{ vm_cicustom_flag | default('') }}
+
+- name: VM | Display constructed qm create command
+  ansible.builtin.debug:
+    msg:
+      - "Constructed qm create command:"
+      - "{{ qm_create_cmd }}"
+    verbosity: 1

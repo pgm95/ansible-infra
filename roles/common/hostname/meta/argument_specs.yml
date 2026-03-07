@@ -1,0 +1,36 @@
+---
+# ============================================================================
+# Hostname Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/hostname
+
+argument_specs:
+  main:
+    short_description: Hostname and FQDN configuration with /etc/hosts
+    description:
+      - Sets system hostname via hostnamectl
+      - Updates /etc/hostname file
+      - Manages /etc/hosts with proper FQDN entries
+      - Auto-detects primary IP address
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Feature Control
+      # ========================================================================
+      hostname_configure:
+        description: Enable/disable hostname configuration
+        type: bool
+        default: false
+
+      hostname_default:
+        description: Fallback hostname if 'hostname' variable undefined
+        type: str
+        default: "{{ inventory_hostname }}"
+
+      hostname_domain_suffix:
+        description: Domain suffix for FQDN construction
+        type: str
+        default: ""
