@@ -1,0 +1,28 @@
+---
+# Load and normalize Tailscale configuration variables
+
+- name: Tailscale | Load configuration
+  ansible.builtin.set_fact:
+    _ts_authkey: "{{ tailscale_oauth_authkeys }}"
+    _ts_devices_token: "{{ tailscale_oauth_devices | default('') }}"
+    _ts_ip: "{{ tailscale_ip | default(lookup('env', inventory_hostname.upper() + '_TS_IP')) | default('') }}"
+    _ts_tags: "{{ tailscale_tags | default([]) }}"
+    _ts_hostname: "{{ tailscale_hostname | default(hostname | default(lxc_hostname | default(inventory_hostname))) }}"
+    _ts_args: "{{ tailscale_args | default('') }}"
+    _ts_oauth_ephemeral: "{{ tailscale_oauth_ephemeral | default(false) }}"
+    _ts_oauth_preauthorized: "{{ tailscale_oauth_preauthorized | default(false) }}"
+    _ts_state: "{{ tailscale_state | default('latest') }}"
+    _ts_release_stability: "{{ tailscale_release_stability | default('stable') }}"
+    _ts_up_skip: "{{ tailscale_up_skip | default(false) }}"
+    _ts_up_timeout: "{{ tailscale_up_timeout | default(120) }}"
+    _ts_verbose: "{{ tailscale_verbose | default(false) }}"
+    _ts_insecure_log: "{{ tailscale_insecure_log | default(false) }}"
+  no_log: true
+
+- name: Tailscale | Build complete args
+  ansible.builtin.set_fact:
+    _complete_ts_args: "--hostname={{ _ts_hostname }} {{ _ts_args }}"
+
+- name: Tailscale | Check if exit node or subnet router
+  ansible.builtin.set_fact:
+    _is_exit_node_or_router: "{{ (_ts_args is search('--advertise-exit-node') or _ts_args is search('--advertise-routes')) }}"

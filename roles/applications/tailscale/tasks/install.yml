@@ -1,0 +1,27 @@
+---
+# Install and configure Tailscale via upstream artis3n.tailscale collection
+
+- name: Tailscale | Include installation role
+  ansible.builtin.include_role:
+    name: artis3n.tailscale.machine
+  vars:
+    # Package installation
+    state: "{{ _ts_state }}"
+    release_stability: "{{ _ts_release_stability }}"
+
+    # Authentication
+    tailscale_authkey: "{{ _ts_authkey }}"
+
+    # OAuth configuration (for OAuth client keys)
+    tailscale_tags: "{{ _ts_tags }}"
+    tailscale_oauth_ephemeral: "{{ _ts_oauth_ephemeral }}"
+    tailscale_oauth_preauthorized: "{{ _ts_oauth_preauthorized }}"
+
+    # Connection configuration
+    tailscale_args: "{{ _complete_ts_args }}"
+    tailscale_up_skip: "{{ _ts_up_skip }}"
+    tailscale_up_timeout: "{{ _ts_up_timeout }}"
+
+    # Debugging
+    verbose: "{{ _ts_verbose }}"
+    insecurely_log_authkey: "{{ _ts_insecure_log }}"

@@ -1,0 +1,39 @@
+---
+# ============================================================================
+# Clones dotfiles Git repository, syncs it to the remote host, and invokes
+# the repository's own deploy.sh script. The role is intentionally agnostic
+# to deploy.sh internals — components/flags are passed through verbatim via
+# dotfiles_deploy_args so the role never needs updating when the script grows.
+# ============================================================================
+
+dotfiles_enabled: false # (boolean) Enable/disable dotfiles deployment
+
+# Repository Configuration
+dotfiles_repo_url: "" # (string) Git repository URL (without https:// prefix)
+# Example: "github.com/username/dotfiles.git"
+# Authentication via OAuth token from vault_github_dotfiles_token
+
+dotfiles_repo_branch: "" # (string) Git branch to checkout (e.g., "main", "master", "develop")
+
+# Deployment Configuration
+dotfiles_deploy_to_root: true # (boolean) Deploy dotfiles to root user's home directory
+dotfiles_deploy_to_users: false # (boolean) Deploy dotfiles to users from users_list
+dotfiles_deploy_args: "" # (string) Arguments passed verbatim to deploy.sh (components and/or options)
+# Examples:
+#   ""                    → deploy all components (script default)
+#   "bash nano claude"    → deploy only bash, nano, and claude components
+#   "--force bash"        → force-deploy bash without backups
+#   "--verbose"           → deploy all with verbose output
+dotfiles_force_update: true # (boolean) Force git pull (overwrite local changes in cache)
+dotfiles_continue_on_error: true # (boolean) Continue playbook execution on dotfiles failure
+
+# Directory Configuration
+dotfiles_cache_dir: "{{ playbook_dir | dirname }}/.cache/dotfiles" # (string) Local cache for git clone (control node)
+dotfiles_staging_dir: /tmp/.ansible/dotfiles # (string) Remote staging directory for repository sync
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# __target_users: []                               # Users with home directories (filtered from users_list)
+# __git_result: {}                                 # Git clone/pull result (for change detection)
+# __deploy_root: {}                                # Root deployment result (for change detection)

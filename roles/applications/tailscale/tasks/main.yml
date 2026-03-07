@@ -1,0 +1,32 @@
+---
+# Tailscale VPN installation and configuration - Orchestration Layer
+#
+# This role is organized into separate task files for maintainability:
+# - load_config.yml: Variable loading and normalization
+# - validate.yml: Configuration validation
+# - install.yml: Tailscale installation via artis3n.tailscale
+# - linux_optimizations.yml: IP forwarding and UDP optimizations
+# - api_configuration.yml: Custom IP assignment via API
+# - ssh_binding.yml: SSH binding to Tailscale network (optional)
+# - status.yml: Connection status display
+
+- name: Load configuration
+  ansible.builtin.import_tasks: load_config.yml
+
+- name: Validate configuration
+  ansible.builtin.import_tasks: validate.yml
+
+- name: Install Tailscale
+  ansible.builtin.import_tasks: install.yml
+
+- name: Apply Linux optimizations
+  ansible.builtin.import_tasks: linux_optimizations.yml
+
+- name: Configure device via API
+  ansible.builtin.import_tasks: api_configuration.yml
+
+- name: Bind SSH to Tailscale network
+  ansible.builtin.import_tasks: ssh_binding.yml
+
+- name: Display status
+  ansible.builtin.import_tasks: status.yml

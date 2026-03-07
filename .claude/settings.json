@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise run validate 2>&1 | tail -20 || true"
+          }
+        ]
+      }
+    ]
+  }
+}

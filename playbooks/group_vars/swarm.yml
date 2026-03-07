@@ -1,0 +1,73 @@
+---
+# ============================================================================
+# Swarm Group Defaults
+# ============================================================================
+# Applied to all swarm hosts via dynamic inventory (groups: ['swarm'])
+# Override in inventory/host_vars/{type}/{hostname}.yml (single source of truth)
+# ============================================================================
+
+# SSH Connection Settings (inherit from parent group, ensure consistency)
+ansible_connection: ssh
+ansible_user: root
+
+# ============================================================================
+# Docker Daemon - Network Configuration for Swarm
+# ============================================================================
+# Tailscale uses MTU 1280 for maximum network compatibility.
+# VXLAN overlay adds ~50 bytes overhead.
+# Safe Docker MTU: 1280 - 50 = 1230
+
+docker_mtu: 1230 # (integer) Use 0 (auto) for non-Tailscale setups.
+docker_dns_servers: [] # (list) DNS servers for containers
+docker_dns_search: [] # (list) DNS search domains
+
+# ============================================================================
+# Swarm Network Configuration
+# ============================================================================
+# NOTE: These variables are intentionally NOT set here as defaults.
+# They are host-specific and must be set in host_vars/{type}/{hostname}.yml
+# or passed via add_host in the discovery task.
+#
+# Host-specific variables (set in host_vars):
+#   - docker_swarm_advertise_addr: Tailscale IP for cross-network communication
+#   - docker_swarm_listen_addr: Listen address for management traffic
+#   - docker_swarm_data_path_addr: Address for overlay data traffic
+#
+# Default for data path port (can be overridden in host_vars):
+docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
+
+# ============================================================================
+# Swarm Overlay Network Defaults
+# ============================================================================
+
+docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
+docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
+
+# ============================================================================
+# Swarm Security & Raft Configuration
+# ============================================================================
+
+docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest
+docker_swarm_election_tick: 30 # (integer) Raft election timeout in ticks (role default: 10, raised for WAN/Tailscale latency)
+docker_swarm_heartbeat_tick: 3 # (integer) Raft heartbeat interval in ticks (role default: 1, raised for WAN/Tailscale latency)
+docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h")
+docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for high-latency links)
+
+# ============================================================================
+# Node Configuration
+# ============================================================================
+
+docker_swarm_availability: active # (string) Node availability: active, pause, drain
+docker_swarm_labels: {} # (dict) Node labels for placement constraints
+
+# ============================================================================
+# Token Configuration
+# ============================================================================
+# Tokens are retrieved dynamically during swarm init and shared via hostvars
+# For existing swarms, store tokens in vault.yml for idempotent joins:
+#   vault_docker_swarm_manager_token: "SWMTKN-1-..."
+#   vault_docker_swarm_worker_token: "SWMTKN-1-..."
+
+docker_swarm_manager_token: "{{ vault_docker_swarm_manager_token | default('') }}"
+docker_swarm_worker_token: "{{ vault_docker_swarm_worker_token | default('') }}"
+docker_swarm_manager_addrs: [] # (list) Manager addresses ["192.168.1.10:2377"]

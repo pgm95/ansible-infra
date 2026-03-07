@@ -1,0 +1,8 @@
+{# Constructs the --net0 parameter for qm create #}
+{%- set base_config = vm_net_model ~ ',bridge=' ~ vm_net_bridge -%}
+{%- set vlan_tag = ',tag=' ~ vm_net_vlan if vm_net_vlan | length > 0 else '' -%}
+{%- set mac_addr = ',macaddr=' ~ vm_net_mac if vm_net_mac | length > 0 else '' -%}
+{%- set mtu_size = ',mtu=' ~ vm_net_mtu if vm_net_mtu | length > 0 else '' -%}
+{%- set firewall_flag = ',firewall=' ~ ('1' if vm_net_firewall else '0') -%}
+{%- set link_status = ',link_down=1' if vm_net_link_down else '' -%}
+{{ base_config }}{{ vlan_tag }}{{ mac_addr }}{{ mtu_size }}{{ firewall_flag }}{{ link_status -}}

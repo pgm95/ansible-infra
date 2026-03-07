@@ -1,0 +1,8 @@
+---
+# Interface role handlers
+
+- name: Interface | Restart networking
+  ansible.builtin.systemd:
+    name: networking
+    state: restarted
+  when: net_iface_configure | bool

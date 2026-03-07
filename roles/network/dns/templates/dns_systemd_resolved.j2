@@ -1,0 +1,24 @@
+# Managed by Ansible - dns role
+# Drop-in configuration for systemd-resolved
+# See resolved.conf(5) for details
+
+[Resolve]
+# DNS servers
+DNS={{ net_dns_servers | join(' ') }}
+
+{% if net_dns_search | length > 0 %}
+# DNS search domains
+Domains={{ net_dns_search | join(' ') }}
+{% endif %}
+
+# DNS stub resolver (local DNS proxy at 127.0.0.53)
+# Set to 'no' to use upstream DNS servers directly
+DNSStubListener={{ 'yes' if net_dns_stub_resolver else 'no' }}
+
+# Multicast DNS (mDNS) for local network name resolution
+# Set to 'no' to disable (recommended for servers)
+MulticastDNS={{ 'yes' if net_dns_mdns else 'no' }}
+
+# Link-Local Multicast Name Resolution (LLMNR)
+# Set to 'no' to disable (recommended for servers)
+LLMNR={{ 'yes' if net_dns_llmnr else 'no' }}

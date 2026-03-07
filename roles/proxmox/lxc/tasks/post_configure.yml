@@ -1,0 +1,59 @@
+---
+# LXC Role - Post-Creation Configuration (Template-Based)
+# Handles manual configuration file edits that cannot be done via pct create
+
+# Detect Devices for Privileged Containers
+- name: LXC | Find USB serial devices (privileged)
+  ansible.builtin.find:
+    paths: /dev
+    patterns: "ttyUSB*"
+    file_type: any
+  register: __ttyusb_result
+  when:
+    - lxc_privileged
+    - lxc_device_usb_serial | default(false)
+
+- name: LXC | Find USB ACM devices (privileged)
+  ansible.builtin.find:
+    paths: /dev
+    patterns: "ttyACM*"
+    file_type: any
+  register: __ttyacm_result
+  when:
+    - lxc_privileged
+    - lxc_device_usb_acm | default(false)
+
+- name: LXC | Set device lists for template
+  ansible.builtin.set_fact:
+    ttyusb_devices: "{{ __ttyusb_result.files | default([]) | map(attribute='path') | list }}"
+    ttyacm_devices: "{{ __ttyacm_result.files | default([]) | map(attribute='path') | list }}"
+
+# Generate Extra Configuration
+- name: LXC | Generate extra configuration content
+  ansible.builtin.set_fact:
+    __extra_config: "{{ lookup('template', 'lxc_extra_config.j2') }}"
+
+- name: LXC | Check if extra configuration is needed
+  ansible.builtin.set_fact:
+    __has_extra_config: "{{ __extra_config | trim | length > 0 }}"
+
+# Apply Configuration
+- name: LXC | Append extra configuration to container config
+  ansible.builtin.blockinfile:
+    path: "/etc/pve/lxc/{{ lxc_final_vmid }}.conf"
+    block: "{{ __extra_config }}"
+    marker: "# {mark} ANSIBLE MANAGED - EXTRA CONFIGURATION"
+    state: present
+    create: false
+  when: __has_extra_config | bool
+
+# Summary
+- name: LXC | Display post-configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "Post-configuration complete for container {{ lxc_final_vmid }}"
+      - "  Privileged: {{ lxc_privileged | ternary('yes', 'no') }}"
+      - "  UID/GID mapping: {{ (not lxc_privileged and lxc_idmap_uid) | ternary('configured', 'not needed') }}"
+      - "  TUN device: {{ lxc_device_tun | default(false) | ternary('enabled', 'disabled') }}"
+      - "  Extra config applied: {{ __has_extra_config | ternary('yes', 'no') }}"
+  when: ansible_verbosity > 0

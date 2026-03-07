@@ -1,0 +1,6 @@
+# Managed by Ansible
+auto lo
+iface lo inet loopback
+
+auto {{ _resolved_interface }}
+iface {{ _resolved_interface }} inet dhcp

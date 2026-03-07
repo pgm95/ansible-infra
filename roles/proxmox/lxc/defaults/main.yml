@@ -1,0 +1,40 @@
+---
+# LXC Role Defaults
+# Proxmox API vars inherited from inventory/group_vars/proxmox.yml
+
+# This file documents computed variables - NOT user-configurable.
+# User defaults are in inventory/group_vars/lxc.yml
+#
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between shared tasks)
+#   lxc_var    = Role output (computed, used across task files)
+
+# Role Outputs - Template Management
+# lxc_template_storage: ""        # Resolved storage for templates
+# lxc_template_name: ""           # Resolved Debian template name
+# lxc_template_volid: ""          # Full volid: storage:vztmpl/name
+
+# Role Outputs - Identity Resolution
+# lxc_final_vmid: ""              # Resolved VMID
+# lxc_container_name: ""          # Resolved hostname
+# lxc_final_default_storage: ""   # Resolved storage pool
+
+# Role Outputs - Command Building
+# lxc_net_config: ""              # Network config string (from template)
+# lxc_storage_disk_args: []       # Additional disk arguments
+# lxc_bind_mount_args: []         # Bind mount arguments
+# lxc_dev_args: []                # Device passthrough arguments
+# pct_create_cmd: ""              # Final pct create command
+
+# Internal Variables - documented for transparency
+# __boot_disk: {}                 # First disk from lxc_disks
+# __additional_disks: []          # Remaining disks from lxc_disks
+# __rootfs_arg: ""                # Rootfs argument string
+# __pct_required: {}              # Required pct parameters dict
+# __pct_optional: {}              # Optional pct parameters dict
+# __lxc_features: ""              # Features string from template
+# __device_gids: {}               # GID mapping for device groups
+# __detected_devices: []          # Detected device paths
+# __extra_config: ""              # Extra config content
+# __has_extra_config: false       # Whether extra config needed

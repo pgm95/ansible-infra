@@ -1,0 +1,67 @@
+---
+# ============================================================================
+# Packages Role - User-Configurable Variables
+# ============================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# System package installation with feature flags for modular deployments.
+# All variables are user-configurable via group_vars or host_vars.
+#
+# Purpose: Install base packages and optional feature sets
+
+# ============================================================================
+# Installation Control
+# ============================================================================
+
+packages_fullupgrade: true # (boolean) Perform full system upgrade (apt upgrade full)
+packages_install_base: true # (boolean) Install base packages (curl, wget, git, etc.)
+packages_install_shell: false # (boolean) Install shell enhancement packages (ripgrep, fzf, bat, etc.)
+packages_install_network: false # (boolean) Install network diagnostic tools (nmap, traceroute, etc.)
+
+# ============================================================================
+# Base Packages (Essential System Tools)
+# ============================================================================
+
+packages_base_list: # (list) Core packages installed when packages_install_base: true
+  - apt-transport-https # HTTPS transport for APT
+  - ca-certificates # Common CA certificates
+  - xz-utils # XZ compression utilities
+  - gnupg # GNU Privacy Guard
+  - rsync # File synchronization tool
+  - curl # HTTP client
+  - wget # HTTP downloader
+  - bash # Bourne Again Shell
+  - git # Version control system
+
+# ============================================================================
+# Shell Enhancement Packages (Developer Tools)
+# ============================================================================
+
+packages_shell_list: # (list) Shell tools installed when packages_install_shell: true
+  - bash-completion # Bash tab completion
+  - ripgrep # Fast text search (rg)
+  - screen # Terminal multiplexer
+  - sudo # Superuser do
+  - less # File pager
+  - tree # Directory tree viewer
+  - gawk # GNU awk
+  - nano # Text editor
+  - bat # Cat clone with syntax highlighting
+  - fzf # Fuzzy finder
+  - lsd # Modern ls replacement
+  - jq # JSON processor
+
+# ============================================================================
+# Network Diagnostic Packages (Troubleshooting Tools)
+# ============================================================================
+
+packages_network_list: # (list) Network tools installed when packages_install_network: true
+  - bind9-dnsutils # DNS utilities (dig, nslookup)
+  - traceroute # Network route tracing
+  - net-tools # Legacy network tools (ifconfig, netstat)
+  - ethtool # Ethernet device configuration
+  - whois # WHOIS client
+  - nmap # Network scanner and port mapper

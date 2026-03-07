@@ -1,0 +1,67 @@
+---
+# ==================================================================================
+# Samba Role - Default Variables
+# ==================================================================================
+# Variable naming convention:
+#   __var      = Internal (computed/consumed within single task file)
+#   _var       = Interface (passed between tasks/templates/handlers)
+#   role_var   = Role output (computed, used across task files)
+#
+# Simplified Samba fileserver with static configuration from project files/
+# Requires existing system user (created by users role)
+#
+# User-Configurable Variables:
+#   - Role enablement
+#   - Samba user (must reference samba_existing_user)
+#   - Service list for systemd management
+#
+# Internal/Computed Variables (documented as comments only):
+#   - samba_password: Sourced from vault_smb_pass
+#   - user_exists: System user verification result
+#   - samba_user_check: Samba database user check result
+#
+# Vault Variables Required:
+#   - vault_smb_pass: Samba user password
+#
+# Host Variables Required:
+#   - samba_existing_user: Reference to user from users_list (must be defined in host_vars)
+#
+# Configuration Source:
+#   - Static smb.conf deployed from: {{ playbook_dir | dirname }}/files/smb.conf
+# ==================================================================================
+
+# ==================================================================================
+# Role Enablement
+# ==================================================================================
+
+samba_enabled: false # (boolean) Enable Samba fileserver installation and configuration
+
+# ==================================================================================
+# User Configuration
+# ==================================================================================
+# REQUIRES: samba_existing_user must be defined in host_vars
+# User must already exist on system (created by users role)
+
+samba_user: "{{ samba_existing_user | mandatory }}" # (string) Samba user (references samba_existing_user)
+
+# ==================================================================================
+# Authentication Configuration
+# ==================================================================================
+
+samba_password: "{{ vault_smb_pass }}" # (string) Samba user password from vault
+
+# ==================================================================================
+# Service Management
+# ==================================================================================
+
+samba_services: # (list) Systemd services to enable and start
+  - smbd # Samba daemon (SMB/CIFS file sharing)
+  - avahi-daemon # Avahi mDNS/DNS-SD service discovery
+
+# ==================================================================================
+# Internal Variables (Auto-Computed)
+# ==================================================================================
+# __user_exists: Command result from id {{ samba_user }}
+# __samba_user_check: Result from pdbedit -L -u {{ samba_user }}
+# __testparm_result: Result from testparm -s validation
+# ==================================================================================

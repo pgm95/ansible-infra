@@ -1,0 +1,116 @@
+---
+# Shared Proxmox Task - Check Resource State (Reconciliation)
+#
+# Required variables:
+#   _resource_type: "lxc" or "vm"
+#   _hostname: The resource hostname
+#   _vmid: The resource VMID
+#   ansible_id_tag: The computed ansible_id tag (from compute_ansible_id.yml)
+#   proxmox_api_* variables: API auth (from inventory/group_vars/proxmox.yml)
+#
+# Output variables:
+#   resource_state: Dictionary with exists, action, matched_by, actual_vmid, etc.
+#   _resource_exists: Boolean for rescue block compatibility
+
+- name: Determine resource state via reconciliation
+  block:
+    # Primary: Check by ansible_id tag (reconciliation matching)
+    - name: Query all resources to find matching ansible_id tag
+      community.proxmox.proxmox_vm_info:
+        api_host: "{{ proxmox_api_host }}"
+        api_user: "{{ proxmox_api_user }}"
+        api_token_id: "{{ proxmox_api_token_id }}"
+        api_token_secret: "{{ proxmox_api_token_secret }}"
+        validate_certs: "{{ proxmox_api_validate_certs }}"
+        type: "{{ _resource_type if _resource_type == 'lxc' else omit }}"
+      delegate_to: localhost
+      register: __all_resources_info
+      failed_when: false
+      changed_when: false
+
+    # Filter to correct type for VMs (API returns both when type not specified)
+    # Note: Proxmox API returns 'qemu' for VMs, not 'vm'
+    - name: Filter resources by type
+      ansible.builtin.set_fact:
+        __filtered_resources: >-
+          {{
+            __all_resources_info.proxmox_vms | default([])
+            | selectattr('type', 'defined')
+            | selectattr('type', 'equalto', 'qemu')
+            | list
+            if _resource_type == 'vm'
+            else __all_resources_info.proxmox_vms | default([])
+          }}
+
+    # Find resource matching our ansible_id tag
+    - name: Search for resource with matching ansible_id tag
+      ansible.builtin.set_fact:
+        __matched_resource: >-
+          {{
+            __filtered_resources
+            | selectattr('tags', 'defined')
+            | selectattr('tags', 'search', ansible_id_tag)
+            | list | first | default(none)
+          }}
+
+    # Secondary: Check by VMID if no tag match found
+    - name: Check resource existence by VMID (fallback)
+      ansible.builtin.set_fact:
+        __vmid_matched_resource: >-
+          {{
+            __filtered_resources
+            | selectattr('vmid', 'equalto', _vmid | int)
+            | list | first | default(none)
+          }}
+      when: __matched_resource is none
+
+    # Determine final state based on reconciliation
+    - name: Set reconciled resource state facts
+      ansible.builtin.set_fact:
+        resource_state:
+          exists: "{{ __matched_resource is not none or (__vmid_matched_resource | default(none)) is not none }}"
+          action: "{{ 'skip' if (__matched_resource is not none or (__vmid_matched_resource | default(none)) is not none) else 'create' }}"
+          vmid: "{{ _vmid }}"
+          hostname: "{{ _hostname }}"
+          resource_type: "{{ _resource_type }}"
+          matched_by: >-
+            {{ 'ansible_id_tag' if __matched_resource is not none
+               else ('vmid' if (__vmid_matched_resource | default(none)) is not none else 'none') }}
+          actual_vmid: >-
+            {{ __matched_resource.vmid | default((__vmid_matched_resource | default({})).vmid) | default('') }}
+          current_status: >-
+            {{ __matched_resource.status | default((__vmid_matched_resource | default({})).status) | default('not_exists') }}
+          current_node: >-
+            {{ __matched_resource.node | default((__vmid_matched_resource | default({})).node) | default('') }}
+          current_tags: >-
+            {{ __matched_resource.tags | default((__vmid_matched_resource | default({})).tags) | default('') }}
+
+    - name: Display reconciliation results
+      ansible.builtin.debug:
+        msg:
+          - "Reconciliation Results:"
+          - "  Definition: {{ _hostname }} (VMID: {{ _vmid }})"
+          - "  ansible_id: {{ ansible_id }} (tag: {{ ansible_id_tag }})"
+          - "  Matched by: {{ resource_state.matched_by }}"
+          - "  Resource Exists: {{ resource_state.exists }}"
+          - "  Action: {{ resource_state.action }}"
+          - "  Actual VMID: {{ resource_state.actual_vmid | default('N/A') }}"
+          - "  Status: {{ resource_state.current_status }}"
+          - "  Tags: {{ resource_state.current_tags }}"
+        verbosity: 1
+
+    # Warn if VMID mismatch detected
+    - name: Warn on VMID mismatch
+      ansible.builtin.debug:
+        msg: >-
+          VMID mismatch detected!
+          Definition specifies VMID {{ _vmid }} but {{ _resource_type }} found with VMID {{ resource_state.actual_vmid }}.
+          The ansible_id tag ensures correct matching. Consider updating host_vars.
+      when:
+        - resource_state.matched_by == 'ansible_id_tag'
+        - resource_state.actual_vmid | string != _vmid | string
+
+# Set compatibility variable for rescue blocks
+- name: Set _resource_exists for rescue block compatibility
+  ansible.builtin.set_fact:
+    _resource_exists: "{{ resource_state.exists }}"

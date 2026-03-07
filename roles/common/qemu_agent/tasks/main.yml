@@ -1,0 +1,37 @@
+---
+# Auto-detect and install QEMU Guest Agent on compatible systems
+# Only runs on QEMU/KVM VMs with virtio guest agent port available
+
+- name: Detect QEMU/KVM virtualization
+  when: qemu_agent_enabled | bool
+  ansible.builtin.set_fact:
+    __is_qemu_vm: "{{ ansible_virtualization_type in ['kvm', 'qemu'] }}"
+
+- name: Check virtio guest agent port availability
+  when:
+    - qemu_agent_enabled | bool
+    - __is_qemu_vm | default(false)
+  ansible.builtin.stat:
+    path: /dev/virtio-ports/org.qemu.guest_agent.0
+  register: __qemu_ga_port
+
+- name: Install qemu-guest-agent package
+  when:
+    - qemu_agent_enabled | bool
+    - __is_qemu_vm | default(false)
+    - __qemu_ga_port.stat.exists | default(false)
+  ansible.builtin.apt:
+    name: qemu-guest-agent
+    state: present
+    update_cache: true
+
+- name: Enable and start QEMU Guest Agent service
+  when:
+    - qemu_agent_enabled | bool
+    - __is_qemu_vm | default(false)
+    - __qemu_ga_port.stat.exists | default(false)
+  ansible.builtin.systemd:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+  failed_when: false # Don't block deployment on service issues

@@ -1,0 +1,108 @@
+---
+# ==================================================================================
+## Tailscale VPN installation with OAuth authentication, custom IP assignment, Linux kernel optimizations, and optional SSH binding
+#
+## User-Configurable Variables:
+#   - Role enablement and package configuration
+#   - OAuth authentication settings (tags, ephemeral, preauthorized)
+#   - Custom IP assignment via API
+#   - Connection arguments and hostname
+#   - SSH binding to Tailscale network
+#   - API timeouts and retries
+#   - Debugging options
+#
+## Internal/Computed Variables (documented as comments only):
+#   - ts_*: Normalized variables loaded in load_config.yml
+#   - complete_ts_args: Built from hostname and args
+#   - is_exit_node_or_router: Computed from args
+#   - ts_oauth_client_id: Extracted from devices token
+#   - ts_access_token: OAuth token from API exchange
+#   - ts_device_id: Device ID from Tailscale status
+#   - primary_interface: Auto-detected network interface
+# ==================================================================================
+
+## General Configuration =========================================
+tailscale_enabled: false # (boolean) Enable Tailscale VPN installation and configuration
+tailscale_state: latest # (string) Package state (latest, present, version number)
+tailscale_release_stability: stable # (string) Release channel (stable, unstable)
+
+## OAuth Configuration =========================================
+# Both needed variables are OAuth client credentials (tskey-client-*) differing by scope.
+# Define in group/host_vars: Can point to the same OAuth client if it has both scopes.
+tailscale_oauth_authkeys: "" # (string) OAuth client with auth_keys scope (device enrollment, REQUIRED)
+tailscale_oauth_devices: "" # (string) OAuth client with devices write scope (custom IP assignment)
+tailscale_tags: [] # (list) REQUIRED for OAuth keys (e.g., ['server', 'vps'])
+tailscale_oauth_ephemeral: false # (boolean) Mark device as ephemeral (auto-cleanup on disconnect)
+tailscale_oauth_preauthorized: false # (boolean) Skip manual authorization in admin console
+
+## Custom IP Configuration =========================================
+# Assign custom Tailscale IP via API (requires tailscale_oauth_devices with 'devices' write scope)
+tailscale_ip: "" # (string) Custom Tailscale IP address (e.g., "100.64.0.10")
+
+## API Configuration =========================================
+tailscale_device_registration_delay: 5 # (integer) Seconds to wait for device registration
+tailscale_device_registration_retries: 6 # (integer) Max retries for device registration checks
+tailscale_api_timeout: 30 # (integer) API request timeout in seconds
+
+## Connection Configuration =========================================
+# tailscale_hostname: ""              # (string) Auto-set to inventory hostname if not specified
+# tailscale_args: ""                  # (string) Additional args (e.g., "--accept-routes --ssh")
+tailscale_up_skip: false # (boolean) Skip tailscale up command (for testing)
+tailscale_up_timeout: 120 # (integer) Tailscale up command timeout in seconds
+
+## SSH Binding Configuration =========================================
+# WARNING: Restricts SSH access to Tailscale network + localhost only (locks out non-Tailscale access)
+tailscale_bind_ssh: false # (boolean) Bind SSH to Tailscale IP address + localhost
+
+## Debugging Configuration =========================================
+tailscale_verbose: false # (boolean) Enable verbose output from artis3n.tailscale role
+tailscale_insecurely_log_authkey: false # (boolean) Log authkey in output (INSECURE, for debugging only)
+
+# ==================================================================================
+# Internal Variables  (Auto-Computed)
+#
+## Interface variables (loaded in load_config.yml, used across task files):
+# _ts_authkey: tailscale_oauth_authkeys
+# _ts_devices_token: tailscale_oauth_devices
+# _ts_ip: tailscale_ip or {HOSTNAME}_TS_IP env var
+# _ts_tags: tailscale_tags
+# _ts_hostname: tailscale_hostname or auto-detected hostname
+# _ts_args: tailscale_args
+# _ts_oauth_ephemeral: tailscale_oauth_ephemeral
+# _ts_oauth_preauthorized: tailscale_oauth_preauthorized
+# _ts_state: tailscale_state
+# _ts_release_stability: tailscale_release_stability
+# _ts_up_skip: tailscale_up_skip
+# _ts_up_timeout: tailscale_up_timeout
+# _ts_verbose: tailscale_verbose
+# _ts_insecure_log: tailscale_insecurely_log_authkey
+# _complete_ts_args: "--hostname={{ _ts_hostname }} {{ _ts_args }}"
+# _is_exit_node_or_router: Detected from _ts_args
+# _sysctl_d_dir: Stat result for /etc/sysctl.d (used in handler)
+# _primary_interface: Auto-detected network interface (used in handler)
+#
+## api_configuration.yml
+# __ts_oauth_client_id: Extracted from _ts_devices_token
+# __ts_access_token: OAuth access token from API exchange
+# __ts_status_json: tailscale status JSON output
+# __ts_device_id: Device ID from tailscale status
+# __ts_current_status: Current tailscale status
+# __ts_current_ipv4: Current Tailscale IPv4 address
+# __ts_api_result: API call result
+#
+## ssh_binding.yml
+# __ts_ssh_status: SSH status check result
+# __ts_ssh_running: Boolean indicating Tailscale service status
+# __ts_ssh_ipv4: Tailscale IPv4 for SSH binding
+#
+## linux_optimizations.yml
+# __ipv4_forwarding: sysctl IPv4 forwarding configuration result
+# __ipv6_forwarding: sysctl IPv6 forwarding configuration result
+# __current_ethtool_settings: Current ethtool UDP settings
+# __networkd_dispatcher_status: networkd-dispatcher service status
+# __ethtool_script_created: ethtool script creation result
+# __script_test: ethtool script test result
+#
+## status.yml
+# __tailscale_status: tailscale status command result
+# ==================================================================================

@@ -1,0 +1,83 @@
+---
+# ============================================================================
+# Dotfiles Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/dotfiles
+
+argument_specs:
+  main:
+    short_description: Deploy dotfiles from Git repository via deploy.sh
+    description:
+      - Clones dotfiles repository to local cache
+      - Synchronizes repository to remote staging directory
+      - Invokes deploy.sh with configurable arguments
+      - Supports deployment to root and regular users
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Feature Control
+      # ========================================================================
+      dotfiles_enabled:
+        description: Enable/disable dotfiles deployment
+        type: bool
+        default: false
+
+      # ========================================================================
+      # Repository Configuration
+      # ========================================================================
+      dotfiles_repo_url:
+        description: Git repository URL (without https:// prefix)
+        type: str
+        default: ""
+
+      dotfiles_repo_branch:
+        description: Git branch to checkout
+        type: str
+        default: ""
+
+      # ========================================================================
+      # Deployment Configuration
+      # ========================================================================
+      dotfiles_deploy_to_root:
+        description: Deploy dotfiles to root user's home directory
+        type: bool
+        default: true
+
+      dotfiles_deploy_to_users:
+        description: Deploy dotfiles to users from users_list
+        type: bool
+        default: false
+
+      dotfiles_deploy_args:
+        description: >-
+          Arguments passed verbatim to deploy.sh. Supports both components
+          (bash, nano, claude, etc.) and options (--force, --verbose).
+          Empty string deploys all components (script default).
+        type: str
+        default: ""
+
+      dotfiles_force_update:
+        description: Force git pull (overwrite local changes in cache)
+        type: bool
+        default: true
+
+      dotfiles_continue_on_error:
+        description: Continue playbook execution on dotfiles failure
+        type: bool
+        default: true
+
+      # ========================================================================
+      # Directory Configuration
+      # ========================================================================
+      dotfiles_cache_dir:
+        description: Local cache directory for git clone on the control node
+        type: str
+        default: "{{ playbook_dir | dirname }}/.cache/dotfiles"
+
+      dotfiles_staging_dir:
+        description: Remote directory where the repository is synced before deployment
+        type: str
+        default: /root/.dotfiles

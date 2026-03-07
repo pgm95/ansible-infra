@@ -1,0 +1,8 @@
+# Managed by Ansible - resolvconf head file
+# These nameservers take priority over interface-specific servers
+{% for server in net_dns_servers %}
+nameserver {{ server }}
+{% endfor %}
+{% if net_dns_search is defined and net_dns_search | length > 0 %}
+search {{ net_dns_search | join(' ') }}
+{% endif %}

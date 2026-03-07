@@ -1,0 +1,127 @@
+---
+# VM Deployment Playbook, contains four plays:
+#   1. Discover VM definitions and register dynamically
+#   2. Create VMs on Proxmox hosts (skipped if VM exists)
+#   3. Provision VMs via SSH
+#   4. Purge VMs (only with --tags purge)
+#
+# Key Features:
+# - Smart reconciliation via ansible_id tag (hash of hostname+vmid)
+# - Single source of truth: host_vars/vm/{hostname}.yml
+#
+# Reconciliation:
+# - Each VM gets a unique ansible_id = sha256(hostname+vmid)[:8]
+# - Tag "ansible_<id>" is applied during creation for reliable matching
+# - Existing VMs are matched by tag first, then VMID fallback
+################################################################################
+
+## PLAY 1: Discover VM Definitions (Dynamic Inventory)
+- name: Discover VM Definitions
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: ["discover", "always"]
+  tasks:
+    - name: Discover VM definitions using shared task
+      ansible.builtin.include_tasks: tasks/discover_definitions.yml
+      vars:
+        _resource_type: vm
+        _host_vars_subdir: vm
+        _group_name: vm
+        _hostname_var: vm_hostname
+
+## PLAY 2: Create VMs on Proxmox
+- name: Create VMs on Proxmox
+  hosts: vm
+  gather_facts: false
+  vars_files:
+    - group_vars/proxmox.yml
+  # Note: delegate_to uses pve_host from host_vars (dynamic per-VM)
+  # Module defaults for all community.proxmox modules - eliminates auth repetition
+  module_defaults:
+    group/community.proxmox.proxmox:
+      api_host: "{{ proxmox_api_host }}"
+      api_user: "{{ proxmox_api_user }}"
+      api_token_id: "{{ proxmox_api_token_id }}"
+      api_token_secret: "{{ proxmox_api_token_secret }}"
+      validate_certs: "{{ proxmox_api_validate_certs }}"
+  tags: ["create"]
+  tasks:
+    - name: Create VM using VM role
+      delegate_to: "{{ pve_host }}"
+      # Variables automatically merged by Ansible's native precedence:
+      # 1. group_vars/vm.yml (73 defaults) - inherited via groups: ['vm']
+      # 2. Host-specific overrides from include_vars delegation
+      # 3. Vault variables from vars_files (template evaluation)
+      block:
+        - name: Include VM role
+          ansible.builtin.include_role:
+            name: proxmox/vm
+  post_tasks:
+    - name: Update ansible_host to discovered IP (if available)
+      ansible.builtin.set_fact:
+        ansible_host: "{{ discovered_ip }}"
+      delegate_to: "{{ vm_hostname | default(inventory_hostname) }}"
+      delegate_facts: true
+      when: discovered_ip is defined and discovered_ip | length > 0
+
+## PLAY 3: Provision VMs
+# NOTE: No become directive needed - VMs use root user (vm_cloudinit_user: root)
+- name: Provision VMs
+  hosts: vm # Uses dynamic inventory from Play 1
+  gather_facts: true # Facts needed by docker, tailscale, and other application roles
+  tags: ["provision"]
+  pre_tasks:
+    - name: Load VM configuration
+      ansible.builtin.include_vars:
+        file: "{{ _inventory_dir }}/host_vars/vm/{{ inventory_hostname }}.yml"
+      become: false
+      tags: [always]
+      failed_when: false # Allow missing file (variables already loaded via add_host)
+  roles:
+    - role: common/ssh
+      tags: [common, ssh]
+    - role: common/users
+      tags: [common, users]
+      when: users_list is defined and users_list | length > 0
+    - role: common/packages
+      tags: [common, packages]
+    - role: common/qemu_agent
+      tags: [common, qemu, qemu_agent]
+    - role: network/dns
+      tags: [network, dns]
+    - role: network/ntp
+      tags: [network, ntp]
+    - role: common/dotfiles
+      tags: [common, dotfiles]
+      when: dotfiles_enabled
+    - role: applications/tailscale
+      tags: [application, tailscale, vpn]
+      when:
+        - not ansible_check_mode # Skip in check mode due to collection limitation
+        - tailscale_enabled
+    - role: applications/docker
+      tags: [application, docker]
+      when: docker_enabled
+    - role: applications/samba
+      tags: [application, samba]
+      when: samba_enabled
+
+## PLAY 4: Purge VMs
+# Only runs when --tags purge is explicitly specified
+- name: Purge VMs
+  hosts: vm
+  gather_facts: false
+  tags: [purge, never]
+  vars_files:
+    - group_vars/proxmox.yml
+  tasks:
+    - name: Purge VM using shared task
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/proxmox/shared/tasks/purge_resource.yml"
+      vars:
+        _resource_type: vm
+        _hostname: "{{ vm_hostname | default(inventory_hostname) }}"
+        _vmid: "{{ vm_vmid }}"
+        _purge_vendor_file: "{{ vm_cicustom_vendor_enabled | default(false) }}"
+        _vendor_storage: "{{ vm_cicustom_vendor_storage | default('') }}"
+        _vendor_path: "{{ vm_cicustom_vendor_path | default('snippets') }}"

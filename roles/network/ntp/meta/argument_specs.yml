@@ -1,0 +1,36 @@
+---
+# ============================================================================
+# NTP Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/network/ntp
+
+argument_specs:
+  main:
+    short_description: NTP time synchronization via systemd-timesyncd
+    description:
+      - Configures systemd-timesyncd via drop-in file
+      - Enables automatic time synchronization
+      - Deploys to /etc/systemd/timesyncd.conf.d/99-ansible.conf
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # NTP Configuration
+      # ========================================================================
+      net_ntp_configure:
+        description: Enable NTP time synchronization
+        type: bool
+        default: false
+
+      net_ntp_servers:
+        description: |
+          NTP server hostnames or IPs.
+          Common choices:
+            - NTP Pool: pool.ntp.org, 0.pool.ntp.org
+            - Cloudflare: time.cloudflare.com
+            - Google: time.google.com
+        type: list
+        elements: str
+        default: []

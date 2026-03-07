@@ -1,0 +1,131 @@
+---
+# ============================================================================
+# Samba Role - Fileserver Installation and Configuration
+# ============================================================================
+# Uses existing smb.conf from project files/ directory
+# REQUIRES: User must already exist (created by users role)
+
+# ============================================================================
+# Pre-Deployment Validation
+# ============================================================================
+
+- name: Validate samba_existing_user is defined
+  ansible.builtin.assert:
+    that:
+      - samba_existing_user is defined
+      - samba_existing_user | length > 0
+    fail_msg: >-
+      samba_existing_user is missing or empty. Define it in
+      host_vars/{{ inventory_hostname }}.yml referencing a user from
+      users_list.
+    success_msg: "Samba user reference validated: {{ samba_existing_user }}"
+  tags: [samba, validation]
+
+- name: Verify Samba user exists on system
+  ansible.builtin.command: id {{ samba_user }}
+  register: __user_exists
+  changed_when: false
+  failed_when: false
+  tags: [samba, validation]
+
+- name: Validate system user exists
+  ansible.builtin.assert:
+    that:
+      - __user_exists.rc == 0
+    fail_msg: >-
+      User '{{ samba_user }}' was not found on this host. Ensure the users
+      role runs before samba and that the user is defined in users_list.
+      Error: {{ __user_exists.stderr | default('no output') }}.
+    success_msg: "System user validated: {{ samba_user }}"
+  tags: [samba, validation]
+
+- name: Display user verification
+  ansible.builtin.debug:
+    msg: "User {{ samba_user }} exists with: {{ __user_exists.stdout }}"
+    verbosity: 1
+  tags: [samba, validation]
+
+- name: Install Samba and related packages
+  ansible.builtin.apt:
+    name:
+      - samba
+      - smbclient
+      - cifs-utils
+      - avahi-daemon
+      - avahi-utils
+      - libnss-mdns
+    state: present
+    update_cache: true
+  tags: [samba, packages]
+
+- name: Check if Samba user exists in Samba database
+  ansible.builtin.command: pdbedit -L -u {{ samba_user }}
+  register: __samba_user_check
+  failed_when: false
+  changed_when: false
+  tags: [samba, users]
+
+- name: Create Samba password for existing user
+  # Note: Shell piping necessary as smbpasswd requires interactive input
+  # Ansible has no native smbpasswd module
+  ansible.builtin.shell: |
+    set -o pipefail
+    (echo "{{ samba_password }}"; echo "{{ samba_password }}") | smbpasswd -s -a {{ samba_user }}
+  args:
+    executable: /bin/bash
+  no_log: true
+  when: __samba_user_check.rc != 0
+  changed_when: true
+  tags: [samba, users]
+
+- name: Update Samba password if user exists in database
+  # Note: Shell piping necessary as smbpasswd requires interactive input
+  ansible.builtin.shell: |
+    set -o pipefail
+    (echo "{{ samba_password }}"; echo "{{ samba_password }}") | smbpasswd -s {{ samba_user }}
+  args:
+    executable: /bin/bash
+  no_log: true
+  when: __samba_user_check.rc == 0
+  changed_when: false
+  tags: [samba, users]
+
+- name: Enable Samba user
+  ansible.builtin.command: smbpasswd -e {{ samba_user }}
+  changed_when: false
+  tags: [samba, users]
+
+- name: Deploy SMB configuration from project files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir | dirname }}/files/smb.conf"
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+  notify: Samba | Restart samba services
+  tags: [samba, config]
+
+- name: Validate Samba configuration
+  ansible.builtin.command: testparm -s /etc/samba/smb.conf
+  register: __testparm_result
+  changed_when: false
+  failed_when: __testparm_result.rc != 0
+  tags: [samba, config]
+
+- name: Disable NetBIOS daemon (not needed)
+  ansible.builtin.systemd:
+    name: nmbd
+    state: stopped
+    enabled: false
+  failed_when: false
+  tags: [samba, services]
+
+- name: Ensure Samba services are started and enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop: "{{ samba_services }}"
+  tags: [samba, services]

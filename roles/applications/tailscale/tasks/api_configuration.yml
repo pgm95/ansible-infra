@@ -1,0 +1,108 @@
+---
+# Configure Tailscale device via API (custom IP assignment)
+
+- name: Tailscale | Configure device via API
+  when:
+    - _ts_ip is defined
+    - _ts_ip != ''
+    - _ts_devices_token is defined
+    - _ts_devices_token != ''
+  block:
+    - name: Tailscale | Extract OAuth client ID from devices token
+      ansible.builtin.set_fact:
+        __ts_oauth_client_id: "{{ _ts_devices_token.split('-')[2] }}"
+      no_log: true
+
+    - name: Tailscale | Exchange OAuth credentials for access token
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/oauth/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          client_id: "{{ __ts_oauth_client_id }}"
+          client_secret: "{{ _ts_devices_token }}"
+        status_code: 200
+        timeout: "{{ tailscale_api_timeout | default(30) }}"
+      register: __ts_oauth_response
+      no_log: true
+      retries: 3
+      delay: 2
+      until: __ts_oauth_response is succeeded
+
+    - name: Tailscale | Extract access token from OAuth response
+      ansible.builtin.set_fact:
+        __ts_access_token: "{{ __ts_oauth_response.json.access_token }}"
+      no_log: true
+
+    - name: Tailscale | Wait for device registration to complete
+      ansible.builtin.pause:
+        seconds: "{{ tailscale_device_registration_delay | default(5) }}"
+
+    - name: Tailscale | Get device ID from status
+      ansible.builtin.command: tailscale status --json
+      register: __ts_status_json
+      changed_when: false
+      retries: "{{ tailscale_device_registration_retries | default(6) }}"
+      delay: 5
+      until:
+        - __ts_status_json.rc == 0
+        - (__ts_status_json.stdout | from_json).Self is defined
+        - (__ts_status_json.stdout | from_json).Self.ID is defined
+
+    - name: Tailscale | Parse device ID from status
+      ansible.builtin.set_fact:
+        __ts_device_id: "{{ (__ts_status_json.stdout | from_json).Self.ID }}"
+      no_log: true
+
+    - name: Tailscale | Validate device ID format
+      ansible.builtin.fail:
+        msg: >-
+          Invalid device ID retrieved from Tailscale.
+          Expected numeric ID, got: {{ __ts_device_id | default('undefined') }}
+          This may indicate device registration is incomplete.
+      when:
+        - __ts_device_id is not defined or __ts_device_id == ''
+
+    - name: Tailscale | Check current IP address
+      ansible.builtin.command: tailscale status --json
+      register: __ts_current_status
+      changed_when: false
+
+    - name: Tailscale | Parse current IP addresses
+      ansible.builtin.set_fact:
+        __ts_current_ipv4: "{{ (__ts_current_status.stdout | from_json).Self.TailscaleIPs | select('search', '^100\\.') | first | default('') }}"
+
+    - name: Tailscale | Set IP address via API
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/device/{{ __ts_device_id }}/ip"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ __ts_access_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          ipv4: "{{ _ts_ip }}"
+        status_code: [200, 201]
+        timeout: "{{ tailscale_api_timeout | default(30) }}"
+      register: __ts_api_result
+      no_log: true
+      changed_when: __ts_current_ipv4 != _ts_ip
+      retries: 3
+      delay: 2
+      until: __ts_api_result is succeeded
+      when: __ts_current_ipv4 != _ts_ip
+
+    - name: Tailscale | Display IP configuration result
+      ansible.builtin.debug:
+        msg: "Tailscale IP address {{ 'set to' if __ts_api_result is changed else 'already configured as' }} {{ _ts_ip }} for device {{ __ts_device_id }}"
+        verbosity: 1
+      when: __ts_api_result is not skipped
+
+  rescue:
+    - name: Tailscale | Report API configuration failure
+      ansible.builtin.fail:
+        msg: >-
+          Failed to configure Tailscale device via API.
+          Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+          Suggestion: Verify tailscale_oauth_devices has 'devices' write scope and is valid.
+          Device may still be functional with auto-assigned IP.

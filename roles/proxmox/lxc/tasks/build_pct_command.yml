@@ -1,0 +1,212 @@
+---
+# LXC Role - PCT Command Construction (Dictionary-Based)
+# Builds complete pct create command using dictionary approach for maintainability
+
+# Template Management
+- name: LXC | Get storage information for templates (API)
+  community.proxmox.proxmox_storage_info:
+    api_host: "{{ proxmox_api_host }}"
+    api_user: "{{ proxmox_api_user }}"
+    api_token_id: "{{ proxmox_api_token_id }}"
+    api_token_secret: "{{ proxmox_api_token_secret }}"
+    validate_certs: "{{ proxmox_api_validate_certs }}"
+  delegate_to: localhost
+  register: storage_info
+
+- name: LXC | Find first enabled storage with vztmpl support
+  ansible.builtin.set_fact:
+    lxc_template_storage: >-
+      {{ storage_info.proxmox_storages
+         | rejectattr('disable', 'defined')
+         | selectattr('content', 'search', 'vztmpl')
+         | map(attribute='storage')
+         | list | first }}
+  when: (storage_info.proxmox_storages | default([])) | length > 0
+
+- name: LXC | Get latest Debian template name for version
+  ansible.builtin.shell: |
+    set -o pipefail
+    pveam available | grep "debian-{{ lxc_os_version }}-standard" | awk '{print $2}' | sort -V | tail -1
+  args:
+    executable: /bin/bash
+  register: template_name_result
+  changed_when: false
+
+- name: LXC | Set template name
+  ansible.builtin.set_fact:
+    lxc_template_name: "{{ template_name_result.stdout }}"
+
+- name: LXC | Check if template file exists on filesystem
+  ansible.builtin.shell: |
+    set -o pipefail
+    pvesm path {{ lxc_template_storage }}:vztmpl/{{ lxc_template_name }} 2>/dev/null
+  args:
+    executable: /bin/bash
+  register: template_path_check
+  changed_when: false
+  failed_when: false
+
+- name: LXC | Download template if missing
+  ansible.builtin.command: pveam download {{ lxc_template_storage }} {{ lxc_template_name }}
+  when: template_path_check.rc != 0
+  register: template_download
+  changed_when: true
+
+- name: LXC | Set template volid for pct create
+  ansible.builtin.set_fact:
+    lxc_template_volid: "{{ lxc_template_storage }}:vztmpl/{{ lxc_template_name }}"
+
+# Identity & Storage Resolution
+- name: LXC | Set container ID from specified value
+  ansible.builtin.set_fact:
+    lxc_final_vmid: "{{ lxc_vmid }}"
+    lxc_container_name: "{{ lxc_hostname }}"
+
+- name: LXC | Auto-select default storage for containers
+  ansible.builtin.set_fact:
+    lxc_final_default_storage: >-
+      {{ (storage_info.proxmox_storages
+          | rejectattr('disable', 'defined')
+          | selectattr('content', 'search', 'rootdir')
+          | list | first).storage }}
+  when:
+    - lxc_default_storage == ''
+    - (storage_info.proxmox_storages | default([])) | length > 0
+
+- name: LXC | Use specified default storage
+  ansible.builtin.set_fact:
+    lxc_final_default_storage: "{{ lxc_default_storage }}"
+  when: lxc_default_storage != ''
+
+# Disk Configuration Helpers
+- name: LXC | Set disk configuration helpers
+  ansible.builtin.set_fact:
+    __boot_disk: "{{ lxc_disks[0] }}"
+    __additional_disks: "{{ lxc_disks[1:] | default([]) }}"
+
+- name: LXC | Resolve root disk storage
+  ansible.builtin.set_fact:
+    __boot_disk_storage: "{{ __boot_disk.storage | default('') | ternary(__boot_disk.storage | default(''), lxc_final_default_storage) }}"
+
+- name: LXC | Build rootfs options
+  vars:
+    _acl_opt: "{{ ('acl=' ~ ('1' if __boot_disk.acl | default(false) else '0')) if __boot_disk.acl is defined else '' }}"
+    _quota_opt: "{{ ('quota=' ~ ('1' if __boot_disk.quota | default(false) else '0')) if __boot_disk.quota is defined else '' }}"
+    _repl_cond: "{{ __boot_disk.replicate is defined and not __boot_disk.replicate | default(true) }}"
+    _replicate_opt: "{{ ('replicate=' ~ ('1' if __boot_disk.replicate | default(true) else '0')) if _repl_cond else '' }}"
+  ansible.builtin.set_fact:
+    __rootfs_options: "{{ [_acl_opt, _quota_opt, _replicate_opt] | select | list | join(',') }}"
+
+- name: LXC | Build rootfs argument
+  ansible.builtin.set_fact:
+    __rootfs_arg: >-
+      --rootfs {{ __boot_disk_storage }}:{{ __boot_disk.size }}{{ (',' ~ __rootfs_options) if __rootfs_options | length > 0 else '' }}
+
+# Additional Storage Disks (mp0, mp1, ...)
+- name: LXC | Initialize additional disk arguments
+  ansible.builtin.set_fact:
+    lxc_storage_disk_args: []
+
+- name: LXC | Build additional storage disk arguments
+  ansible.builtin.set_fact:
+    lxc_storage_disk_args: >-
+      {{ lxc_storage_disk_args + [
+        '--mp' ~ idx ~ ' ' ~
+        (item.storage | default('') | ternary(item.storage | default(''), lxc_final_default_storage)) ~ ':' ~
+        item.size ~
+        ',mp=' ~ item.mp ~
+        ((',acl=' ~ ('1' if item.acl | default(false) else '0')) if item.acl is defined else '') ~
+        ((',backup=' ~ ('1' if item.backup | default(true) else '0')) if item.backup is defined and not item.backup | default(true) else '') ~
+        ((',quota=' ~ ('1' if item.quota | default(false) else '0')) if item.quota is defined else '') ~
+        ((',replicate=' ~ ('1' if item.replicate | default(true) else '0')) if item.replicate is defined and not item.replicate | default(true) else '') ~
+        ((',ro=' ~ ('1' if item.ro | default(false) else '0')) if item.ro | default(false) else '')
+      ] }}
+  loop: "{{ __additional_disks }}"
+  loop_control:
+    index_var: idx
+  when: __additional_disks | length > 0
+
+# Network Configuration (Template-Based)
+- name: LXC | Build network configuration string
+  ansible.builtin.set_fact:
+    lxc_net_config: "{{ lookup('template', 'network.j2') | trim }}"
+
+# Build Command Using Dictionary Pattern
+- name: LXC | Build required parameters dictionary
+  ansible.builtin.set_fact:
+    __pct_required:
+      vmid: "{{ lxc_final_vmid }}"
+      template: "{{ lxc_template_volid }}"
+      hostname: "--hostname {{ lxc_container_name }}"
+      cores: "--cores {{ lxc_cores }}"
+      memory: "--memory {{ lxc_memory }}"
+      swap: "--swap {{ lxc_swap }}"
+      rootfs: "{{ __rootfs_arg }}"
+      net0: "--net0 \"{{ lxc_net_config }}\""
+      ostype: "--ostype debian"
+      arch: "--arch amd64"
+
+- name: LXC | Build features string (template-based)
+  ansible.builtin.set_fact:
+    __lxc_features: "{{ lookup('template', 'features.j2') | trim }}"
+
+- name: LXC | Build optional parameters dictionary
+  ansible.builtin.set_fact:
+    __pct_optional:
+      password: "{{ '--password ' ~ (lxc_root_password | quote) if lxc_root_password | length > 0 else '' }}"
+      ssh_keys: "{{ '--ssh-public-keys ' ~ __lxc_ssh_keys_file if __lxc_ssh_keys_file | default('') | length > 0 else '' }}"
+      onboot: "--onboot {{ '1' if lxc_start_on_boot else '0' }}"
+      startup: "{{ '--startup order=' ~ lxc_startup_order if lxc_startup_order | int > 0 else '' }}"
+      description: "{{ '--description ' ~ (lxc_description | quote) if lxc_description | length > 0 else '' }}"
+      tags: "--tags '{{ ansible_id_tag }}{{ ';' ~ lxc_tags if lxc_tags | length > 0 else '' }}'"
+      unprivileged: "--unprivileged {{ '0' if lxc_privileged else '1' }}"
+      nameserver: "{{ '--nameserver ' ~ (lxc_net_nameserver | quote) if lxc_net_nameserver | length > 0 else '' }}"
+      searchdomain: "{{ '--searchdomain ' ~ (lxc_net_search_domain | quote) if lxc_net_search_domain | length > 0 else '' }}"
+      tty: "{{ '--tty ' ~ lxc_console_tty if lxc_console_tty | int > 0 else '' }}"
+      cmode: "{{ '--cmode ' ~ lxc_console_mode if lxc_console_mode | length > 0 else '' }}"
+      features: "--features '{{ __lxc_features }}'"
+      console: "--console {{ '1' if lxc_console_dev_enable | default(true) else '0' }}"
+
+# Device Passthrough (Unprivileged Only)
+- name: LXC | Add device parameters if present
+  ansible.builtin.set_fact:
+    __pct_devices: "{{ lxc_dev_args | default([]) | join(' ') }}"
+
+# Bind Mounts (start indexing after storage disks)
+- name: LXC | Initialize bind mount arguments
+  ansible.builtin.set_fact:
+    lxc_bind_mount_args: []
+
+- name: LXC | Build indexed bind mount arguments (starting after storage disks)
+  ansible.builtin.set_fact:
+    lxc_bind_mount_args: "{{ lxc_bind_mount_args + ['--mp' ~ (idx + (__additional_disks | length)) ~ ' ' ~ item.split(':')[0] ~ ',mp=' ~ item.split(':')[1]] }}"
+  loop: "{{ lxc_bind_mounts | default([]) }}"
+  loop_control:
+    index_var: idx
+  when: lxc_bind_mounts | default([]) | length > 0
+
+# Construct Final Command
+- name: LXC | Construct pct create command
+  ansible.builtin.set_fact:
+    pct_create_cmd: >-
+      pct create {{ __pct_required.vmid }}
+      {{ __pct_required.template }}
+      {{ __pct_required.hostname }}
+      {{ __pct_required.cores }}
+      {{ __pct_required.memory }}
+      {{ __pct_required.swap }}
+      {{ __pct_required.rootfs }}
+      {{ __pct_required.net0 }}
+      {{ __pct_required.ostype }}
+      {{ __pct_required.arch }}
+      {{ __pct_optional.values() | select | join(' ') }}
+      {{ __pct_devices if not lxc_privileged and __pct_devices | length > 0 else '' }}
+      {{ lxc_storage_disk_args | join(' ') if lxc_storage_disk_args | default([]) | length > 0 else '' }}
+      {{ lxc_bind_mount_args | join(' ') if lxc_bind_mount_args | default([]) | length > 0 else '' }}
+
+- name: LXC | Display pct create command
+  ansible.builtin.debug:
+    msg:
+      - "Constructed pct create command:"
+      - "{{ pct_create_cmd }}"
+    verbosity: 1

@@ -1,0 +1,4 @@
+---
+dependencies:
+  - role: common/users
+    when: dotfiles_deploy_to_users | bool

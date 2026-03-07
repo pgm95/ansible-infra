@@ -1,0 +1,25 @@
+---
+# ============================================================================
+# Swap Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/swap
+
+argument_specs:
+  main:
+    short_description: Swap management for container/VM workloads
+    description:
+      - Disables swap immediately via swapoff
+      - Removes swap entries from /etc/fstab
+      - Recommended for Kubernetes and container hosts
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Feature Control
+      # ========================================================================
+      swap_disable:
+        description: Disable swap (recommended for container workloads)
+        type: bool
+        default: false

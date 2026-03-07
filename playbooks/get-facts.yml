@@ -1,0 +1,221 @@
+---
+# Playbook to gather and display comprehensive system facts
+# Includes dynamic discovery of VMs and LXCs from host_vars
+
+# Discover VMs from host_vars/vm/
+- name: Discover VMs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Discover VM definitions
+      ansible.builtin.include_tasks: tasks/discover_definitions.yml
+      vars:
+        _resource_type: vm
+        _host_vars_subdir: vm
+        _group_name: vm
+        _hostname_var: vm_hostname
+
+# Discover LXCs from host_vars/lxc/
+- name: Discover LXCs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Discover LXC definitions
+      ansible.builtin.include_tasks: tasks/discover_definitions.yml
+      vars:
+        _resource_type: lxc
+        _host_vars_subdir: lxc
+        _group_name: lxc
+        _hostname_var: lxc_hostname
+
+# Gather facts from all hosts (static + dynamically discovered)
+- name: Get System Facts
+  hosts: "{{ target | default('all:!localhost') }}"
+  gather_facts: true
+  ignore_unreachable: true
+  any_errors_fatal: false
+
+  tasks:
+    - name: Detect public IPv4 from interfaces
+      ansible.builtin.set_fact:
+        public_ipv4: "{{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('public') | first | default('N/A') }}"
+      no_log: true
+
+    - name: Get all private IPv4 addresses
+      ansible.builtin.set_fact:
+        private_ipv4_list: "{{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('private') | list }}"
+      no_log: true
+
+    - name: Check if Tailscale is installed
+      ansible.builtin.command: which tailscale
+      register: tailscale_check
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: Get Tailscale status
+      ansible.builtin.command: tailscale status --json
+      register: tailscale_status_raw
+      changed_when: false
+      failed_when: false
+      when: tailscale_check.rc == 0
+      no_log: true
+
+    - name: Parse Tailscale information
+      ansible.builtin.set_fact:
+        tailscale_info: "{{ tailscale_status_raw.stdout | from_json }}"
+      when: tailscale_check.rc == 0 and tailscale_status_raw.rc == 0
+      no_log: true
+
+    - name: Extract Tailscale details
+      ansible.builtin.set_fact:
+        tailscale_ipv4: "{{ tailscale_info.Self.TailscaleIPs | select('search', '^100\\.') | first | default('N/A') }}"
+        tailscale_ipv6: "{{ tailscale_info.Self.TailscaleIPs | select('search', '^fd7a:') | first | default('N/A') }}"
+        tailscale_hostname: "{{ tailscale_info.Self.HostName | default('N/A') }}"
+        tailscale_online: "{{ tailscale_info.Self.Online | default(false) }}"
+        tailscale_exit_node: "{{ tailscale_info.Self.ExitNodeOption | default(false) }}"
+      when: tailscale_check.rc == 0 and tailscale_status_raw.rc == 0
+      no_log: true
+
+    # Check service statuses in parallel for efficiency (async pattern)
+    - name: Start async check for sshd service
+      ansible.builtin.systemd:
+        name: sshd
+      async: 10
+      poll: 0
+      register: sshd_async
+      failed_when: false
+      no_log: true
+
+    - name: Start async check for tailscaled service
+      ansible.builtin.systemd:
+        name: tailscaled
+      async: 10
+      poll: 0
+      register: tailscaled_async
+      failed_when: false
+      when: tailscale_check.rc == 0
+      no_log: true
+
+    - name: Start async check for docker service
+      ansible.builtin.systemd:
+        name: docker
+      async: 10
+      poll: 0
+      register: docker_async
+      failed_when: false
+      no_log: true
+
+    # Wait for all async checks to complete
+    - name: Wait for sshd check completion
+      ansible.builtin.async_status:
+        jid: "{{ sshd_async.ansible_job_id }}"
+      register: sshd_status
+      until: sshd_status.finished
+      retries: 3
+      delay: 1
+      no_log: true
+
+    - name: Wait for tailscaled check completion
+      ansible.builtin.async_status:
+        jid: "{{ tailscaled_async.ansible_job_id }}"
+      register: tailscaled_status
+      until: tailscaled_status.finished
+      retries: 3
+      delay: 1
+      when: tailscale_check.rc == 0
+      no_log: true
+
+    - name: Wait for docker check completion
+      ansible.builtin.async_status:
+        jid: "{{ docker_async.ansible_job_id }}"
+      register: docker_status
+      until: docker_status.finished
+      retries: 3
+      delay: 1
+      no_log: true
+
+    - name: Set service status strings
+      ansible.builtin.set_fact:
+        sshd_state: "{{ 'active' if sshd_status.status.ActiveState | default('unknown') == 'active' else 'inactive' }}"
+        sshd_enabled: "{{ 'yes' if sshd_status.status.UnitFileState | default('') == 'enabled' else 'no' }}"
+        tailscale_state: >-
+          {{ 'active' if tailscaled_status.status.ActiveState | default('unknown') == 'active'
+             else 'inactive' if tailscale_check.rc == 0
+             else 'N/A' }}
+        tailscale_enabled: >-
+          {{ 'yes' if tailscaled_status.status.UnitFileState | default('') == 'enabled'
+             else 'no' if tailscale_check.rc == 0
+             else 'N/A' }}
+        docker_state: "{{ 'active' if docker_status.status.ActiveState | default('unknown') == 'active' else 'inactive' }}"
+        docker_enabled: "{{ 'yes' if docker_status.status.UnitFileState | default('') == 'enabled' else 'no' }}"
+
+    - name: Display all host information
+      ansible.builtin.debug:
+        msg: |2
+
+          ================================================================================
+          HOST: {{ ansible_hostname | upper }}
+          ================================================================================
+
+          SYSTEM INFORMATION
+          ------------------
+          Hostname       : {{ ansible_hostname }}
+          FQDN           : {{ ansible_fqdn }}
+          OS             : {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel         : {{ ansible_kernel }}
+          Architecture   : {{ ansible_architecture }}
+          CPU            : {{ ansible_processor[1] | default('N/A') }}
+          vCPUs          : {{ ansible_processor_vcpus }}
+          Memory         : {{ ansible_memtotal_mb }} MB
+          Swap           : {{ ansible_swaptotal_mb | default(0) }} MB
+          Virtualization : {{ ansible_virtualization_type | default('none') }}
+          Python         : {{ ansible_python_version }}
+
+          NETWORK INFORMATION
+          -------------------
+          Public IPv4    : {{ public_ipv4 }}
+          Private IPv4   : {{ private_ipv4_list | join(', ') if private_ipv4_list | length > 0 else 'N/A' }}
+          Default IPv4   : {{ ansible_default_ipv4.address | default('N/A') }}
+          Default IPv6   : {{ ansible_default_ipv6.address | default('N/A') }}
+          Interfaces     : {{ ansible_interfaces | join(', ') }}
+
+          TAILSCALE STATUS
+          ----------------
+          {% if tailscale_check.rc == 0 %}
+          Installed      : Yes
+          Tailscale IPv4 : {{ tailscale_ipv4 | default('N/A') }}
+          Tailscale IPv6 : {{ tailscale_ipv6 | default('N/A') }}
+          Hostname       : {{ tailscale_hostname | default('N/A') }}
+          Online         : {{ tailscale_online | default('N/A') }}
+          Exit Node      : {{ 'Offers exit node' if tailscale_exit_node | default(false) else 'No' }}
+          {% else %}
+          Installed      : No
+          {% endif %}
+
+          SERVICE STATUS
+          --------------
+          Service         State           Enabled
+          -----------     -----------     -------
+          sshd            {{ sshd_state }}          {{ sshd_enabled }}
+          tailscaled      {{ tailscale_state }}          {{ tailscale_enabled }}
+          docker          {{ docker_state }}          {{ docker_enabled }}
+
+          STORAGE
+          -------
+          Devices: {{ ansible_devices.keys() | list | join(', ') }}
+
+          Mounts:
+          {% for mount in ansible_mounts %}
+          {% set size_gb = (mount.size_total / 1024 / 1024 / 1024) | round(1) | string + ' GB' %}
+          {% set avail_gb = (mount.size_available / 1024 / 1024 / 1024) | round(1) | string + ' GB' %}
+          {% set used_pct = ((mount.size_total - mount.size_available) * 100 / mount.size_total) | round(0) | int %}
+          {{ "%-20s" | format(mount.mount) }} {{ "%-10s" | format(size_gb) }} {{ "%-10s" | format(avail_gb) }} {{ used_pct }}% used
+          {% endfor %}
+
+    - name: Display verbose facts (use -v flag)
+      ansible.builtin.debug:
+        var: ansible_facts
+        verbosity: 1

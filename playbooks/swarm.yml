@@ -1,0 +1,157 @@
+---
+# ============================================================================
+# Docker Swarm Orchestration Playbook
+# ============================================================================
+# Bootstraps and manages Docker Swarm cluster on provisioned hosts
+#
+# Prerequisites:
+#   - Hosts provisioned via lxc.yml/vm.yml/vps.yml with docker_enabled: true
+#   - Hosts have docker_swarm_enabled: true in host_vars
+#   - Exactly ONE host has docker_swarm_init: true (first manager)
+#   - At least one host has docker_swarm_role: manager
+#
+# Usage:
+#   mise run swarm:deploy   # Bootstrap/update cluster
+#   mise run swarm:check    # Dry-run mode
+#   mise run swarm:status   # Display cluster status
+#   mise run swarm:reset    # Destroy cluster (DESTRUCTIVE)
+#
+# Tags:
+#   discover  - Host discovery only
+#   validate  - Check prerequisites
+#   bootstrap - Initialize and join nodes
+#   status    - Display cluster status
+#   reset     - Destroy cluster (must be explicit, paired with 'never')
+# ============================================================================
+
+# PLAY 1: Discover Swarm-Enabled Hosts
+- name: Discover Swarm Hosts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: ["discover", "always"]
+  tasks:
+    - name: Include swarm discovery tasks
+      ansible.builtin.include_tasks: tasks/discover_swarm.yml
+
+# PLAY 2: Validate Prerequisites
+- name: Validate Swarm Prerequisites
+  hosts: swarm
+  gather_facts: true
+  tags: ["validate"]
+  tasks:
+    - name: Verify Docker service is active
+      ansible.builtin.systemd:
+        name: docker
+      register: _docker_service
+      failed_when: _docker_service.status.ActiveState != 'active'
+
+    - name: Verify Docker is functional
+      ansible.builtin.command: docker info
+      changed_when: false
+
+    - name: Display host readiness
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: Docker active, role={{ docker_swarm_role }}"
+
+# PLAY 3: Bootstrap Swarm Cluster
+# Serial execution ensures proper ordering: init first, then managers, then workers
+# The tasks themselves handle the logic based on docker_swarm_init and docker_swarm_role
+- name: Bootstrap Swarm Cluster
+  hosts: swarm
+  gather_facts: true
+  serial: 1
+  tags: ["bootstrap"]
+  tasks:
+    - name: Include swarm bootstrap tasks
+      ansible.builtin.include_role:
+        name: applications/docker
+        tasks_from: swarm
+
+# PLAY 4: Display Cluster Status
+- name: Display Swarm Cluster Status
+  hosts: swarm
+  gather_facts: false
+  tags: ["status"]
+  tasks:
+    - name: Get swarm cluster information
+      community.docker.docker_swarm_info:
+        nodes: true
+      register: _cluster_info
+      when: docker_swarm_init | bool
+
+    - name: Display cluster summary
+      vars:
+        _nodes: "{{ _cluster_info.nodes | default([]) }}"
+        _managers: "{{ _nodes | selectattr('ManagerStatus') | list }}"
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          Docker Swarm Cluster Status
+          ═══════════════════════════════════════════════════════════════
+          Cluster ID: {{ _cluster_info.swarm_facts.ID[:12] }}...
+          Created:    {{ _cluster_info.swarm_facts.CreatedAt }}
+
+          Nodes:
+            Total:    {{ _nodes | length }}
+            Managers: {{ _managers | length }}
+            Workers:  {{ (_nodes | length) - (_managers | length) }}
+
+          Node Details:
+          {% for node in _nodes %}
+            - {{ node.Hostname }}: {{ node.Availability }} ({{ node.Status }}){% if node.ManagerStatus %} [{{ node.ManagerStatus }}]{% endif %}
+
+          {% endfor %}
+          ═══════════════════════════════════════════════════════════════
+      when: docker_swarm_init | bool
+
+# PLAYS 5a-5c: Reset Swarm (Destructive - requires explicit tag)
+# Sequenced by role: workers first, then non-init managers, then init node last.
+# This preserves Raft quorum during teardown regardless of hostname ordering.
+
+- name: Reset Swarm Workers
+  hosts: swarm
+  gather_facts: false
+  serial: 1
+  tags: ["reset", "never"]
+  tasks:
+    - name: Include swarm reset tasks (workers)
+      ansible.builtin.include_role:
+        name: applications/docker
+        tasks_from: swarm
+      vars:
+        _swarm_reset_mode: true
+      when:
+        - docker_swarm_role == 'worker'
+        - not docker_swarm_init | bool
+
+- name: Reset Swarm Managers
+  hosts: swarm
+  gather_facts: false
+  serial: 1
+  tags: ["reset", "never"]
+  tasks:
+    - name: Include swarm reset tasks (managers)
+      ansible.builtin.include_role:
+        name: applications/docker
+        tasks_from: swarm
+      vars:
+        _swarm_reset_mode: true
+      when:
+        - docker_swarm_role == 'manager'
+        - not docker_swarm_init | bool
+
+- name: Reset Swarm Init Node
+  hosts: swarm
+  gather_facts: false
+  serial: 1
+  tags: ["reset", "never"]
+  tasks:
+    - name: Include swarm reset tasks (init)
+      ansible.builtin.include_role:
+        name: applications/docker
+        tasks_from: swarm
+      vars:
+        _swarm_reset_mode: true
+      when:
+        - docker_swarm_init | bool

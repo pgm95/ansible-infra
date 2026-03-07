@@ -1,0 +1,57 @@
+---
+# ============================================================================
+# Samba Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/applications/samba
+
+argument_specs:
+  main:
+    short_description: Install and configure Samba fileserver
+    description:
+      - Installs Samba and related packages
+      - Configures existing system user for Samba access
+      - Deploys static smb.conf from project files/
+      - Enables mDNS service discovery via Avahi
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # Role Enablement
+      # ========================================================================
+      samba_enabled:
+        description: Enable Samba fileserver installation and configuration
+        type: bool
+        default: false
+
+      # ========================================================================
+      # User Configuration
+      # ========================================================================
+      samba_existing_user:
+        description: Reference to user from users_list (must exist on system)
+        type: str
+        required: true
+
+      samba_user:
+        description: Samba user (derived from samba_existing_user)
+        type: str
+
+      # ========================================================================
+      # Authentication Configuration
+      # ========================================================================
+      samba_password:
+        description: Samba user password (from vault_smb_pass)
+        type: str
+        no_log: true
+
+      # ========================================================================
+      # Service Management
+      # ========================================================================
+      samba_services:
+        description: Systemd services to enable and start
+        type: list
+        elements: str
+        default:
+          - smbd
+          - avahi-daemon

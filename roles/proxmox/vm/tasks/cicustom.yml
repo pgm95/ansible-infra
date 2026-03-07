@@ -1,0 +1,37 @@
+---
+# Cloud-Init Custom Vendor Data (--cicustom vendor) tasks
+# Renders vendor.yml.j2 template and copies to Proxmox storage
+
+- name: Validate cicustom vendor storage is configured
+  ansible.builtin.assert:
+    that:
+      - vm_cicustom_vendor_storage is defined
+      - vm_cicustom_vendor_storage | length > 0
+    fail_msg: "vm_cicustom_vendor_storage must be set when vm_cicustom_vendor_enabled is true (e.g., 'local')"
+    success_msg: "Vendor storage configured: {{ vm_cicustom_vendor_storage }}"
+
+- name: VM | Resolve storage base path
+  ansible.builtin.shell: |
+    set -o pipefail
+    pvesm path {{ vm_cicustom_vendor_storage }}:{{ vm_cicustom_vendor_path }}/test.yml | sed 's|/{{ vm_cicustom_vendor_path }}/test.yml||'
+  args:
+    executable: /bin/bash
+  delegate_to: "{{ pve_host }}"
+  register: storage_base_path
+  changed_when: false
+
+- name: VM | Render vendor.yml to Proxmox storage
+  ansible.builtin.template:
+    src: vendor.yml.j2
+    dest: "{{ storage_base_path.stdout }}/{{ vm_cicustom_vendor_path }}/vendor-{{ vm_hostname }}.yml"
+    mode: "0644"
+  delegate_to: "{{ pve_host }}"
+
+- name: VM | Set cicustom vendor flag for qm create
+  ansible.builtin.set_fact:
+    vm_cicustom_flag: "--cicustom vendor={{ vm_cicustom_vendor_storage }}:{{ vm_cicustom_vendor_path }}/vendor-{{ vm_hostname }}.yml"
+
+- name: VM | Display cicustom flag
+  ansible.builtin.debug:
+    msg: "Cloud-init cicustom flag: {{ vm_cicustom_flag }}"
+    verbosity: 1

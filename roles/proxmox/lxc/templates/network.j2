@@ -1,0 +1,18 @@
+{# Network configuration for pct create --net0 parameter #}
+{%- set ipv4 = 'dhcp' if lxc_net_ipv4_method in ['auto', 'dhcp']
+              else (lxc_net_ipv4_static if lxc_net_ipv4_method == 'static'
+              else 'manual') -%}
+
+{%- set ipv6 = 'auto' if lxc_net_ipv6_method == 'auto'
+              else ('dhcp' if lxc_net_ipv6_method == 'dhcp'
+              else (lxc_net_ipv6_static if lxc_net_ipv6_method == 'static'
+              else ''))
+              if lxc_net_ipv6_method != 'none' else '' -%}
+
+name=eth0,bridge={{ lxc_net_bridge }},ip={{ ipv4 }}
+{%- if lxc_net_ipv4_method == 'static' and lxc_net_ipv4_gateway != '' %},gw={{ lxc_net_ipv4_gateway }}{% endif %}
+{%- if lxc_net_vlan != '' %},tag={{ lxc_net_vlan }}{% endif %}
+{%- if lxc_net_mac != '' %},hwaddr={{ lxc_net_mac }}{% endif %}
+{%- if lxc_net_mtu != '' %},mtu={{ lxc_net_mtu }}{% endif %}
+{%- if ipv6 != '' %},ip6={{ ipv6 }}{% endif %}
+{%- if lxc_net_ipv6_method == 'static' and lxc_net_ipv6_gateway != '' %},gw6={{ lxc_net_ipv6_gateway }}{% endif %}

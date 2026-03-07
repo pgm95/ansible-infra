@@ -1,0 +1,5 @@
+{# Constructs the --ipconfig0 parameter for qm create #}
+{%- set ip_config = 'ip=' ~ vm_cloudinit_ip -%}
+{%- set gw_config = ',gw=' ~ vm_cloudinit_gateway if vm_cloudinit_gateway | length > 0 else '' -%}
+{%- set ip6_config = ',ip6=' ~ vm_cloudinit_ip6 if vm_cloudinit_ip6 | length > 0 else '' -%}
+{{ ip_config }}{{ gw_config }}{{ ip6_config -}}

@@ -1,0 +1,9 @@
+# Managed by Ansible
+auto lo
+iface lo inet loopback
+
+auto {{ _resolved_interface }}
+iface {{ _resolved_interface }} inet static
+  address {{ net_iface_address | regex_replace('/.*', '') }}
+  netmask {{ net_iface_netmask | default('255.255.255.0') }}
+  gateway {{ net_iface_gateway }}

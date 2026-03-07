@@ -1,0 +1,33 @@
+# Artifacts and temporary files
+*.tmp
+*.bak
+*.log
+*.local
+*.egg-info
+.ansible
+.archive
+**/.old
+**/.cache
+
+# Sensitive files
+*.env
+*.pem
+*.key
+*.crt
+*.pub
+/files/
+**/host_vars
+*[Ss][Ee][Cc][Rr][Ee][Tt]*
+*[Pa][Ss][Ss][Ww][Oo][Rr][Dd]*
+
+# OS files
+._*
+*~
+.Trash-*
+Thumbs.db
+.DS_Store
+.directory
+Desktop.ini
+.LSOverride
+.AppleDouble
+$RECYCLE.BIN/

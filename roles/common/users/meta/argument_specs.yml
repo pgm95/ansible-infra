@@ -1,0 +1,47 @@
+---
+# ============================================================================
+# Users Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/common/users
+
+argument_specs:
+  main:
+    short_description: User and group management with SSH key deployment
+    description:
+      - Creates users and groups
+      - Deploys SSH authorized keys from vault
+      - Configures sudo access with optional NOPASSWD
+      - Always ensures root SSH access for recovery
+    author:
+      - HomeOps
+
+    options:
+      # ========================================================================
+      # User Management
+      # ========================================================================
+      users_list:
+        description: |
+          User definitions list. Each dict supports:
+            - name: (string, required) Username
+            - password: (string, required for interactive shells) Plain text password
+            - uid: (integer, optional) User ID
+            - group: (string, optional) Primary group name
+            - gid: (integer, optional) Primary group ID
+            - groups: (list, optional) Additional groups
+            - shell: (string, optional) Login shell (default: /bin/bash)
+            - system: (boolean, optional) System account (default: false)
+            - create_home: (boolean, optional) Create home directory (default: true)
+            - home: (string, optional) Home directory path
+            - sudo_access: (boolean, optional) Grant sudo privileges (default: false)
+            - ssh_keys: (boolean, optional) Deploy SSH keys (default: false)
+        type: list
+        elements: dict
+        default: []
+      # ========================================================================
+      # Sudo Configuration
+      # ========================================================================
+      users_sudo_nopasswd:
+        description: Allow sudo without password for users with sudo_access
+        type: bool
+        default: false

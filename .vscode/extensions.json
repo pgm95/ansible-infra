@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "tombi-toml.tombi",
+    "redhat.vscode-yaml",
+    "hverlin.mise-vscode",
+    "timonwong.shellcheck",
+    "samuelcolvin.jinjahtml"
+  ]
+}

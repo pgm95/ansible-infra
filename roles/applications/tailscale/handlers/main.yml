@@ -1,0 +1,22 @@
+---
+# Tailscale role handlers
+
+- name: Tailscale | Apply sysctl settings
+  ansible.builtin.command: sysctl -p {{ sysctl_config_file }}
+  changed_when: true
+  vars:
+    sysctl_config_file: "{{ '/etc/sysctl.d/99-tailscale.conf' if _sysctl_d_dir.stat.exists else '/etc/sysctl.conf' }}"
+
+- name: Tailscale | Apply ethtool UDP settings
+  ansible.builtin.command: "ethtool -K {{ _primary_interface.stdout }} rx-udp-gro-forwarding on rx-gro-list off"
+  when:
+    - _primary_interface is defined
+    - _primary_interface.stdout is defined
+    - _primary_interface.stdout != ""
+  changed_when: true
+  failed_when: false
+
+- name: Tailscale | Restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted

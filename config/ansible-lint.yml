@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible-lint-config.json
+
+exclude_paths:
+  - ../.*/
+
+kinds:
+  - meta: "**/meta/*.yml"
+  - tasks: "**/tasks/*.yml"
+  - vars: "**/defaults/*.yml"
+  - vars: "inventory/*/*.yml"
+  - vars: "inventory/*/*/*.yml"
+  - playbook: "playbooks/*.yml"
+  - handlers: "**/handlers/*.yml"
+  - inventory: "inventory/hosts.yml"
+  - requirements: "**/requirements.yml"
+
+skip_list:
+  # We organize roles in common/ subdirectory for better project structure
+  - role-name[path]
+  # We use role-specific prefixes (packages_*, users_*, ssh_* etc.) instead of common_* prefix to avoid namespace collisions between roles
+  - var-naming[no-role-prefix]
+  # We use run_once legitimately for localhost-delegated file discovery and variable loading tasks
+  - run-once[task]
+  # Allow ## section headers in YAML comments (yamllint require-starting-space handled separately)
+  - yaml[comments]

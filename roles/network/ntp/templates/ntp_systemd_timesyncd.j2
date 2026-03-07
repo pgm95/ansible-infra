@@ -1,0 +1,7 @@
+# Managed by Ansible - ntp role
+# Drop-in configuration for systemd-timesyncd
+# See timesyncd.conf(5) for details
+
+[Time]
+# NTP servers for time synchronization
+NTP={{ net_ntp_servers | join(' ') }}

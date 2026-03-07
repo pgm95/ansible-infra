@@ -1,0 +1,41 @@
+---
+# Hostname and FQDN configuration with /etc/hosts management
+
+### Ensure hostname and FQDN are defined
+- name: Set default hostname if not defined
+  ansible.builtin.set_fact:
+    hostname: "{{ hostname_default }}"
+  when: hostname is not defined
+  tags: ["always"]
+
+- name: Set default FQDN if not defined
+  ansible.builtin.set_fact:
+    fqdn: "{{ hostname }}.{{ hostname_domain_suffix }}"
+  when: fqdn is not defined
+  tags: ["always"]
+
+### System Configuration
+- name: Set hostname via hostname command
+  ansible.builtin.hostname:
+    name: "{{ hostname }}"
+
+- name: Update /etc/hostname file
+  ansible.builtin.copy:
+    dest: /etc/hostname
+    content: "{{ hostname }}\n"
+    mode: "0644"
+    backup: true
+
+### /etc/hosts Management for VPS with Static IP
+- name: Get primary IP address
+  ansible.builtin.set_fact:
+    _primary_ip: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+
+- name: Configure /etc/hosts from template
+  ansible.builtin.template:
+    src: hostname_hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
