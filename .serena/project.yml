@@ -1,3 +1,4 @@
+---
 project_name: "homeops"
 languages:
 - yaml
@@ -15,3 +16,4 @@ ignored_paths: []
 symbol_info_budget:
 language_backend:
 read_only_memory_patterns: []
+line_ending:

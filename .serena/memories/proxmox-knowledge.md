@@ -550,6 +550,20 @@ ping -c 1 -M do -s 1252 <peer_ts_ip>   # 1252 + 28 = 1280 total
 
 ---
 
+## LXC udev Limitations
+
+LXC containers don't run their own udev daemon — it's managed by the host. Any handler or task that calls `udevadm` (e.g., reloading udev rules after deploying GPU device permissions) must be skipped inside LXC:
+
+```yaml
+when: ansible_virtualization_type | default('') != 'lxc'
+```
+
+Device access in LXC is controlled by the host's udev + Proxmox device passthrough, so reloading rules inside the container has no effect.
+
+**Affected**: `Docker | Reload udev rules` handler (notified by GPU task).
+
+---
+
 ## SSH Keys Management
 
 SSH keys are stored in Ansible vault as `vault_ssh_authorized_keys` (list format):
