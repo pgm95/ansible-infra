@@ -248,6 +248,10 @@
         msg: "{{ inventory_hostname }} successfully joined swarm as {{ docker_swarm_role }}"
         verbosity: 1
 
+    - name: Swarm | Refresh swarm active state after join
+      ansible.builtin.set_fact:
+        _swarm_active: true
+
 # ============================================================================
 # ALREADY IN SWARM - Skip join
 # ============================================================================
