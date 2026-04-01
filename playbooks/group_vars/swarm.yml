@@ -13,13 +13,9 @@ ansible_user: root
 # ============================================================================
 # Docker Daemon - Network Configuration for Swarm
 # ============================================================================
-# Tailscale uses MTU 1280 for maximum network compatibility.
-# VXLAN overlay adds ~50 bytes overhead.
-# Safe Docker MTU: 1280 - 50 = 1230
-
-docker_mtu: 1230 # (integer) Use 0 (auto) for non-Tailscale setups.
-docker_dns_servers: [] # (list) DNS servers for containers
-docker_dns_search: [] # (list) DNS search domains
+# NOTE: daemon.json settings (docker_mtu, docker_dns_*, etc.) belong in
+# host_vars, where they are applied during provisioning (lxc/vm/vps:deploy).
+# The swarm playbook does not write daemon.json.
 
 # ============================================================================
 # Swarm Network Configuration

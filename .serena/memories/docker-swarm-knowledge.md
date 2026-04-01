@@ -114,7 +114,7 @@ Tailscale:    1280
 - VXLAN:       -50  → 1230
 ```
 
-Default: `docker_mtu: 1230` in `playbooks/group_vars/swarm.yml`
+Set `docker_mtu: 1230` in each swarm node's **host_vars** (not in `playbooks/group_vars/swarm.yml` — the swarm playbook does not write daemon.json, so daemon config variables there have no effect).
 
 For non-Tailscale setups, use `docker_mtu: 0` (auto).
 

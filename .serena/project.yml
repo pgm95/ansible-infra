@@ -17,3 +17,5 @@ symbol_info_budget:
 language_backend:
 read_only_memory_patterns: []
 line_ending:
+ignored_memory_patterns: []
+ls_specific_settings: {}

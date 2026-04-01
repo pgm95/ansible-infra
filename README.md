@@ -208,7 +208,7 @@ Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemo
 tailscale0 (MTU 1280) - VXLAN overhead (50) = Docker MTU 1230
 ```
 
-`docker_mtu: 1230` is set in daemon.json via `playbooks/group_vars/swarm.yml`. Do not set `lxc_net_mtu` below 1400 on LXC containers running Tailscale, as this reduces the physical interface MTU and breaks WireGuard encapsulation. Symptom: Tailscale pings work but gRPC/TLS connections (like Swarm join) silently fail.
+`docker_mtu: 1230` must be set in each swarm node's host_vars (applied during provisioning via `lxc:deploy`/`vm:deploy`/`vps:deploy`). Do not set it in `playbooks/group_vars/swarm.yml` — the swarm playbook does not write daemon.json, so daemon config variables there have no effect. Do not set `lxc_net_mtu` below 1400 on LXC containers running Tailscale, as this reduces the physical interface MTU and breaks WireGuard encapsulation. Symptom: Tailscale pings work but gRPC/TLS connections (like Swarm join) silently fail.
 
 **VXLAN on public IPs.** Docker Swarm binds VXLAN (port 4789/UDP) to `0.0.0.0` regardless of `--data-path-addr`. On nodes with public IPs, set `docker_swarm_vxlan_interface: tailscale0` to restrict overlay traffic to the VPN interface via iptables.
 

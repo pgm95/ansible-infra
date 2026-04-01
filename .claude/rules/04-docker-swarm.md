@@ -103,14 +103,9 @@ Reset uses three role-sequenced plays (not hostname-dependent):
 
 ## Computed daemon.json
 
-Individual variables → computed config with empty value filtering. No full-dict override needed:
+Individual variables → computed config with empty value filtering. No full-dict override needed. `live-restore` automatically disabled when `docker_swarm_enabled` is true (conflicts with Raft).
 
-```yaml
-# Set docker_mtu: 1230 → only MTU appears in daemon.json
-# Defaults don't pollute config
-```
-
-`live-restore` automatically disabled when `docker_swarm_enabled` is true (conflicts with Raft).
+**daemon.json is written during provisioning** (`lxc:deploy`/`vm:deploy`/`vps:deploy`), not during `swarm:deploy`. Variables that feed `docker_daemon_config` (e.g., `docker_mtu`, `docker_dns_servers`, `docker_dns_search`) must be set in **host_vars**, not `playbooks/group_vars/swarm.yml`. The swarm playbook only handles cluster orchestration — it never writes daemon.json, so daemon config variables in swarm group_vars have no effect.
 
 ## Constraints
 
