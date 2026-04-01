@@ -3,10 +3,18 @@
 # Discover Swarm-Enabled Hosts
 # ============================================================================
 # Finds hosts with docker_swarm_enabled: true across host_vars
-# Registers them to the 'swarm' group with role/init passed as variables
+# Registers them to the 'swarm' group with variables loaded via include_vars
 #
-# Required variables (from vars_files):
+# Two-phase approach:
+#   Phase 1: Register all candidates and load their variables
+#   Phase 2: Filter, validate, sort, and register swarm-enabled hosts
+#
+# Required variables (from group_vars):
 #   - proxmox_dns_domain: DNS domain for host resolution
+# ============================================================================
+
+# ============================================================================
+# Phase 1: Discover Candidates and Load Variables
 # ============================================================================
 
 - name: Find LXC host definition files
@@ -41,34 +49,61 @@
          (_vm_files.files | default([])) +
          (_static_files.files | default([])) }}
 
-- name: Load all host configurations
+- name: Build candidate metadata
   ansible.builtin.set_fact:
-    _all_host_configs: >-
-      {{ _all_host_configs | default([]) + [{
+    _all_candidates: >-
+      {{ _all_candidates | default([]) + [{
            'name': item.path | basename | regex_replace('\.yml$', ''),
            'path': item.path,
-           'type': 'lxc' if '/lxc/' in item.path else ('vm' if '/vm/' in item.path else 'vps'),
-           'config': lookup('file', item.path) | from_yaml
+           'type': 'lxc' if '/lxc/' in item.path else ('vm' if '/vm/' in item.path else 'vps')
          }] }}
   loop: "{{ _all_host_files }}"
   loop_control:
     label: "{{ item.path | basename }}"
 
+- name: Register candidates for variable loading
+  ansible.builtin.add_host:
+    name: "{{ item.name }}"
+    groups: _swarm_candidates
+    ansible_host: >-
+      {{ (hostvars[item.name].ansible_host | default(none) if item.name in hostvars else none)
+         or (item.name ~ '.' ~ proxmox_dns_domain) }}
+  loop: "{{ _all_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: _all_candidates | default([]) | length > 0
+
+- name: Load candidate host variables
+  ansible.builtin.include_vars:
+    file: "{{ item.path }}"
+  delegate_to: "{{ item.name }}"
+  delegate_facts: true
+  loop: "{{ _all_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: _all_candidates | default([]) | length > 0
+
+# ============================================================================
+# Phase 2: Filter, Validate, Sort, and Register Swarm Hosts
+# ============================================================================
+
 - name: Filter swarm-enabled hosts
   ansible.builtin.set_fact:
     _swarm_hosts: >-
-      {{ _all_host_configs | default([])
-         | selectattr('config.docker_swarm_enabled', 'defined')
-         | selectattr('config.docker_swarm_enabled')
-         | list }}
+      {{ _swarm_hosts | default([]) + (
+           [item] if (hostvars[item.name].docker_swarm_enabled | default(false)) else []
+         ) }}
+  loop: "{{ _all_candidates | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Display discovered swarm hosts
   ansible.builtin.debug:
     msg: |
       Discovered {{ _swarm_hosts | default([]) | length }} swarm host(s):
       {% for host in _swarm_hosts | default([]) %}
-      {% set role = host.config.docker_swarm_role | default('worker') %}
-      {% set init = ' [INIT]' if host.config.docker_swarm_init | default(false) else '' %}
+      {% set role = hostvars[host.name].docker_swarm_role | default('worker') %}
+      {% set init = ' [INIT]' if hostvars[host.name].docker_swarm_init | default(false) else '' %}
         - {{ host.name }} ({{ host.type }}, {{ role }}{{ init }})
       {% endfor %}
   when: _swarm_hosts | default([]) | length > 0
@@ -83,10 +118,12 @@
 - name: Identify init node
   ansible.builtin.set_fact:
     _init_hosts: >-
-      {{ _swarm_hosts | default([])
-         | selectattr('config.docker_swarm_init', 'defined')
-         | selectattr('config.docker_swarm_init')
-         | list }}
+      {{ _init_hosts | default([]) + (
+           [item] if (hostvars[item.name].docker_swarm_init | default(false)) else []
+         ) }}
+  loop: "{{ _swarm_hosts | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
   when: _swarm_hosts | default([]) | length > 0
 
 - name: Validate exactly one init node exists
@@ -102,13 +139,12 @@
 - name: Validate init node is a manager
   ansible.builtin.assert:
     that:
-      - _init_hosts[0].config.docker_swarm_role | default('worker') == 'manager'
-    fail_msg: |
+      - hostvars[_init_hosts[0].name].docker_swarm_role | default('worker') == 'manager'
+    fail_msg: >-
       Init node must be a manager.
-
-      What's wrong: {{ _init_hosts[0].name }} has docker_swarm_init: true
-        but docker_swarm_role: {{ _init_hosts[0].config.docker_swarm_role | default('worker') }}
-      How to fix: Set docker_swarm_role: manager on the init node in host_vars.
+      {{ _init_hosts[0].name }} has docker_swarm_init: true
+      but docker_swarm_role: {{ hostvars[_init_hosts[0].name].docker_swarm_role | default('worker') }}.
+      Set docker_swarm_role: manager on the init node in host_vars.
     success_msg: "Init node {{ _init_hosts[0].name }} is a manager"
   when: _swarm_hosts | default([]) | length > 0
 
@@ -116,8 +152,10 @@
   ansible.builtin.set_fact:
     _manager_count: >-
       {{ _swarm_hosts | default([])
-         | selectattr('config.docker_swarm_role', 'defined')
-         | selectattr('config.docker_swarm_role', 'equalto', 'manager')
+         | map(attribute='name')
+         | map('extract', hostvars, 'docker_swarm_role')
+         | map('default', 'worker')
+         | select('equalto', 'manager')
          | list | length }}
   when: _swarm_hosts | default([]) | length > 0
 
@@ -146,45 +184,12 @@
     name: "{{ item.name }}"
     groups: swarm
     ansible_host: >-
-      {{ item.config.ansible_host | default(none)
-         or (hostvars[item.name].ansible_host | default(none) if item.name in hostvars else none)
+      {{ hostvars[item.name].ansible_host | default(none)
          or (item.name ~ '.' ~ proxmox_dns_domain) }}
-    ansible_user: root
-    ansible_connection: ssh
-    # Swarm configuration - pass through all host-level overrides
-    docker_swarm_enabled: true
-    docker_swarm_role: "{{ item.config.docker_swarm_role | default('worker') }}"
-    docker_swarm_init: "{{ item.config.docker_swarm_init | default(false) }}"
-    # Network settings
-    docker_swarm_advertise_addr: "{{ item.config.docker_swarm_advertise_addr | default('') }}"
-    docker_swarm_listen_addr: >-
-      {{ item.config.docker_swarm_listen_addr
-         | default((item.config.docker_swarm_advertise_addr ~ ':2377')
-                    if item.config.docker_swarm_advertise_addr | default('')
-                    else '0.0.0.0:2377') }}
-    docker_swarm_data_path_addr: "{{ item.config.docker_swarm_data_path_addr | default('') }}"
-    docker_swarm_data_path_port: "{{ item.config.docker_swarm_data_path_port | default(4789) }}"
-    docker_swarm_vxlan_interface: "{{ item.config.docker_swarm_vxlan_interface | default('') }}"
-    docker_swarm_default_addr_pool: "{{ item.config.docker_swarm_default_addr_pool | default([]) }}"
-    docker_swarm_subnet_size: "{{ item.config.docker_swarm_subnet_size | default(24) }}"
-    # Security and Raft settings
-    docker_swarm_autolock: "{{ item.config.docker_swarm_autolock | default(false) }}"
-    docker_swarm_election_tick: "{{ item.config.docker_swarm_election_tick | default(10) }}"
-    docker_swarm_heartbeat_tick: "{{ item.config.docker_swarm_heartbeat_tick | default(1) }}"
-    docker_swarm_cert_expiry: "{{ item.config.docker_swarm_cert_expiry | default('') }}"
-    docker_swarm_timeout: "{{ item.config.docker_swarm_timeout | default(120) }}"
-    # Node settings
-    docker_swarm_labels: "{{ item.config.docker_swarm_labels | default({}) }}"
-    docker_swarm_availability: "{{ item.config.docker_swarm_availability | default('active') }}"
-    # Join configuration
-    docker_swarm_manager_token: "{{ item.config.docker_swarm_manager_token | default('') }}"
-    docker_swarm_worker_token: "{{ item.config.docker_swarm_worker_token | default('') }}"
-    docker_swarm_manager_addrs: "{{ item.config.docker_swarm_manager_addrs | default([]) }}"
-    # Reference to init node for delegation
     _swarm_init_host: "{{ _init_hosts[0].name }}"
   loop: "{{ _swarm_hosts_sorted | default([]) }}"
   loop_control:
-    label: "{{ item.name }} ({{ item.config.docker_swarm_role | default('worker') }})"
+    label: "{{ item.name }} ({{ hostvars[item.name].docker_swarm_role | default('worker') }})"
   when: _swarm_hosts_sorted | default([]) | length > 0
 
 - name: Display summary
