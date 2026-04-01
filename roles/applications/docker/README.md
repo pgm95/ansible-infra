@@ -122,14 +122,12 @@ Override entirely in host_vars if custom structure needed.
 
 ## Swarm + Tailscale
 
-For heterogeneous clusters across NAT boundaries:
+For heterogeneous clusters across NAT boundaries, set daemon config variables in each node's host_vars (not in `playbooks/group_vars/swarm.yml` — the swarm playbook does not write daemon.json):
 
 ```yaml
-# group_vars/swarm.yml (applied automatically)
-docker_mtu: 1230  # Tailscale 1280 - VXLAN 50
-
 # host_vars/swarm-node.yml
 docker_enabled: true
+docker_mtu: 1230  # Tailscale 1280 - VXLAN 50
 docker_swarm_enabled: true
 docker_swarm_role: manager
 docker_swarm_advertise_addr: "100.64.0.1"  # Tailscale IP
