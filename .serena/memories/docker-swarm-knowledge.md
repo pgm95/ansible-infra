@@ -46,6 +46,7 @@ New approach: Individual variables → computed config with empty value filterin
 - Set `docker_mtu: 1230` → only MTU appears in daemon.json
 - Defaults don't pollute config
 - Easy per-host overrides
+- **daemon.json is written during provisioning only** (`lxc/vm/vps:deploy`), never during `swarm:deploy`. Daemon config vars (`docker_mtu`, `docker_dns_*`) must be in host_vars, not `playbooks/group_vars/swarm.yml`.
 
 ## Key Patterns
 
@@ -65,22 +66,23 @@ Tokens cached on localhost during play, available to all subsequent hosts via ho
 
 ### Discovery Pattern
 
-Discovery task scans `inventory/{env}/host_vars/lxc/*.yml`, `host_vars/vm/*.yml`, and `host_vars/*.yml` (static hosts like VPS) for `docker_swarm_enabled: true`, then:
+Discovery uses `include_vars` + `delegate_facts: true` (matching `discover_definitions.yml`) to load host_vars onto each candidate host. Jinja2 templates in host_vars (including `lookup('env', ...)`) are evaluated normally via lazy resolution.
 
-**`ansible_host` Resolution** (three-tier fallback in `add_host`):
+**Two-phase approach:**
 
-1. `item.config.ansible_host` — literal value from raw host_vars YAML
-2. `hostvars[item.name].ansible_host` — from Ansible inventory (static hosts only, Jinja2 evaluated)
-3. `item.name ~ '.' ~ proxmox_dns_domain` — DNS fallback for dynamic LXC/VM hosts
+1. Scan `inventory_dir/host_vars/{lxc,vm,root}` for YAML files
+2. Register all candidates to `_swarm_candidates` temp group with minimal vars
+3. Load full host_vars via `include_vars` + `delegate_facts: true`
+4. Filter for `docker_swarm_enabled: true` via `hostvars`
+5. Validate (exactly one init node, init is manager, at least one manager)
+6. Sort (init first) and register swarm-enabled hosts to `swarm` group
 
-Tier 2 resolves static hosts (VPS) whose `ansible_host` is defined in `hosts.yml` with Jinja2 expressions (e.g., env var lookups). Only fires when `item.name in hostvars` — safe for dynamic hosts that don't exist yet.
+**`ansible_host` Resolution** (two-tier fallback):
 
-Discovery then:
+1. `hostvars[item.name].ansible_host` — from host_vars or static inventory (Jinja2-evaluated)
+2. `item.name ~ '.' ~ proxmox_dns_domain` — DNS fallback for dynamic LXC/VM hosts
 
-1. Validates exactly one `docker_swarm_init: true`
-2. Validates at least one manager
-3. Registers hosts to `swarm` group via `add_host`
-4. Passes all swarm variables through
+No explicit variable passthrough needed — `include_vars` loads all host_vars directly onto each host. Only `_swarm_init_host` (computed during discovery) is passed via `add_host`.
 
 ### Delegation Pattern
 
@@ -228,17 +230,9 @@ _advertise_addr: "{{ docker_swarm_advertise_addr | default('') | string or ansib
 
 ## Constraints
 
-### Dynamic Discovery Limitations
+### Discovery Variable Loading
 
-The `discover_swarm.yml` task reads host_vars from `inventory/{env}/host_vars/{lxc,vm,vps}/` as raw YAML - Jinja2 templates are NOT evaluated. Variables like `docker_swarm_advertise_addr` must use **literal values**, not template references:
-
-```yaml
-# WRONG - template not evaluated during discovery
-docker_swarm_advertise_addr: "{{ tailscale_ip }}"
-
-# CORRECT - literal value
-docker_swarm_advertise_addr: 100.88.0.1
-```
+The `discover_swarm.yml` task uses `include_vars` + `delegate_facts: true` to load host_vars. Jinja2 templates are evaluated lazily when variables are referenced in tasks. This means `lookup('env', ...)` and other Jinja2 expressions work in host_vars files for swarm hosts.
 
 ### Init Node Ordering
 
@@ -260,7 +254,7 @@ The `docker_swarm_vxlan_interface` variable restricts overlay traffic to a speci
 docker_swarm_vxlan_interface: tailscale0  # Only on VPS nodes with public IP
 ```
 
-**Note**: Variable must be passed through `discover_swarm.yml` via `add_host` since swarm uses dynamic inventory. Discovery reads from `inventory/{env}/host_vars/`.
+**Note**: Variable is loaded onto each host via `include_vars` + `delegate_facts` during discovery. No explicit `add_host` passthrough needed.
 
 ### LXC Requirements
 
@@ -296,7 +290,7 @@ Rule: election_tick >= 10 * heartbeat_tick
 | `playbooks/tasks/discover_swarm.yml` | Host discovery + validation |
 | `roles/applications/docker/tasks/swarm.yml` | Init/join/leave operations |
 | `roles/applications/docker/defaults/main.yml` | All variables + computed daemon.json |
-| `playbooks/group_vars/swarm.yml` | Swarm-wide shared defaults (MTU, tokens) |
+| `playbooks/group_vars/swarm.yml` | Swarm-wide shared defaults (tokens, Raft tuning) |
 
 ## Usage
 
@@ -357,7 +351,7 @@ Systematic analysis and fixes applied to docker role and swarm config:
 
 - **Reset ordering**: Replaced single play with `order: reverse_sorted` (hostname-dependent) with three role-sequenced plays: workers → non-init managers → init node. Ordering is now in play structure, not hostname coincidence.
 - **Advertise address deduplication**: Single `set_fact` for `_advertise_addr` after state facts (with `tags: [always]`), replacing three identical computations in init/existing/join blocks.
-- **Discovery single-parse**: Host_vars files are parsed once into `_all_host_configs`, then filtered by `docker_swarm_enabled` via `selectattr`. Previously each file was parsed twice (once in `when`, once in `set_fact`).
+- **Discovery refactor (2026-04)**: Replaced `lookup('file') | from_yaml` (raw YAML, no Jinja2) with `include_vars` + `delegate_facts: true`. Eliminates 19-variable `add_host` passthrough. Host_vars now Jinja2-friendly (supports `lookup('env', ...)`). Two-phase approach: register to `_swarm_candidates` temp group, load vars, filter, then register to `swarm` group.
 
 ### Quality
 

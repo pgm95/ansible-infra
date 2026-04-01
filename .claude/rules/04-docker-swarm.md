@@ -38,23 +38,14 @@ ping -c 1 -M do -s 1252 <peer_ts_ip>   # 1252 + 28 = 1280 total
 
 **Symptom**: Tailscale pings work (small ICMP), but gRPC/TLS connections fail. Docker Swarm join times out.
 
-## Discovery Limitations
+## Discovery
 
-Discovery reads host_vars as raw YAML — **Jinja2 templates are NOT evaluated**.
+Discovery uses `include_vars` + `delegate_facts: true` to load host_vars, matching the `discover_definitions.yml` pattern. Jinja2 templates in host_vars (including `lookup('env', ...)`) are evaluated normally — variables are lazily resolved when referenced in tasks.
 
-```yaml
-# WRONG — template not evaluated during discovery
-docker_swarm_advertise_addr: "{{ tailscale_ip }}"
+### `ansible_host` Resolution (Two-Tier Fallback)
 
-# CORRECT — literal value
-docker_swarm_advertise_addr: 100.88.0.1
-```
-
-### `ansible_host` Resolution (Three-Tier Fallback)
-
-1. `item.config.ansible_host` — literal value from raw host_vars YAML
-2. `hostvars[item.name].ansible_host` — from Ansible inventory (static hosts only)
-3. `item.name ~ '.' ~ proxmox_dns_domain` — DNS fallback for dynamic LXC/VM hosts
+1. `hostvars[item.name].ansible_host` — from host_vars or static inventory (Jinja2-evaluated)
+2. `item.name ~ '.' ~ proxmox_dns_domain` — DNS fallback for dynamic LXC/VM hosts
 
 ## Token Flow
 
@@ -121,7 +112,7 @@ Individual variables → computed config with empty value filtering. No full-dic
 
 | File | Purpose |
 |------|---------|
-| `playbooks/swarm.yml` | 5-play orchestration |
+| `playbooks/swarm.yml` | Multi-play orchestration |
 | `playbooks/tasks/discover_swarm.yml` | Host discovery + validation |
 | `roles/applications/docker/tasks/swarm.yml` | Init/join/leave operations |
 | `roles/applications/docker/defaults/main.yml` | All variables + computed daemon.json |
