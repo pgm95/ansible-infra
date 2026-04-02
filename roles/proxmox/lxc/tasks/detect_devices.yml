@@ -9,6 +9,7 @@
       video: "{{ lxc_idmap_gid if (lxc_idmap_gid_match_devices and lxc_idmap_gid) else '44' }}"
       render: "{{ lxc_idmap_gid if (lxc_idmap_gid_match_devices and lxc_idmap_gid) else '104' }}"
       dialout: "{{ lxc_idmap_gid if (lxc_idmap_gid_match_devices and lxc_idmap_gid) else '20' }}"
+      none: ""
 
 # Device Configuration Definitions
 - name: LXC | Define device detection configuration
@@ -44,6 +45,11 @@
         path: /dev
         patterns: ["ttyACM*"]
         gid_type: dialout
+      - name: LXC | tun
+        enabled: "{{ lxc_device_tun | bool }}"
+        path: /dev/net
+        patterns: ["tun"]
+        gid_type: none
 
 # GPU Directory Check (Required for /dev/dri devices)
 - name: LXC | Check if /dev/dri directory exists
@@ -75,12 +81,15 @@
     item.path != '/dev/dri' or
     (_dri_directory.stat.exists | default(false))
 
-- name: LXC | Build detected devices list with GID assignments
+- name: LXC | Build detected devices list with optional GID assignments
+  vars:
+    __gid_value: "{{ __device_gids[_enabled__device_configs[idx].gid_type] }}"
+    __gid_suffix: "{{ ',gid=' ~ __gid_value if __gid_value | length > 0 else '' }}"
   ansible.builtin.set_fact:
     __detected_devices: >-
       {{ __detected_devices + (item.files | default([])
          | map(attribute='path')
-         | map('regex_replace', '^(.*)$', '\1,gid=' ~ __device_gids[_enabled__device_configs[idx].gid_type])
+         | map('regex_replace', '^(.*)$', '\1' ~ __gid_suffix)
          | list) }}
   loop: "{{ _found_devices_results.results | default([]) }}"
   loop_control:

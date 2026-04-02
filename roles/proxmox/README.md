@@ -101,7 +101,7 @@ Tasks are categorized by how they interact with Proxmox:
 
 | Task | Target | Purpose |
 | ------ | -------- | --------- |
-| `lxc/post_configure.yml` | `/etc/pve/lxc/{vmid}.conf` | Append idmap/devices via `blockinfile` |
+| `lxc/post_configure.yml` | `/etc/pve/lxc/{vmid}.conf` | Append idmap/privileged devices via `blockinfile` |
 | `roles/proxmox/lxc/tasks/create.yml` | Temp file (staged and cleaned up) | SSH keys for container injection |
 | `roles/proxmox/vm/tasks/create.yml` | `vm_temp_dir` (staged and cleaned up) | SSH keys for cloud-init |
 | `vm/cicustom.yml` | `{storage}/snippets/vendor-*.yml` | Custom cloud-init vendor data |
@@ -110,7 +110,7 @@ Tasks are categorized by how they interact with Proxmox:
 
 - Shell commands for creation: `pct create`/`qm create` offer precise parameter control unavailable in API modules
 - API for disk operations: `proxmox_disk` handles import/resize with better idempotency
-- Config file writes are minimal: only `post_configure.yml` touches `/etc/pve/` directly for features unsupported by `pct create`
+- Config file writes are minimal: only `post_configure.yml` touches `/etc/pve/` directly for idmap and privileged device passthrough
 
 ### Purge System
 
@@ -129,9 +129,9 @@ Creates unprivileged LXC containers using Proxmox container templates.
 **Capabilities:**
 
 - Multi-disk configurations with mount points
-- Device passthrough (GPU/VAAPI, USB serial, TUN)
+- Device passthrough (GPU/VAAPI, USB serial, TUN, AMD KFD)
 - UID/GID mapping for unprivileged host resource access
-- Feature flags (nesting for Docker, FUSE, NFS/CIFS mounts)
+- Feature flags (nesting for Docker, FUSE, mknod, NFS/CIFS mounts)
 - Bind mounts from host paths
 - Static or DHCP networking with VLAN support
 
@@ -140,43 +140,46 @@ Creates unprivileged LXC containers using Proxmox container templates.
 1. Validate configuration against schema
 2. Check resource state via API reconciliation
 3. Download container template if missing
-4. Create container with `pct create`
-5. Apply post-creation configuration (devices, mounts, features)
-6. Start container and discover IP
-7. Provision via SSH with application roles
+4. Detect devices on host (GPU, USB, TUN) for passthrough
+5. Create container with `pct create` (includes `--devN` device passthrough)
+6. Apply post-creation configuration (idmap, privileged device mounts)
+7. Start container and discover IP
+8. Provision via SSH with application roles
 
 **Required variables:** `pve_host`, `lxc_vmid`, `lxc_hostname`
 
 See `inventory/group_vars/lxc.yml` for all options. Schema: `schemas/lxc.schema.json`.
 
+### Device Passthrough
+
+Unprivileged containers use the `--devN` API parameter (PVE 8.1+) for device passthrough. The `detect_devices.yml` task scans the Proxmox host for enabled devices and builds `pct create` arguments:
+
+| Device | Variable | Detection Path | GID Mapping |
+| -------- | ---------- | ---------------- | ------------- |
+| GPU card | `lxc_device_vaapi` | `/dev/dri/card*` | video (44 or idmap) |
+| GPU render | `lxc_device_vaapi` | `/dev/dri/renderD*` | render (104 or idmap) |
+| Framebuffer | `lxc_device_framebuffer` | `/dev/fb0` | video (44 or idmap) |
+| AMD KFD | `lxc_device_kfd` | `/dev/kfd` | render (104 or idmap) |
+| USB Serial | `lxc_device_usb_serial` | `/dev/ttyUSB*` | dialout (20 or idmap) |
+| USB ACM | `lxc_device_usb_acm` | `/dev/ttyACM*` | dialout (20 or idmap) |
+| TUN | `lxc_device_tun` | `/dev/net/tun` | None (no GID needed) |
+
+GID values adapt to idmap configuration: when `lxc_idmap_gid_match_devices` is true, all devices receive the mapped GID instead of the default. TUN is the exception — it requires no GID assignment.
+
 ### Direct Config Modification
 
-The `pct create` command handles 95% of container configuration, but certain LXC features require direct editing of `/etc/pve/lxc/{vmid}.conf` after creation.
-
-**Why direct editing is necessary:**
-
-| Feature | pct Support | Reason |
-| --------- | ------------- | -------- |
-| UID/GID mapping | None | Requires multiple coordinated `lxc.idmap` entries |
-| TUN device | None | Needs atomic cgroup2 permission + mount entry |
-| Privileged device passthrough | None | `--devN` is unprivileged-only; privileged needs raw LXC syntax |
-
-**What gets written:**
+Most configuration is handled by `pct create`, but two features require direct editing of `/etc/pve/lxc/{vmid}.conf` after creation:
 
 | Feature | Trigger | Entries Added |
 | --------- | --------- | --------------- |
 | UID/GID mapping | `lxc_idmap_uid`/`gid` set, unprivileged | `lxc.idmap: u/g` entries for 1:1 user mapping |
-| TUN device | `lxc_device_tun: true` | `lxc.cgroup2.devices.allow: c 10:200 rwm` + mount entry |
-| VAAPI GPU | `lxc_device_vaapi: true`, privileged | `lxc.cgroup2.devices.allow: c 226:* rwm` + `/dev/dri` mount |
-| Framebuffer | `lxc_device_framebuffer: true`, privileged | `lxc.cgroup2.devices.allow: c 29:0 rwm` + `/dev/fb0` mount |
-| AMD KFD | `lxc_device_kfd: true`, privileged | `lxc.cgroup2.devices.allow: c 511:0 rwm` + `/dev/kfd` mount |
-| USB Serial | `lxc_device_usb_serial: true`, privileged | `lxc.cgroup2.devices.allow: c 188:* rwm` + per-device mounts |
-| USB ACM | `lxc_device_usb_acm: true`, privileged | `lxc.cgroup2.devices.allow: c 189:* rwm` + per-device mounts |
+| Privileged GPU (VAAPI) | `lxc_device_vaapi: true`, privileged | `lxc.cgroup2.devices.allow: c 226:* rwm` + `/dev/dri` mount |
+| Privileged framebuffer | `lxc_device_framebuffer: true`, privileged | `lxc.cgroup2.devices.allow: c 29:0 rwm` + `/dev/fb0` mount |
+| Privileged AMD KFD | `lxc_device_kfd: true`, privileged | `lxc.cgroup2.devices.allow: c 511:0 rwm` + `/dev/kfd` mount |
+| Privileged USB Serial | `lxc_device_usb_serial: true`, privileged | `lxc.cgroup2.devices.allow: c 188:* rwm` + per-device mounts |
+| Privileged USB ACM | `lxc_device_usb_acm: true`, privileged | `lxc.cgroup2.devices.allow: c 189:* rwm` + per-device mounts |
 
-**Privileged vs unprivileged device handling:**
-
-- **Unprivileged**: Devices passed via `pct create --devN` with GID mapping. Detection runs before creation, builds command arguments.
-- **Privileged**: Devices passed via direct `lxc.cgroup2` + `lxc.mount.entry` directives. Detection runs after creation, appends to config file.
+**Why direct editing:** UID/GID mapping requires multiple coordinated `lxc.idmap` entries that the Proxmox API doesn't support. Privileged device passthrough needs raw `lxc.cgroup2` + `lxc.mount.entry` directives because `--devN` only works for unprivileged containers.
 
 **Safety mechanisms:**
 
