@@ -1,10 +1,7 @@
 ---
-# LXC Role Container Creation Tasks
 # Creates containers using native pct create with automatic device detection
-
-# Validation already performed in main.yml via validate_state.yml
 # We only reach this point if container needs to be created
-# Container facts are already set in validate_state.yml
+# Validation performed and container facts set in validate_state.yml
 
 # Stage SSH keys from vault onto Proxmox host for pct create --ssh-public-keys
 - name: LXC | Set SSH keys staging path
@@ -246,13 +243,3 @@
     path: "{{ __lxc_ssh_keys_file }}"
     state: absent
   when: __lxc_ssh_keys_file is defined
-
-# Display Next Steps
-- name: LXC | Display next steps
-  ansible.builtin.debug:
-    msg:
-      - "Container {{ lxc_final_vmid }} created successfully!"
-      - ""
-      - "Container automatically registered for provisioning"
-      - "Play 3 will provision via SSH using DNS-resolved hostname"
-    verbosity: 1

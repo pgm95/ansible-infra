@@ -190,14 +190,14 @@ Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemo
 
 - **Pre-flight connectivity checks** before join: forward (joining node to manager:2377) and reverse (init node to joining node:22), both with 60s timeout.
 - **Listen address** auto-derives from `docker_swarm_advertise_addr` when set. Falls back to `0.0.0.0:2377` only when no advertise address is configured.
-- **Hostname validation** before node label/availability operations verifies `ansible_hostname` matches `inventory_hostname`, preventing silent misapplication if the system hostname diverges.
+- **Hostname validation** warns if `ansible_hostname` differs from `inventory_hostname`. The unified inventory intentionally decouples these (e.g., `swarm-vps` in inventory vs `nerd1` on the system). Node operations use the system hostname.
 - **Init-must-be-manager** runtime assertion catches misconfigured nodes (the init node must have `docker_swarm_role: manager`). LXC and VM schemas enforce this via JSON Schema; the runtime check covers VPS hosts.
 
 #### Things to Watch Out For
 
 **Serial execution is mandatory.** All bootstrap operations run `serial: 1`. Parallel joins cause split-brain during Raft elections.
 
-**Advertise addresses must be literals.** The discovery play reads host_vars as raw YAML, so Jinja2 templates are not evaluated. Use `docker_swarm_advertise_addr: 100.88.0.1`, not `docker_swarm_advertise_addr: "{{ tailscale_ip }}"`.
+**Advertise addresses can use Jinja2.** Discovery uses `include_vars` + `delegate_facts`, so Jinja2 templates in host_vars (including `lookup('env', ...)`) are evaluated normally. Literal IPs are still recommended for clarity.
 
 **MTU matters.** When running Swarm over Tailscale, the MTU stack is:
 
