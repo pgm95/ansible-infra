@@ -16,6 +16,7 @@
     content: "{{ vault_ssh_authorized_keys | join('\n') }}\n"
     dest: "{{ __lxc_ssh_keys_file }}"
     mode: "0600"
+  diff: false
   when: vault_ssh_authorized_keys | default([]) | length > 0
 
 # Device Detection (unprivileged containers only)
