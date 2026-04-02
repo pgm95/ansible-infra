@@ -82,8 +82,6 @@ All deploy/check/purge tasks use `.mise/scripts/deploy.sh`, parametrized via env
 
 ## Config File Locations
 
-## Config File Locations
-
 | Config | Location |
 |--------|----------|
 | Ansible | `.config/ansible.cfg` (path-dependent settings via mise env vars) |
@@ -99,5 +97,5 @@ All deploy/check/purge tasks use `.mise/scripts/deploy.sh`, parametrized via env
 
 ## Secrets
 
-- **Ansible vault**: `secrets/vault-{env}.yml`, symlinked to `inventory/group_vars/all/vault.yml` by mise `enter` hook. Vault key: `secrets/vault-{env}.key` (set per-profile via `ANSIBLE_VAULT_PASSWORD_FILE`).
+- **Ansible vault**: `.secrets/vault-{env}.yml`, symlinked to `inventory/group_vars/all/vault.yml` by mise `enter` hook. Vault key: `.secrets/vault-{env}.key` (set per-profile via `ANSIBLE_VAULT_PASSWORD_FILE`).
 - **SSH keys**: Stored in vault as `vault_ssh_authorized_keys` (list).

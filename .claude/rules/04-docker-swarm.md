@@ -50,12 +50,13 @@ Discovery uses `include_vars` + `delegate_facts: true` to load host_vars, matchi
 ## Token Flow
 
 ```
-Init Node → docker_swarm init → retrieve tokens
+Init Node → docker_swarm init → retrieve tokens + cluster ID
     → delegate set_fact to localhost
     → hostvars['localhost'].swarm_manager_token → join nodes
+    → hostvars['localhost'].swarm_cluster_id → stale detection
 ```
 
-Tokens cached on localhost during play, available to all subsequent hosts via hostvars.
+Tokens and cluster ID cached on localhost during play, available to all subsequent hosts via hostvars.
 
 ## VXLAN Security
 
@@ -70,7 +71,7 @@ Creates: `iptables -A INPUT ! -i tailscale0 -p udp --dport 4789 -j DROP`
 
 - Installs `iptables-persistent` automatically.
 - Rule saved to `/etc/iptables/rules.v4` (survives reboot).
-- Variable must be passed through `discover_swarm.yml` via `add_host`.
+- Variable loaded via `include_vars` + `delegate_facts` during discovery (no explicit passthrough needed).
 
 ## Variable Precedence Trap
 
@@ -80,16 +81,19 @@ Shared group_vars at `playbooks/group_vars/swarm.yml` are auto-loaded at playboo
 
 ## Reset Ordering
 
-Reset uses three role-sequenced plays (not hostname-dependent):
+Reset uses three role-sequenced plays (not hostname-dependent), all with `ignore_unreachable: true`:
 
 1. Workers
 2. Non-init managers
-3. Init node
+3. Init node — before leaving, removes any `Down` nodes from the cluster (demotes managers first, then force-removes)
+
+`ignore_unreachable` ensures reset completes even when nodes have been destroyed (e.g., LXC/VM purged before swarm reset). Unreachable hosts are skipped without failing the play.
 
 ## Join Handling
 
 - **No retries** on the join task itself — first attempt starts a background join; retries cause "already part of a swarm" conflicts.
-- **Stale swarm recovery**: If "already part of a swarm", force leave (`docker swarm leave --force`), pause 5s, retry.
+- **Stale swarm recovery (join-time)**: If "already part of a swarm", force leave (`docker swarm leave --force`), pause 5s, retry.
+- **Stale cluster detection (post-join)**: Compares node's cluster ID (`_swarm_info.swarm_facts.ID`) with the init node's (`hostvars['localhost'].swarm_cluster_id`). If mismatched and the node was **already active at check time** (`_swarm_info.docker_swarm_active`), force-leaves and resets `_swarm_active: false` so the join block runs. Only triggers for nodes that were in a swarm before the play started — never for freshly-joined nodes.
 - **Background join polling**: If "Timeout was reached", poll `docker_swarm_info` until `docker_swarm_active` is true.
 
 ## Computed daemon.json
@@ -107,6 +111,7 @@ Individual variables → computed config with empty value filtering. No full-dic
 | Swarm timeout | `docker_swarm_timeout: 120` for WAN/Tailscale links |
 | Raft tuning | `election_tick >= 10 * heartbeat_tick` (defaults: 30/3 for WAN) |
 | Init-must-be-manager | Runtime assertion catches VPS hosts without JSON Schema |
+| Hostname != inventory | Warning only — inventory hostnames may differ from system hostnames (unified inventory). Node operations use `ansible_hostname` (system) |
 
 ## Key Files
 

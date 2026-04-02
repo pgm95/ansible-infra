@@ -80,6 +80,7 @@
         swarm_manager_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Manager }}"
         swarm_worker_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Worker }}"
         swarm_manager_addr: "{{ _advertise_addr }}:2377"
+        swarm_cluster_id: "{{ _swarm_tokens.swarm_facts.ID }}"
       delegate_to: localhost
       delegate_facts: true
 
@@ -113,6 +114,7 @@
         swarm_manager_token: "{{ _existing_swarm_tokens.swarm_facts.JoinTokens.Manager }}"
         swarm_worker_token: "{{ _existing_swarm_tokens.swarm_facts.JoinTokens.Worker }}"
         swarm_manager_addr: "{{ _advertise_addr }}:2377"
+        swarm_cluster_id: "{{ _existing_swarm_tokens.swarm_facts.ID }}"
       delegate_to: localhost
       delegate_facts: true
 
@@ -265,6 +267,36 @@
     - _swarm_active
 
 # ============================================================================
+# STALE SWARM RECOVERY - Force leave if node is in a different cluster
+# ============================================================================
+- name: Swarm | Detect and leave stale cluster
+  when:
+    - not _swarm_reset_mode | default(false)
+    - not docker_swarm_init | bool
+    - _swarm_active
+    - _swarm_info.docker_swarm_active | default(false)
+    - hostvars['localhost'].swarm_cluster_id is defined
+    - _swarm_info.swarm_facts.ID | default('') != hostvars['localhost'].swarm_cluster_id
+  block:
+    - name: Swarm | Force leave stale cluster
+      ansible.builtin.command: docker swarm leave --force
+      changed_when: true
+
+    - name: Swarm | Wait for swarm state to clear after stale leave
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Swarm | Reset state after stale leave
+      ansible.builtin.set_fact:
+        _swarm_active: false
+
+    - name: Swarm | Log stale swarm recovery
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} was in a different cluster — forced leave.
+          Will rejoin current cluster.
+
+# ============================================================================
 # VXLAN FIREWALL - Restrict overlay traffic to specific interface
 # ============================================================================
 - name: Swarm | Warn if public IP without VXLAN restriction
@@ -312,19 +344,16 @@
 # ============================================================================
 # NODE CONFIGURATION - Labels and Availability
 # ============================================================================
-- name: Swarm | Validate hostname matches inventory
-  ansible.builtin.assert:
-    that:
-      - ansible_hostname == inventory_hostname
-    fail_msg: >-
-      Hostname mismatch: system hostname '{{ ansible_hostname }}' does not match
-      inventory hostname '{{ inventory_hostname }}'. Swarm registered this node
-      under its system hostname, so label/availability operations will target
-      the wrong node. Run the hostname role first or update inventory.
-    quiet: true
+- name: Swarm | Warn if system hostname differs from inventory hostname
+  ansible.builtin.debug:
+    msg: >-
+      System hostname '{{ ansible_hostname }}' differs from inventory hostname
+      '{{ inventory_hostname }}'. Node operations will use the system hostname
+      since Docker Swarm registers nodes by system hostname.
   when:
     - not _swarm_reset_mode | default(false)
     - _swarm_active or docker_swarm_init | bool
+    - ansible_hostname != inventory_hostname
 
 - name: Swarm | Configure node labels
   community.docker.docker_node:
@@ -351,6 +380,42 @@
 # ============================================================================
 # RESET BLOCK - Remove node from swarm
 # ============================================================================
+- name: Swarm | Remove unreachable nodes before init leaves
+  when:
+    - _swarm_reset_mode | default(false)
+    - _swarm_active
+    - docker_swarm_init | bool
+    - _swarm_manager
+  block:
+    - name: Swarm | List cluster nodes
+      community.docker.docker_swarm_info:
+        nodes: true
+      register: _reset_cluster_info
+
+    - name: Swarm | Demote down managers before removal
+      ansible.builtin.command: docker node demote {{ item.ID }}
+      loop: >-
+        {{ _reset_cluster_info.nodes
+           | selectattr('Status', 'equalto', 'Down')
+           | selectattr('ManagerStatus', 'defined')
+           | list }}
+      loop_control:
+        label: "{{ item.Hostname }} ({{ item.ID[:12] }})"
+      changed_when: true
+      failed_when: false
+
+    - name: Swarm | Remove down nodes from cluster
+      ansible.builtin.command: docker node rm --force {{ item.ID }}
+      loop: >-
+        {{ _reset_cluster_info.nodes
+           | selectattr('Status', 'equalto', 'Down')
+           | rejectattr('ID', 'equalto', _reset_cluster_info.docker_swarm_node_id | default(''))
+           | list }}
+      loop_control:
+        label: "{{ item.Hostname }} ({{ item.ID[:12] }})"
+      changed_when: true
+      failed_when: false
+
 - name: Swarm | Reset node (leave cluster)
   community.docker.docker_swarm:
     state: absent

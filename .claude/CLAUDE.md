@@ -18,5 +18,5 @@ mise run validate                    # Lint & validation
 ```
 
 - Environment: `MISE_ENV=dev` (default) or `prod` (native mise profiles)
-- Vault: `secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/vault.yml`)
+- Vault: `.secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/vault.yml`)
 - Schemas: `schemas/*.schema.json`

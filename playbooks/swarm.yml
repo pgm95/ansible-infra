@@ -113,6 +113,7 @@
   hosts: swarm
   gather_facts: false
   serial: 1
+  ignore_unreachable: true
   tags: ["reset", "never"]
   tasks:
     - name: Include swarm reset tasks (workers)
@@ -129,6 +130,7 @@
   hosts: swarm
   gather_facts: false
   serial: 1
+  ignore_unreachable: true
   tags: ["reset", "never"]
   tasks:
     - name: Include swarm reset tasks (managers)
@@ -145,6 +147,7 @@
   hosts: swarm
   gather_facts: false
   serial: 1
+  ignore_unreachable: true
   tags: ["reset", "never"]
   tasks:
     - name: Include swarm reset tasks (init)

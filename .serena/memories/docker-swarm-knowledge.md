@@ -198,6 +198,25 @@ iptables -A INPUT ! -i tailscale0 -p udp --dport 4789 -j DROP
 2. Reverse check: Init node → joining node:22 (delegated, 60s timeout)
 3. Join retry logic: 3 attempts, 30s delay between retries
 
+### Stale Cluster Detection Bug (2026-04)
+
+**Problem**: After adding stale cluster detection (compares `_swarm_info.swarm_facts.ID` with `hostvars['localhost'].swarm_cluster_id`), freshly-joined nodes were immediately force-left. The `_swarm_info` was captured BEFORE the join, so `swarm_facts.ID` was empty. After join, `_swarm_active` was set to `true`, making the comparison `'' != 'actual_id'` evaluate as stale.
+
+**Fix**: Added `_swarm_info.docker_swarm_active | default(false)` guard — only runs stale detection on nodes that were already in a swarm at initial state check time. Freshly-joined nodes had `docker_swarm_active: false` in the original check, so they skip detection.
+
+**Key insight**: `_swarm_info` is a snapshot from the initial `docker_swarm_info` call. After `set_fact` updates `_swarm_active`, the original `_swarm_info` fields remain stale. Always use `_swarm_info.docker_swarm_active` (immutable snapshot) to distinguish "was already in a swarm" from "just joined".
+
+### Reset Resilience for Destroyed Nodes (2026-04)
+
+**Problem**: Running `swarm:reset` after purging LXC/VM failed because Ansible couldn't reach the destroyed hosts, blocking the entire reset. The surviving VPS was left with stale swarm state.
+
+**Fix (two parts)**:
+
+1. **`ignore_unreachable: true`** on all three reset plays (workers, managers, init). Destroyed hosts are skipped without failing.
+2. **Dead node cleanup on init**: Before the init node leaves, it lists all cluster nodes, demotes any `Down` managers, then force-removes all `Down` nodes. This cleans up references to destroyed hosts.
+
+**Additionally**: The init and existing-swarm blocks now store `swarm_cluster_id` on localhost alongside tokens, enabling the stale cluster detection for non-init nodes.
+
 ### Reset/Bootstrap Task Collision
 
 **Problem**: `--tags reset` runs both reset AND bootstrap tasks because `include_role` doesn't propagate tag filters to included tasks.
@@ -340,7 +359,7 @@ Systematic analysis and fixes applied to docker role and swarm config:
 
 - **VXLAN public IP warning**: `swarm.yml` now warns (always visible, no verbosity gate) when a node has a non-private IP and `docker_swarm_vxlan_interface` is empty. Detects RFC1918, CGNAT, loopback, and link-local ranges.
 - **Listen address derives from advertise address**: `docker_swarm_listen_addr` defaults to `advertise_addr:2377` when `docker_swarm_advertise_addr` is set. Falls back to `0.0.0.0:2377` only when no advertise address is configured. Applied in role defaults and discovery passthrough.
-- **Hostname validation**: Assertion before node label/availability operations verifies `ansible_hostname == inventory_hostname`. Prevents silent misapplication if system hostname diverges from what Docker registered at join time.
+- **Hostname validation**: Changed from hard assertion to warning. The unified inventory decouples inventory hostnames from system hostnames (e.g., `swarm-vps` in inventory vs `nerd1` on the system). Node label/availability operations already use `ansible_hostname` (system hostname), so the mismatch is informational.
 
 ### Validation
 
@@ -349,7 +368,7 @@ Systematic analysis and fixes applied to docker role and swarm config:
 
 ### Architecture
 
-- **Reset ordering**: Replaced single play with `order: reverse_sorted` (hostname-dependent) with three role-sequenced plays: workers → non-init managers → init node. Ordering is now in play structure, not hostname coincidence.
+- **Reset ordering**: Replaced single play with `order: reverse_sorted` (hostname-dependent) with three role-sequenced plays: workers → non-init managers → init node. Ordering is now in play structure, not hostname coincidence. All reset plays use `ignore_unreachable: true` for resilience against destroyed nodes. Init node cleanup removes `Down` nodes before leaving.
 - **Advertise address deduplication**: Single `set_fact` for `_advertise_addr` after state facts (with `tags: [always]`), replacing three identical computations in init/existing/join blocks.
 - **Discovery refactor (2026-04)**: Replaced `lookup('file') | from_yaml` (raw YAML, no Jinja2) with `include_vars` + `delegate_facts: true`. Eliminates 19-variable `add_host` passthrough. Host_vars now Jinja2-friendly (supports `lookup('env', ...)`). Two-phase approach: register to `_swarm_candidates` temp group, load vars, filter, then register to `swarm` group.
 
@@ -361,5 +380,5 @@ Systematic analysis and fixes applied to docker role and swarm config:
 
 ## Scope
 
-**In scope**: Cluster bootstrap, node management, daemon config, networking
+**In scope**: Cluster bootstrap, node management, daemon config, networking, reset resilience
 **Out of scope**: Stacks, services, secrets, registries, monitoring, ingress
