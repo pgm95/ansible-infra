@@ -19,16 +19,6 @@ lxc.idmap: g {{ lxc_idmap_gid | int + 1 }} {{ 100000 + lxc_idmap_gid | int + 1 }
 {% endif %}
 
 {# ============================================================================ #}
-{# TUN Device Configuration (VPN Support)                                       #}
-{# ============================================================================ #}
-{% if lxc_device_tun | default(false) %}
-# BEGIN ANSIBLE MANAGED - TUN DEVICE
-lxc.cgroup2.devices.allow: c 10:200 rwm
-lxc.mount.entry: /dev/net/tun dev/net/tun none bind,create=file
-# END ANSIBLE MANAGED - TUN DEVICE
-{% endif %}
-
-{# ============================================================================ #}
 {# Privileged Container Device Passthrough                                      #}
 {# ============================================================================ #}
 {# For USB/serial only. GPU workloads needing specific UID access (e.g.,        #}

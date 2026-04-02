@@ -122,16 +122,14 @@
 - name: LXC | Check for existing manual configurations
   ansible.builtin.set_fact:
     conf_has_idmap: "{{ 'lxc.idmap' in lxc_actual_config }}"
-    conf_has_tun: "{{ '/dev/net/tun' in lxc_actual_config }}"
 
 - name: LXC | Determine required manual configurations
   ansible.builtin.set_fact:
     needs_idmap_config: "{{ (lxc_idmap_uid != '' or lxc_idmap_gid != '') and not conf_has_idmap and not lxc_privileged }}"
-    needs_tun_config: "{{ lxc_device_tun and not conf_has_tun }}"
 
 - name: LXC | Calculate if any manual configuration is needed
   ansible.builtin.set_fact:
-    needs_manual_config: "{{ needs_idmap_config or needs_tun_config }}"
+    needs_manual_config: "{{ needs_idmap_config }}"
 
 # Post-Creation Manual Configuration (if needed)
 - name: LXC | Apply post-creation configuration using Ansible tasks
