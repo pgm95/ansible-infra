@@ -2,15 +2,8 @@
 # ============================================================================
 # LXC Role - Main Task Orchestration
 # ============================================================================
-# Orchestrates LXC container creation workflow with validation and error handling
 #
-# Flow:
-# 1. validate.yml - Validates config and computes ansible_id (hash of hostname+vmid)
-# 2. validate_state.yml - Checks if container exists by ansible_id tag (reconciliation)
-# 3. create.yml - Creates container if needed
-#
-# Shared Tasks: Uses common tasks from proxmox/shared/tasks/ for reconciliation
-# and cleanup operations (compute_ansible_id, check_resource_state, cleanup_failed_resource)
+# Also uses proxmox shared tasks for reconciliation and cleanup operations
 
 - name: LXC | Set shared tasks path
   ansible.builtin.set_fact:
