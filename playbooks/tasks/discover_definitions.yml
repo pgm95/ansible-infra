@@ -4,6 +4,10 @@
 # ============================================================================
 # Discovers VM or LXC definitions from host_vars and registers them dynamically
 #
+# Two-phase approach:
+#   Phase 1: Register all candidates and load their variables
+#   Phase 2: Filter by env_scope and register to the target group
+#
 # Required variables:
 #   _resource_type: "lxc" or "vm"
 #   _host_vars_subdir: Subdirectory name (e.g., "lxc" or "vm")
@@ -11,30 +15,27 @@
 #   _hostname_var: Variable name for hostname (e.g., "lxc_hostname" or "vm_hostname")
 #   proxmox_dns_domain: DNS domain for SSH connections
 
+# ============================================================================
+# Phase 1: Discover Candidates and Load Variables
+# ============================================================================
+
 - name: Find definition files
   ansible.builtin.find:
     paths: "{{ inventory_dir }}/host_vars/{{ _host_vars_subdir }}"
     patterns: "*.yml"
   register: _definition_files
 
-- name: Display discovered resources
-  ansible.builtin.debug:
-    msg: >-
-      Discovered {{ _definition_files.files | length }} {{ _resource_type | upper }}(s):
-      {{ _definition_files.files | map(attribute='path') | map('basename') | map('regex_replace', '\\.yml$', '') | list | join(', ') }}
-
-- name: Register resources dynamically
+- name: Register candidates for variable loading
   ansible.builtin.add_host:
-    name: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
-    groups:
-      - "{{ _group_name }}"
-    # ansible_connection and ansible_user inherited from group_vars/{lxc,vm}.yml
-    # ansible_host must be set here (dynamic per-host DNS resolution)
-    ansible_host: "{{ item.path | basename | regex_replace('\\.yml$', '') }}.{{ proxmox_dns_domain }}"
+    name: "{{ _host_name }}"
+    groups: _definition_candidates
+    ansible_host: "{{ _host_name }}.{{ proxmox_dns_domain }}"
     _inventory_dir: "{{ inventory_dir }}"
   loop: "{{ _definition_files.files }}"
   loop_control:
-    label: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
+    label: "{{ _host_name }}"
+  vars:
+    _host_name: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
   when: _definition_files.files | length > 0
 
 - name: Load host-specific variables
@@ -47,15 +48,42 @@
     label: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
   when: _definition_files.files | length > 0
 
-- name: Add hosts to their target PVE group
-  ansible.builtin.group_by:
-    key: "{{ hostvars[_host_name].pve_host }}"
+# ============================================================================
+# Phase 2: Filter by Environment and Register to Target Group
+# ============================================================================
+
+- name: Register resources dynamically
+  ansible.builtin.add_host:
+    name: "{{ _host_name }}"
+    groups:
+      - "{{ _group_name }}"
+    ansible_host: "{{ _host_name }}.{{ proxmox_dns_domain }}"
+    _inventory_dir: "{{ inventory_dir }}"
   loop: "{{ _definition_files.files }}"
   loop_control:
     label: "{{ _host_name }}"
   vars:
     _host_name: "{{ item.path | basename | regex_replace('\\.yml$', '') }}"
-  when: _definition_files.files | length > 0
+  when:
+    - _definition_files.files | length > 0
+    - hostvars[_host_name].env_scope | default(lookup('env', 'MISE_ENV')) == lookup('env', 'MISE_ENV')
+
+- name: Display discovered resources
+  ansible.builtin.debug:
+    msg: >-
+      Discovered {{ groups[_group_name] | default([]) | length }} {{ _resource_type | upper }}(s)
+      for {{ lookup('env', 'MISE_ENV') }} environment:
+      {{ groups[_group_name] | default([]) | join(', ') }}
+
+- name: Add hosts to their target PVE group
+  ansible.builtin.group_by:
+    key: "{{ hostvars[_host_name].pve_host }}"
+  loop: "{{ groups[_group_name] | default([]) }}"
+  loop_control:
+    label: "{{ _host_name }}"
+  vars:
+    _host_name: "{{ item }}"
+  when: groups[_group_name] | default([]) | length > 0
 
 - name: No definitions found warning
   ansible.builtin.debug:

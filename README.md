@@ -46,13 +46,11 @@ mise run validate
 
 ```text
 .
-├── config/              # Ansible, lint, and pre-commit configuration
+├── .config/             # Ansible, lint, and pre-commit configuration
 ├── inventory/
-│   ├── dev/             # Dev environment
-│   │   ├── hosts.yml    # Static hosts (vps, proxmox)
-│   │   ├── host_vars/   # Per-host configs (lxc/, vm/, and static host files)
-│   │   └── group_vars/  # Environment-specific group vars and vault
-│   └── prod/            # Prod environment (same structure)
+│   ├── hosts.yml        # Static hosts (vps, proxmox), env values via lookup('env')
+│   ├── host_vars/       # Per-host configs (lxc/, vm/, and static host files)
+│   └── group_vars/all/  # Vault symlink (auto-loaded)
 ├── playbooks/
 │   ├── group_vars/      # Shared defaults across environments
 │   ├── tasks/           # Shared discovery tasks
@@ -63,9 +61,11 @@ mise run validate
 │   ├── applications/    # Services (docker, tailscale, samba)
 │   └── proxmox/         # VM/LXC lifecycle + shared reconciliation tasks
 ├── schemas/             # JSON schemas for host_vars validation
-├── secrets/             # Vault keys and .env (gitignored)
+├── secrets/             # Vault files, vault keys (gitignored)
 └── .mise/
     ├── config.toml      # Tool versions, env vars, inline tasks
+    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, VPS addr, vault key)
+    ├── config.prod.toml # Prod-specific env vars
     ├── scripts/         # Shared deploy script
     └── tasks/           # Per-group TOML task definitions
 ```
@@ -74,53 +74,50 @@ mise run validate
 
 ### Environment Separation
 
-`PROJECT_ENV` controls the active environment. Default: `dev` (safe).
+`MISE_ENV` controls the active environment via mise's native profile system. Default: `dev` (set in `.config/miserc.toml`).
 
 ```bash
-PROJECT_ENV=prod mise run lxc:deploy    # Inline override
+MISE_ENV=prod mise run lxc:deploy    # Inline override
 ```
 
-Each environment maintains independent state:
+Ansible is fully environment-agnostic. All env-specific values (Proxmox address, VPS address, vault key) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). A single unified inventory serves both environments.
 
-- **Inventory** (`inventory/{env}/hosts.yml`): static host definitions
-- **Host vars** (`inventory/{env}/host_vars/`): per-host configuration
-- **Vault** (`inventory/{env}/group_vars/all/vault.yml`): encrypted secrets
-- **Vault key** (`secrets/vault-{env}.key`): decryption password (gitignored)
-
-You can also set `PROJECT_ENV` in `secrets/.env` (auto-loaded by mise).
+- **Inventory** (`inventory/hosts.yml`): static host definitions with `lookup('env', ...)` for env-specific values
+- **Host vars** (`inventory/host_vars/`): single file per host, shared across environments
+- **Vault** (`secrets/vault-{env}.yml`): encrypted secrets, symlinked to `inventory/group_vars/all/vault.yml` by mise hook
+- **Vault key** (`secrets/vault-{env}.key`): decryption password (gitignored), selected per-profile
 
 ### Variable Precedence
 
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`): internal and computed variables
-2. **Inventory group_vars** (`inventory/{env}/group_vars/`): environment-specific values, including vault
+2. **Inventory group_vars** (`inventory/group_vars/`): vault (auto-loaded via symlink)
 3. **Playbook group_vars** (`playbooks/group_vars/`): shared defaults across environments
-4. **Host-Specific** (`inventory/{env}/host_vars/`): per-host overrides
+4. **Host-Specific** (`inventory/host_vars/`): per-host overrides
 5. **Play vars_files**: loaded explicitly in plays (higher than all group/host vars)
 6. **Command-Line** (`--extra-vars`): runtime overrides (highest priority)
 
-> **Important:** Never define the same variable at both inventory and playbook group_vars levels. If a shared variable needs to differ per environment, move it from `playbooks/group_vars/` to both `inventory/dev/group_vars/` and `inventory/prod/group_vars/`.
+> **Important:** Never define the same variable at both inventory and playbook group_vars levels. If a variable needs to differ per environment, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
 
 ### Inventory and Host Discovery
 
 | Group | Type | Source |
 |-------|------|--------|
-| `vps` | Static | Defined in `inventory/{env}/hosts.yml` |
-| `proxmox` | Static | Defined in `inventory/{env}/hosts.yml` |
-| `vm` | File-based | Discovered from `inventory/{env}/host_vars/vm/*.yml` |
-| `lxc` | File-based | Discovered from `inventory/{env}/host_vars/lxc/*.yml` |
+| `vps` | Static | Defined in `inventory/hosts.yml` |
+| `proxmox` | Static | Defined in `inventory/hosts.yml` |
+| `vm` | File-based | Discovered from `inventory/host_vars/vm/*.yml` |
+| `lxc` | File-based | Discovered from `inventory/host_vars/lxc/*.yml` |
 | `swarm` | Dynamic | Populated at runtime by the `swarm.yml` discovery play |
 
-**Static groups** (vps, proxmox) require entries in `hosts.yml`. **File-based groups** (vm, lxc) need no inventory editing: drop a YAML file in the right `host_vars/` subdirectory and the discovery play finds it automatically via `add_host`. The **swarm** group is assembled at runtime by scanning all host_vars directories for `docker_swarm_enabled: true`.
+**Static groups** (vps, proxmox) require entries in `hosts.yml`. **File-based groups** (vm, lxc) need no inventory editing: drop a YAML file in the right `host_vars/` subdirectory and the discovery play finds it automatically via `add_host`. The **swarm** group is assembled at runtime by scanning all host_vars directories for `docker_swarm_enabled: true`. Hosts with `env_scope` are filtered by `MISE_ENV` during discovery.
 
 ### Secrets
 
 | Secret | Location | In Git |
 |--------|----------|--------|
-| Encrypted vault | `inventory/{env}/group_vars/all/vault.yml` | Yes (encrypted) |
+| Encrypted vault | `secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/`) | No |
 | Vault password | `secrets/vault-{env}.key` | No |
-| Environment variables | `secrets/.env` | No |
 | SSH authorized keys | Inside vault as `vault_ssh_authorized_keys` | Yes (encrypted) |
 
 Mise auto-configures `ANSIBLE_VAULT_PASSWORD_FILE` based on the active environment.
@@ -138,7 +135,7 @@ First-time provisioning uses password auth (`mise run vps:first-run`). Subsequen
 Both follow a three-play architecture:
 
 1. **Discovery** (localhost): scans `host_vars/{vm,lxc}/` for definition files, registers each host dynamically via `add_host`, and loads its variables with `include_vars` + `delegate_facts`.
-2. **Create** (delegated to Proxmox host): each VM/LXC definition specifies `pve_host` (e.g., `pve1`), and creation tasks delegate to that host. Skips resources that already exist (matched by `ansible_id` tag or VMID).
+2. **Create** (delegated to Proxmox host): each VM/LXC definition specifies `pve_host` (e.g., `pve`), and creation tasks delegate to that host. Skips resources that already exist (matched by `ansible_id` tag or VMID).
 3. **Provision** (SSH to resource): connects to the newly created VM/LXC via DNS-resolved hostname and applies roles (packages, users, ssh, docker, tailscale, etc.).
 
 **VM features**: cloud image auto-download (Debian, Ubuntu), cloud-init for early configuration, QEMU guest agent auto-installation, multi-disk with mixed bus types (SCSI, SATA, VirtIO).
@@ -166,7 +163,7 @@ VM/LXC definitions inherit API credentials from their target Proxmox host via `h
 
 ```yaml
 # In a VM/LXC host_vars file, only this is needed:
-pve_host: pve1        # Must exist in the proxmox group
+pve_host: pve         # Must exist in the proxmox group
 vm_vmid: "200"        # Explicit, never auto-assigned
 vm_hostname: "myvm"
 ```
@@ -243,20 +240,20 @@ For role variables, see `roles/<name>/defaults/main.yml` and `roles/<name>/meta/
 
 ### VPS
 
-1. Add the host to `inventory/{env}/hosts.yml` under the `vps` group.
-2. Create `inventory/{env}/host_vars/<hostname>.yml`.
+1. Add the host to `inventory/hosts.yml` under the `vps` group.
+2. Create `inventory/host_vars/<hostname>.yml`.
 3. Run `mise run vps:first-run` for initial password-based provisioning.
 
 ### LXC Container
 
-1. Create `inventory/{env}/host_vars/lxc/<hostname>.yml` with required fields: `pve_host`, `lxc_vmid`, `lxc_hostname`.
+1. Create `inventory/host_vars/lxc/<hostname>.yml` with required fields: `pve_host`, `lxc_vmid`, `lxc_hostname`.
 2. Run `mise run lxc:deploy`.
 
 No inventory file editing needed. The container is auto-discovered.
 
 ### Virtual Machine
 
-1. Create `inventory/{env}/host_vars/vm/<hostname>.yml` with required fields: `pve_host`, `vm_vmid`, `vm_hostname`.
+1. Create `inventory/host_vars/vm/<hostname>.yml` with required fields: `pve_host`, `vm_vmid`, `vm_hostname`.
 2. Run `mise run vm:deploy`.
 
 No inventory file editing needed. The VM is auto-discovered.
@@ -277,7 +274,7 @@ Runs all pre-commit hooks: ansible-lint (includes yamllint), shellcheck, check-j
 
 JSON schemas in `schemas/` validate host_vars structure for `common`, `lxc`, and `vm` groups.
 
-Hook configs live in `config/`. Never run linters directly.
+Hook configs live in `.config/`. Never run linters directly.
 
 ## Roadmap
 
@@ -292,11 +289,11 @@ Hook configs live in `config/`. Never run linters directly.
 
 | Config | Location |
 |--------|----------|
-| Ansible | `config/ansible.cfg` |
-| Ansible Lint | `config/ansible-lint.yml` |
-| YAML Lint | `config/yamllint.yml` |
-| Pre-commit | `config/pre-commit.yaml` |
-| Galaxy Requirements | `config/requirements.yml` |
+| Ansible | `.config/ansible.cfg` |
+| Ansible Lint | `.config/ansible-lint.yml` |
+| YAML Lint | `.config/yamllint.yml` |
+| Pre-commit | `.config/pre-commit.yaml` |
+| Galaxy Requirements | `.config/requirements.yml` |
 | JSON Schemas | `schemas/*.schema.json` |
 | Mise | `.mise/config.toml` |
 | Mise Tasks | `.mise/tasks/*.toml` |

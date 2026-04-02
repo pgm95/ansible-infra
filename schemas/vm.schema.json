@@ -8,9 +8,13 @@
   "required": ["pve_host", "vm_vmid", "vm_hostname"],
 
   "properties": {
+    "env_scope": {
+      "type": "string",
+      "enum": ["dev", "prod"],
+      "description": "Restrict this host to a specific environment. Omit for hosts shared across all environments."
+    },
     "pve_host": {
       "type": "string",
-      "pattern": "^pve[0-9]+$",
       "description": "Target Proxmox host (REQUIRED) - credentials inherited from group_vars/proxmox.yml"
     },
     "vm_vmid": {

@@ -91,7 +91,9 @@
   ansible.builtin.set_fact:
     _swarm_hosts: >-
       {{ _swarm_hosts | default([]) + (
-           [item] if (hostvars[item.name].docker_swarm_enabled | default(false)) else []
+           [item] if (hostvars[item.name].docker_swarm_enabled | default(false)
+                      and hostvars[item.name].env_scope | default(lookup('env', 'MISE_ENV')) == lookup('env', 'MISE_ENV'))
+                 else []
          ) }}
   loop: "{{ _all_candidates | default([]) }}"
   loop_control:

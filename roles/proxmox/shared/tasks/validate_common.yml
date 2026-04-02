@@ -30,7 +30,7 @@
     fail_msg: >-
       pve_host must be explicitly defined in host_vars to specify which
       Proxmox node to create the {{ _resource_type }} on.
-      Available hosts: {{ groups['proxmox'] | default(['pve1']) | join(', ') }}.
+      Available hosts: {{ groups['proxmox'] | default(['pve']) | join(', ') }}.
     success_msg: "pve_host validated: {{ pve_host }}"
 
 - name: Validate pve_host is in proxmox group

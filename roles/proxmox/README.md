@@ -37,9 +37,9 @@ Both `playbooks/lxc.yml` and `playbooks/vm.yml` follow a 4-play architecture:
 Resources specify only which Proxmox host to target. Credentials are inherited automatically:
 
 ```text
-host_vars/{lxc,vm}/*.yml  →  defines pve_host: pve1
+host_vars/{lxc,vm}/*.yml  →  defines pve_host: pve
 group_vars/proxmox.yml    →  lookups hostvars[pve_host]
-host_vars/proxmox/pve1.yml →  contains actual secrets
+host_vars/proxmox/pve.yml →  contains actual secrets
 ```
 
 ### Reconciliation System
@@ -306,7 +306,7 @@ The Ansible inventory hostname (`pve_host`) may differ from the actual Proxmox c
 # inventory/hosts.yml
 proxmox:
   hosts:
-    pve1:                                    # Ansible inventory hostname
+    pve:                                    # Ansible inventory hostname
       ansible_host: "proxmox.home.arpa"      # SSH connection address
       proxmox_node_name: "proxmox"           # Actual Proxmox cluster node name
 ```
@@ -351,11 +351,11 @@ Resources must be reachable for provisioning. Verify DNS resolution or DHCP leas
 
 If API operations fail with "Node X doesn't exist in PVE cluster":
 
-1. Check your Proxmox node name: `ssh pve1 hostname`
+1. Check your Proxmox node name: `ssh pve hostname`
 2. Add `proxmox_node_name` to inventory:
 
 ```yaml
-pve1:
+pve:
   ansible_host: "proxmox.home.arpa"
   proxmox_node_name: "proxmox"  # Actual cluster node name
 ```
