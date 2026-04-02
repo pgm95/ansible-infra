@@ -7,9 +7,9 @@ Rules for the variable hierarchy and inventory organization.
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`) — Internal/computed variables only
-2. **Inventory group_vars** (`inventory/{env}/group_vars/`) — Env-specific values, including vault
+2. **Inventory group_vars** (`inventory/group_vars/`) — Vault (auto-loaded via symlink)
 3. **Playbook group_vars** (`playbooks/group_vars/`) — Shared defaults across environments
-4. **Host-Specific** (`inventory/{env}/host_vars/`) — Per-host overrides
+4. **Host-Specific** (`inventory/host_vars/`) — Per-host overrides
 5. **Play vars_files** — Loaded explicitly in plays; higher than all group_vars and host_vars
 6. **Command-Line** (`--extra-vars`) — Runtime overrides (highest priority)
 
@@ -17,11 +17,11 @@ Configuration follows Ansible-native precedence (later overrides earlier):
 
 **Never define the same variable at both inventory and playbook group_vars levels.**
 
-If a shared variable needs to differ per-env, move it from `playbooks/group_vars/` to both `inventory/dev/group_vars/` and `inventory/prod/group_vars/`.
+If a variable needs to differ per-env, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
 
 ## Vault
 
-Vault is **not** a separate precedence level. `inventory/{env}/group_vars/all/vault.yml` is standard inventory group_vars that happens to be encrypted. It shares precedence with tier 2.
+Vault is **not** a separate precedence level. `inventory/group_vars/all/vault.yml` is a symlink to the active `secrets/vault-{env}.yml`, auto-loaded as standard inventory group_vars. The symlink is managed by a mise `enter` hook.
 
 ## `vars_files` Caveat
 
@@ -31,14 +31,13 @@ The `lxc.yml` and `vm.yml` plays load `group_vars/proxmox.yml` via `vars_files`,
 
 ## Inventory Organization
 
-### Environments
+### Structure
 
-Split per environment under `inventory/{env}/` (e.g., `inventory/prod/`, `inventory/dev/`).
+Single unified inventory at `inventory/`. No per-environment directories — all environment differences are handled by mise env vars.
 
-Each contains:
-- `hosts.yml` — Static hosts (proxmox, vps)
-- `host_vars/` — Per-host variables
-- `group_vars/all/vault.yml` — Encrypted secrets (auto-loaded)
+- `hosts.yml` — Static hosts (`pve`, `swarm-vps`), env-specific values via `lookup('env', ...)`
+- `host_vars/` — Per-host variables (single file per host)
+- `group_vars/all/vault.yml` — Symlink to active vault (managed by mise hook)
 
 Shared group_vars live at `playbooks/group_vars/` (auto-loaded by Ansible from the playbook directory).
 
@@ -46,17 +45,19 @@ Shared group_vars live at `playbooks/group_vars/` (auto-loaded by Ansible from t
 
 | Group | Type | Source |
 |-------|------|--------|
-| **vps** | Static | `inventory/{env}/hosts.yml` |
-| **proxmox** | Static | `inventory/{env}/hosts.yml` |
-| **vm** | File-based | Discovered from `inventory/{env}/host_vars/vm/` |
-| **lxc** | File-based | Discovered from `inventory/{env}/host_vars/lxc/` |
+| **vps** | Static | `inventory/hosts.yml` |
+| **proxmox** | Static | `inventory/hosts.yml` |
+| **vm** | File-based | Discovered from `inventory/host_vars/vm/` |
+| **lxc** | File-based | Discovered from `inventory/host_vars/lxc/` |
 | **swarm** | Dynamic | Populated by `swarm.yml` discovery |
 
 ### Host Vars Loading
 
 Two mechanisms:
 
-- **Auto-loaded** (static hosts): Files directly in `host_vars/` whose filename matches a host in `hosts.yml` (e.g., `host_vars/nerd1.yml`). No configuration needed.
+- **Auto-loaded** (static hosts): Files directly in `host_vars/` whose filename matches a host in `hosts.yml` (e.g., `host_vars/swarm-vps.yml`). No configuration needed.
 - **Manually loaded** (dynamic hosts): Files under subdirectories (`host_vars/lxc/`, `host_vars/vm/`) are **not** auto-loaded. The discovery play registers these hosts via `add_host` and loads their variables via `include_vars` with `delegate_facts: true`.
 
-Static hosts (proxmox, vps) get their host_vars automatically. Dynamic hosts (lxc, vm) require the discovery play to run first.
+### Environment Scoping
+
+Hosts that only exist in one environment have `env_scope` in their host_vars. Discovery tasks filter by `env_scope` matching `MISE_ENV` — non-matching hosts are never registered to the dynamic group. Hosts without `env_scope` are shared across all environments.

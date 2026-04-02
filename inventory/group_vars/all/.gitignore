@@ -1,0 +1,3 @@
+# Ignore symlink to vault file to avoid path issues.
+# Mise hook will create the proper symlink on any system.
+vault.yml

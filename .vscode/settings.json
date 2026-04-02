@@ -11,7 +11,8 @@
     ],
     "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/vars.json": [
       // ansible vars
-      "inventory/*/*/*.yml",
+      "**/group_vars/**/*.yml",
+      "**/host_vars/**/*.yml",
       "**/defaults/*.yml"
     ],
     "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/inventory.json": [
@@ -36,28 +37,5 @@
     },
     "editor.trimAutoWhitespace": true,
     "editor.formatOnSave": false
-  },
-  // Exclude patterns from explorer
-  "files.exclude": {
-    ".old/**": false,
-    ".git/**": true,
-    ".tmp/**": false,
-    ".venv/**": true,
-    ".vscode/**": false,
-    ".archive/**": false,
-    ".ansible/**": true
-  },
-  // Search exclusions
-  "search.useIgnoreFiles": false,
-  "search.exclude": {
-    ".old/**": true,
-    ".git/**": true,
-    ".tmp/**": true,
-    ".venv/**": true,
-    ".vscode/**": false,
-    ".archive/**": true,
-    ".ansible/**": true
-  },
-  // Extension Settings
-  "markdownlint.configFile": "config/.markdownlint-cli2.jsonc",
+  }
 }

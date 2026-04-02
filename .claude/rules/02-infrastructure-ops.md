@@ -27,22 +27,21 @@ mise run swarm:reset                 # Swarm teardown (destructive)
 
 ### Environment Control
 
-`PROJECT_ENV` controls the active environment (`dev` or `prod`). Default: `dev` (safe).
+`MISE_ENV` controls the active environment via mise's native profile system. Default: `dev` (set in `.config/miserc.toml`).
 
 ```bash
-# Override via .env file
-PROJECT_ENV=prod
-
-# Or inline
-PROJECT_ENV=prod mise run lxc:deploy
+# Inline override
+MISE_ENV=prod mise run lxc:deploy
 ```
+
+Mise profiles (`.mise/config.dev.toml`, `.mise/config.prod.toml`) provide env-specific values (Proxmox address, VPS address, vault key). Ansible is fully env-agnostic — it never knows which environment is active.
 
 ## Linting & Validation
 
 - **Always** use `mise run validate` for linting and validation.
 - **Never** run `ansible-lint`, `yamllint`, `markdownlint-cli2`, `taplo`, `shellcheck`, or schema validators directly.
 - Hooks: ansible-lint (includes yamllint), shellcheck, check-jsonschema, gitleaks, markdownlint-cli2, taplo-lint.
-- Hook configs live in `config/`.
+- Hook configs live in `.config/`.
 
 ## Shared Deploy Script
 
@@ -66,7 +65,7 @@ All deploy/check/purge tasks use `.mise/scripts/deploy.sh`, parametrized via env
 
 ### Host Discovery
 
-- **File-based** (lxc, vm): Scans `inventory/${PROJECT_ENV}/host_vars/${GROUP}/` for `.yml` files.
+- **File-based** (lxc, vm): Scans `inventory/host_vars/${GROUP}/` for `.yml` files.
 - **Inventory-based** (vps): Falls back to `ansible-inventory --graph ${GROUP}`.
 
 ### Limit Format
@@ -83,18 +82,22 @@ All deploy/check/purge tasks use `.mise/scripts/deploy.sh`, parametrized via env
 
 ## Config File Locations
 
+## Config File Locations
+
 | Config | Location |
 |--------|----------|
-| Ansible | `config/ansible.cfg` (path-dependent settings via mise env vars) |
-| Ansible-lint | `config/ansible-lint.yml` |
-| Yamllint | `config/yamllint.yml` |
-| Pre-commit | `config/pre-commit.yaml` |
-| Requirements | `config/requirements.yml` |
+| Ansible | `.config/ansible.cfg` (path-dependent settings via mise env vars) |
+| Ansible-lint | `.config/ansible-lint.yml` |
+| Yamllint | `.config/yamllint.yml` |
+| Pre-commit | `.config/pre-commit.yaml` |
+| Requirements | `.config/requirements.yml` |
 | JSON Schemas | `schemas/*.schema.json` |
 | Mise tasks | `.mise/tasks/*.toml` |
 | Mise config | `.mise/config.toml` |
+| Mise profiles | `.mise/config.{dev,prod}.toml` |
+| Mise default env | `.config/miserc.toml` |
 
 ## Secrets
 
-- **Ansible vault**: `inventory/{env}/group_vars/all/vault.yml`. Vault password: `secrets/vault-{env}.key`.
+- **Ansible vault**: `secrets/vault-{env}.yml`, symlinked to `inventory/group_vars/all/vault.yml` by mise `enter` hook. Vault key: `secrets/vault-{env}.key` (set per-profile via `ANSIBLE_VAULT_PASSWORD_FILE`).
 - **SSH keys**: Stored in vault as `vault_ssh_authorized_keys` (list).

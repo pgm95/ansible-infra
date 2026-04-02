@@ -7,7 +7,7 @@ Rules and constraints for Proxmox VM/LXC automation.
 Every VM/LXC host_vars file must include:
 
 ```yaml
-pve_host: pve1           # REQUIRED — must be in proxmox group
+pve_host: pve            # REQUIRED — must be in proxmox group
 lxc_vmid: "300"          # REQUIRED — explicit, no auto-assign
 lxc_hostname: "mycontainer"
 ```
@@ -16,16 +16,7 @@ lxc_hostname: "mycontainer"
 
 ## Proxmox Node Name
 
-The Ansible inventory hostname (`pve_host`) may differ from the Proxmox cluster node name. Set `proxmox_node_name` when they differ:
-
-```yaml
-# inventory/{env}/hosts.yml
-proxmox:
-  hosts:
-    pve1:
-      ansible_host: "proxmox.home.arpa"
-      proxmox_node_name: "proxmox"  # Actual Proxmox cluster node name
-```
+The inventory hostname (`pve`) is environment-agnostic. The actual Proxmox address and cluster node name come from mise env vars (`PVE_HOST_ADDR`, `PVE_NODE_NAME`), set in `hosts.yml` via `lookup('env', ...)`.
 
 ## API `node:` Parameter Rules
 

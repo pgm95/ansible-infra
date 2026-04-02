@@ -19,9 +19,19 @@ at `.mise/scripts/deploy.sh`, referenced via the `file` property in each TOML ta
 
 The script auto-detects the discovery method based on the group:
 
-- **File-based** (lxc, vm): Checks if `inventory/${PROJECT_ENV}/host_vars/${GROUP}/` contains `.yml` files,
+- **File-based** (lxc, vm): Checks if `inventory/host_vars/${GROUP}/` contains `.yml` files,
   lists them via `find` with `basename` stripping.
 - **Inventory-based** (vps): Falls back to `ansible-inventory --graph ${GROUP}`, parsing the tree output.
+
+### Environment System (2026-04)
+
+Mise native `MISE_ENV` profiles replace the custom `PROJECT_ENV` system. Ansible is fully env-agnostic.
+
+- `.config/miserc.toml` sets default `env = ["dev"]`
+- `.mise/config.dev.toml` / `.mise/config.prod.toml` provide env-specific values (Proxmox address, VPS address, vault key)
+- Vault symlink: `enter` hook in config.toml creates `inventory/group_vars/all/vault.yml → secrets/vault-${MISE_ENV}.yml`
+- Per-profile `ANSIBLE_VAULT_PASSWORD_FILE` selects the vault key
+- Single unified `inventory/` directory — no per-env split
 
 ### Limit Format
 

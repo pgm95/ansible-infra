@@ -61,7 +61,7 @@ Env vars: DEPLOY_GROUP (required), DEPLOY_INTERACTIVE, DEPLOY_CHECK_MODE, usage_
 **Required in inventory/{env}/host_vars (VM/LXC)**:
 
 ```yaml
-pve_host: pve1           # REQUIRED - must be in proxmox group
+pve_host: pve            # REQUIRED - must be in proxmox group
 lxc_vmid: "300"          # REQUIRED - explicit, no auto-assign
 lxc_hostname: "mycontainer"
 ```
@@ -223,8 +223,8 @@ The Ansible inventory hostname (`pve_host`) may differ from the actual Proxmox c
 
 **Example:**
 
-- Ansible inventory: `pve1`
-- Actual Proxmox node: `proxmox`
+- Ansible inventory: `pve` (env-agnostic, single entry)
+- Actual Proxmox node: set via `PVE_NODE_NAME` mise env var
 
 ### Solution: `proxmox_node_name` Variable
 
@@ -234,9 +234,9 @@ Add `proxmox_node_name` to each Proxmox host in inventory:
 # inventory/{env}/hosts.yml
 proxmox:
   hosts:
-    pve1:
-      ansible_host: "proxmox.home.arpa"
-      proxmox_node_name: "proxmox"  # Actual Proxmox cluster node name
+    pve:
+      ansible_host: "{{ lookup('env', 'PVE_HOST_ADDR') }}"
+      proxmox_node_name: "{{ lookup('env', 'PVE_NODE_NAME') }}"
 ```
 
 ### API `node:` Parameter Pattern

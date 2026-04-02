@@ -17,6 +17,6 @@ mise run swarm:deploy                # Swarm bootstrap
 mise run validate                    # Lint & validation
 ```
 
-- Environment: `PROJECT_ENV=dev` (default) or `prod`
-- Vault: `inventory/{env}/group_vars/all/vault.yml`
+- Environment: `MISE_ENV=dev` (default) or `prod` (native mise profiles)
+- Vault: `secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/vault.yml`)
 - Schemas: `schemas/*.schema.json`

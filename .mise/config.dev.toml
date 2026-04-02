@@ -1,0 +1,10 @@
+[env]
+
+# Proxmox
+PVE_HOST_ADDR = "proxmox.home.arpa"
+PVE_NODE_NAME = "proxmox"
+
+# VPS
+VPS_ADDR = "100.88.0.1"
+VPS_HOSTNAME = "nerd1"
+# VPS_PUBLIC_IP = "107.172.6.154"

@@ -3,12 +3,8 @@
 
 extends: default
 
-ignore: |
-  vault.yml
-  .ansible/
-  .venv/
-  .old/
-  .tmp/
+ignore:
+  - .*/
 
 rules:
   line-length:

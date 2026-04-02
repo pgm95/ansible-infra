@@ -17,8 +17,6 @@
 *.pub
 /files/
 **/host_vars
-*[Ss][Ee][Cc][Rr][Ee][Tt]*
-*[Pa][Ss][Ss][Ww][Oo][Rr][Dd]*
 
 # OS files
 ._*

@@ -1,8 +1,8 @@
 #:schema https://mise.jdx.dev/schema/mise.json
-#:tombi schema.strict = false
 
 ############################ SETTINGS ############################
 [settings]
+experimental = true
 auto_install = false
 python.uv_venv_auto = true
 unix_default_file_shell_args = "bash -o errexit -o nounset -o pipefail"
@@ -19,11 +19,9 @@ version = "latest"
 uvx_args = "--with requests --with netaddr --with dnspython --with passlib --with proxmoxer --with-executables-from ansible-lint,ansible-navigator,molecule"
 
 [env]
-PROJECT_ENV = "{{ env.PROJECT_ENV | default(value='dev') }}"
-PROJECT_CONFIGS_DIR = "{{config_root}}/config"
-PROJECT_SECRETS_DIR = "{{config_root}}/secrets"
-
-_.file = "{{ env.PROJECT_SECRETS_DIR }}/.env"
+MISE_ENV = "{{ mise_env | first }}"
+PROJECT_CONFIGS_DIR = "{{config_root}}/.config"
+PROJECT_SECRETS_DIR = "{{config_root}}/.secrets"
 YAMLLINT_CONFIG_FILE = "{{ env.PROJECT_CONFIGS_DIR }}/yamllint.yml"
 
 ANSIBLE_HOME = "{{config_root}}/.ansible"
@@ -33,8 +31,11 @@ ANSIBLE_GALAXY_CACHE_DIR = "{{ env.ANSIBLE_HOME }}/galaxy_cache"
 ANSIBLE_CACHE_PLUGIN_CONNECTION = "{{ env.ANSIBLE_HOME }}/facts"
 ANSIBLE_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/ansible.cfg"
 ANSIBLE_ROLES_PATH = "{{config_root}}/roles"
-ANSIBLE_INVENTORY = "{{config_root}}/inventory/{{env.PROJECT_ENV}}"
-ANSIBLE_VAULT_PASSWORD_FILE = "{{ env.PROJECT_SECRETS_DIR }}/vault-{{env.PROJECT_ENV}}.key"
+ANSIBLE_INVENTORY = "{{config_root}}/inventory"
+ANSIBLE_VAULT_PASSWORD_FILE = "{{ env.PROJECT_SECRETS_DIR }}/vault-{{ env.MISE_ENV }}.key"
+
+[hooks]
+enter = "ln -sf ${PROJECT_SECRETS_DIR}/vault-${MISE_ENV}.yml inventory/group_vars/all/vault.yml"
 
 [task_config]
 includes = [
@@ -51,21 +52,22 @@ run = """
 mise trust 2>/dev/null || true
 mise install
 mkdir -p .ansible/collections
-mise exec -- ansible-galaxy collection install -r config/requirements.yml --force -p .ansible/collections
-mise exec -- pre-commit install --config config/pre-commit.yaml
+mise exec -- ansible-galaxy collection install -r $PROJECT_CONFIGS_DIR/requirements.yml --force -p .ansible/collections
+mise exec -- pre-commit install --config $PROJECT_CONFIGS_DIR/pre-commit.yaml
 """
 
 [tasks."env:clean"]
 description = " " # Clean up environment and cache
-run = """
-mise uninstall --all --verbose || true
-find . -type d \\( -name '.tmp' -o -name '.cache' -o -name '.venv' -o -name '.ansible' -o -name '__pycache__' \\) -print0 | xargs -0 rm -rf || true
-find . -type f -name '*.egg-info' -print0 | xargs -0 rm -rf || true
-"""
+usage = 'flag "--uninstall" help="Also uninstall all mise tools"'
+run = '''
+#!/usr/bin/env bash
+[[ "${usage_uninstall:-}" == "true" ]] && mise uninstall --all
+find . \( -name "*.tmp" -o -name "*.log" -o -name "__pycache__" -o -name "*.pyc" -o -name "*.egg-info" -o -name ".cache" -o -name "*_cache" -o -name ".venv" -o -name '.ansible' \) -exec rm -rf {} + || true
+'''
 
 [tasks."validate"]
 description = " " # Run all pre-commit hooks
-run = "pre-commit run --config config/pre-commit.yaml --all-files"
+run = "pre-commit run --config $PROJECT_CONFIGS_DIR/pre-commit.yaml --all-files"
 
 [tasks."info"]
 description = " " # Gather and display system facts (includes VMs/LXCs)
@@ -82,4 +84,4 @@ ansible-playbook playbooks/get-facts.yml 2>&1 | \
 [tasks."vault"]
 description = " " # View/edit vault file in VSCode
 env.EDITOR = "code --wait"
-run = "ansible-vault edit inventory/${PROJECT_ENV}/group_vars/all/vault.yml"
+run = "ansible-vault edit $PROJECT_SECRETS_DIR/vault-${MISE_ENV}.yml"
