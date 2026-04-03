@@ -22,6 +22,7 @@ uvx_args = "--with requests --with netaddr --with dnspython --with passlib --wit
 MISE_ENV = "{{ mise_env | first }}"
 PROJECT_CONFIGS_DIR = "{{config_root}}/.config"
 PROJECT_SECRETS_DIR = "{{config_root}}/.secrets"
+_.file = "{{ env.PROJECT_SECRETS_DIR }}/.env"
 YAMLLINT_CONFIG_FILE = "{{ env.PROJECT_CONFIGS_DIR }}/yamllint.yml"
 
 ANSIBLE_HOME = "{{config_root}}/.ansible"

@@ -18,8 +18,10 @@ file = ".mise/scripts/deploy.sh"
 ["vps:first-run"]
 description = " " # "First-time deployment with password authentication"
 usage = 'arg "[password]" help="Root password (leave empty for prompt)"'
+env = { VPS_ADDR = "{{ env.VPS_PUBLIC_IP }}" }
 run = '''
 #!/usr/bin/env bash
+: "${VPS_ADDR:?VPS_PUBLIC_IP must be set in the active mise profile for first-run}"
 if [ -n "${usage_password:-}" ]; then
   mkdir -p .tmp
   echo "$usage_password" > .tmp/vps-firstrun-pass
