@@ -63,11 +63,11 @@ exit 0
 
 ["sops:edit"]
 description = " " # Edit encrypted secrets file
-usage = 'arg "<file>" help="Path to secrets file (default: shared.sops.yml)"'
+usage = 'arg "<file>" help="Path to secrets file (default: shared.sops.yaml)"'
 env.EDITOR = "code --wait"
 run = '''
 #!/usr/bin/env bash
-file="${usage_file:-${PROJECT_SECRETS_DIR}/shared.sops.yml}"
+file="${usage_file:-${PROJECT_SECRETS_DIR}/shared.sops.yaml}"
 [[ -f "${file}" ]] || { echo "Error: ${file} not found"; exit 1; }
 sops "${file}"
 '''

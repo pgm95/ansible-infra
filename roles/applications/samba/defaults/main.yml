@@ -44,7 +44,7 @@ samba_user: "{{ samba_existing_user | mandatory }}" # (string) Samba user (refer
 # Authentication Configuration
 # ==================================================================================
 
-samba_password: "" # (string) Samba user password (must be provided via host_vars)
+samba_password: "{{ undef(hint='samba_password must be provided via host_vars') }}" # (string) Samba user password
 
 # ==================================================================================
 # Service Management

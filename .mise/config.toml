@@ -85,8 +85,3 @@ ansible-playbook playbooks/get-facts.yml 2>&1 | \
   sed 's/\\\\n/\\n/g' | \
   while IFS= read -r line; do printf '%b\\n' \"$line\"; done || true
 """
-
-[tasks."vault"]
-description = " " # View/edit shared secrets in editor
-env.EDITOR = "code --wait"
-run = "sops $PROJECT_SECRETS_DIR/shared.sops.yml"
