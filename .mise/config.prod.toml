@@ -7,4 +7,4 @@ PVE_NODE_NAME = "nas"
 # VPS
 VPS_ADDR = "100.88.0.2"
 VPS_HOSTNAME = "prod-swarm-vps"
-# VPS_PUBLIC_IP = "216.144.228.248"
+VPS_PUBLIC_IP = "{{ env.NERD2_PUBLIC_IP }}"

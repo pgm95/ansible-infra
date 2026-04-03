@@ -41,6 +41,7 @@ Mise native `MISE_ENV` profiles replace the custom `PROJECT_ENV` system. Ansible
 | `PVE_NODE_NAME` | `proxmox` | `nas` | `hosts.yml` → pve proxmox_node_name |
 | `VPS_ADDR` | `100.88.0.1` | `100.88.0.2` | `hosts.yml` → swarm-vps ansible_host |
 | `VPS_HOSTNAME` | `nerd1` | `prod-swarm-vps` | `swarm-vps.yml` → hostname |
+| `VPS_PUBLIC_IP` | (from env) | (from env) | `vps:first-run` → overrides `VPS_ADDR` for initial deploy |
 | `ANSIBLE_VAULT_PASSWORD_FILE` | `.secrets/vault-dev.key` | `.secrets/vault-prod.key` | Ansible vault decryption |
 
 All other values (Tailscale IPs, swarm config, disk layouts) are identical across envs and stay as literals in host_vars.
@@ -66,6 +67,9 @@ To add a new Ansible group to the shared deploy system:
   `usage` args for hosts and tags — prompts when omitted, runs directly when provided.
 - **check**: Non-interactive dry-run. Sets `DEPLOY_INTERACTIVE=false` and `DEPLOY_CHECK_MODE=true`.
 - **purge**: Non-interactive with a fixed tag. Sets `DEPLOY_INTERACTIVE=false` and `usage_tags` to the desired tag.
+- **first-run**: Uses inline `run` (not the shared script). Overrides `VPS_ADDR` with `VPS_PUBLIC_IP`
+  via task-level `env`, so initial provisioning connects via public IP before Tailscale is installed.
+  Includes a guard that fails fast if `VPS_PUBLIC_IP` is unset in the active profile.
 - Custom variants follow the same pattern: combine env vars to control script behavior.
 
 ### Layout

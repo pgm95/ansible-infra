@@ -125,7 +125,7 @@ Mise auto-configures `ANSIBLE_VAULT_PASSWORD_FILE` based on the active environme
 
 Single-play playbook that connects to VPS hosts via SSH and applies system, network, and application roles. Uses a hybrid `tasks:` + `roles:` execution pattern. SSH hardening runs in `tasks:` with an immediate handler flush (to avoid locking yourself out mid-play), while remaining roles run in the standard `roles:` section.
 
-First-time provisioning uses password auth (`mise run vps:first-run`). Subsequent runs use key-based auth.
+First-time provisioning uses password auth (`mise run vps:first-run`), which automatically connects via the public IP (`VPS_PUBLIC_IP` from the active mise profile). Subsequent runs use key-based auth over Tailscale (`VPS_ADDR`).
 
 ### VM and LXC Lifecycle (`vm.yml`, `lxc.yml`)
 
@@ -239,7 +239,8 @@ For role variables, see `roles/<name>/defaults/main.yml` and `roles/<name>/meta/
 
 1. Add the host to `inventory/hosts.yml` under the `vps` group.
 2. Create `inventory/host_vars/<hostname>.yml`.
-3. Run `mise run vps:first-run` for initial password-based provisioning.
+3. Set `VPS_PUBLIC_IP` in the active mise profile (`.mise/config.{dev,prod}.toml`).
+4. Run `mise run vps:first-run` for initial password-based provisioning (connects via public IP automatically).
 
 ### LXC Container
 
