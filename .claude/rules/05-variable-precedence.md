@@ -7,15 +7,15 @@ Rules for the variable hierarchy and inventory organization.
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`) — Internal/computed variables only
-2. **Group vars** (`inventory/group_vars/`) — Shared defaults, vault, API credentials
+2. **Group vars** (`inventory/group_vars/`) — Shared defaults, API credentials
 3. **Host-Specific** (`inventory/host_vars/`) — Per-host overrides
 4. **Command-Line** (`--extra-vars`) — Runtime overrides (highest priority)
 
 All group_vars live in `inventory/group_vars/`. No playbook-level group_vars or `vars_files`.
 
-## Vault
+## Secrets
 
-Vault is **not** a separate precedence level. `inventory/group_vars/all/vault.yml` is a symlink to the active `secrets/vault-{env}.yml`, auto-loaded as standard inventory group_vars. The symlink is managed by a mise `enter` hook.
+Secrets are loaded as environment variables by mise (SOPS + age), not as Ansible group_vars. Group vars and host vars reference them via `lookup('env', 'VAR')`. This means secrets are not part of the Ansible variable precedence hierarchy -- they resolve at task evaluation time through the env lookup.
 
 ## Proxmox API Credentials
 
@@ -31,7 +31,7 @@ Single unified inventory at `inventory/`. No per-environment directories — all
 
 - `hosts.yml` — Static hosts (`pve`, `swarm-vps`), env-specific values via `lookup('env', ...)`
 - `host_vars/` — Per-host variables (single file per host)
-- `group_vars/` — All group defaults, vault symlink, API credentials
+- `group_vars/` — All group defaults, API credentials
 
 ### Groups
 

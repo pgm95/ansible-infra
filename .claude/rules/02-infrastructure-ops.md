@@ -11,9 +11,9 @@ Rules for operating this infrastructure. All actions go through mise and Ansible
 ## Mise-Only Operations
 
 - **Always** use mise tasks for Ansible actions.
-- **Never** run `ansible-playbook` directly — mise ensures correct paths, vault, and environment.
+- **Never** run `ansible-playbook` directly — mise ensures correct paths, secrets, and environment.
 - **Always** rely on mise to set all needed environment variables.
-- **Never** prefix commands with `ANSIBLE_VAULT_PASSWORD_FILE=`, `ANSIBLE_CONFIG=`, etc. manually.
+- **Never** prefix commands with `ANSIBLE_CONFIG=`, `SOPS_AGE_KEY_FILE=`, etc. manually.
 
 ### Deploy Commands
 
@@ -34,7 +34,7 @@ mise run swarm:reset                 # Swarm teardown (destructive)
 MISE_ENV=prod mise run lxc:deploy
 ```
 
-Mise profiles (`.mise/config.dev.toml`, `.mise/config.prod.toml`) provide env-specific values (Proxmox address, VPS address, vault key). Ansible is fully env-agnostic — it never knows which environment is active.
+Mise profiles (`.mise/config.dev.toml`, `.mise/config.prod.toml`) provide env-specific values (Proxmox address, VPS address, secrets). Ansible is fully env-agnostic -- it never knows which environment is active.
 
 ## Linting & Validation
 
@@ -97,5 +97,6 @@ All deploy/check/purge tasks use `.mise/scripts/deploy.sh`, parametrized via env
 
 ## Secrets
 
-- **Ansible vault**: `.secrets/vault-{env}.yml`, symlinked to `inventory/group_vars/all/vault.yml` by mise `enter` hook. Vault key: `.secrets/vault-{env}.key` (set per-profile via `ANSIBLE_VAULT_PASSWORD_FILE`).
-- **SSH keys**: Stored in vault as `vault_ssh_authorized_keys` (list).
+- **SOPS + age**: `.secrets/{shared,dev,prod}.sops.yaml`, auto-decrypted by mise `_.file` into env vars. Age key: `age.key` (gitignored). SOPS config: `.config/sops.yaml`.
+- **Ansible consumption**: Group vars and host vars use `lookup('env', 'VAR')` to read secrets. Roles define generic interface variables and never reference the secrets backend.
+- **SSH keys**: Stored as `SSH_AUTHORIZED_KEYS` env var (newline-delimited), split to list in `group_vars/all/main.yml`.

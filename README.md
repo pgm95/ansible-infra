@@ -1,6 +1,6 @@
 # Ansible Infrastructure Automation
 
-Ansible-based automation for provisioning and configuring VPS servers, Proxmox VMs, LXC containers, and Docker Swarm clusters. Uses [mise](https://mise.jdx.dev) for task management, tool versioning, and environment isolation. Supports multi-environment deployments (dev/prod) with per-environment vault encryption.
+Ansible-based automation for provisioning and configuring VPS servers, Proxmox VMs, LXC containers, and Docker Swarm clusters. Uses [mise](https://mise.jdx.dev) for task management, tool versioning, and environment isolation. Supports multi-environment deployments (dev/prod) with SOPS + age secret encryption.
 
 ## Quick Reference
 
@@ -19,10 +19,10 @@ mise run vm:purge                      # Destroy VMs
 mise run swarm:reset                   # Tear down Swarm cluster
 
 mise run info                          # Display system facts
-mise run vault                         # Edit vault in editor
+mise run sops:edit                     # Edit shared secrets in editor
 ```
 
-Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompting for selection. All operations go through mise; never run `ansible-playbook` directly, as mise manages paths, vault keys, and environment variables.
+Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompting for selection. All operations go through mise; never run `ansible-playbook` directly, as mise manages paths, secrets, and environment variables.
 
 ## Prerequisites
 
@@ -36,7 +36,8 @@ Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompti
 ```bash
 git clone <repo-url> && cd ansible-infra
 mise trust && mise run env:setup
-echo "your-vault-password" > secrets/vault-dev.key
+# Place age.key at project root (obtain from secure channel)
+mise run sops:status    # verify secrets are encrypted
 mise run validate
 ```
 
@@ -50,7 +51,7 @@ mise run validate
 ├── inventory/
 │   ├── hosts.yml        # Static hosts (vps, proxmox), env values via lookup('env')
 │   ├── host_vars/       # Per-host configs (lxc/, vm/, and static host files)
-│   └── group_vars/      # Group defaults and vault (auto-loaded by Ansible)
+│   └── group_vars/      # Group defaults and API credentials (auto-loaded by Ansible)
 ├── playbooks/
 │   ├── tasks/           # Shared discovery tasks
 │   └── *.yml            # Playbooks (vps, lxc, vm, swarm, get-facts)
@@ -60,10 +61,10 @@ mise run validate
 │   ├── applications/    # Services (docker, tailscale, samba)
 │   └── proxmox/         # VM/LXC lifecycle + shared reconciliation tasks
 ├── schemas/             # JSON schemas for host_vars validation
-├── secrets/             # Vault files, vault keys (gitignored)
+├── .secrets/            # SOPS-encrypted secrets (committed), age key (gitignored)
 └── .mise/
     ├── config.toml      # Tool versions, env vars, inline tasks
-    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, VPS addr, vault key)
+    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, VPS addr, secrets)
     ├── config.prod.toml # Prod-specific env vars
     ├── scripts/         # Shared deploy script
     └── tasks/           # Per-group TOML task definitions
@@ -79,19 +80,18 @@ mise run validate
 MISE_ENV=prod mise run lxc:deploy    # Inline override
 ```
 
-Ansible is fully environment-agnostic. All env-specific values (Proxmox address, VPS address, vault key) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). A single unified inventory serves both environments.
+Ansible is fully environment-agnostic. All env-specific values (Proxmox address, VPS address, secrets) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). A single unified inventory serves both environments.
 
 - **Inventory** (`inventory/hosts.yml`): static host definitions with `lookup('env', ...)` for env-specific values
 - **Host vars** (`inventory/host_vars/`): single file per host, shared across environments
-- **Vault** (`secrets/vault-{env}.yml`): encrypted secrets, symlinked to `inventory/group_vars/all/vault.yml` by mise hook
-- **Vault key** (`secrets/vault-{env}.key`): decryption password (gitignored), selected per-profile
+- **Secrets** (`.secrets/*.sops.yaml`): SOPS-encrypted with age, auto-decrypted by mise into env vars
 
 ### Variable Precedence
 
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`): internal and computed variables
-2. **Group vars** (`inventory/group_vars/`): shared defaults, vault, API credentials
+2. **Group vars** (`inventory/group_vars/`): shared defaults, API credentials
 3. **Host-Specific** (`inventory/host_vars/`): per-host overrides
 4. **Command-Line** (`--extra-vars`): runtime overrides (highest priority)
 
@@ -111,13 +111,16 @@ Configuration follows Ansible-native precedence (later overrides earlier):
 
 ### Secrets
 
+Secrets are managed with SOPS + age and loaded as environment variables by mise's `_.file` directive. Ansible consumes them via `lookup('env', ...)` in group_vars and host_vars. Roles never reference the secrets backend directly.
+
 | Secret | Location | In Git |
 |--------|----------|--------|
-| Encrypted vault | `secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/`) | No |
-| Vault password | `secrets/vault-{env}.key` | No |
-| SSH authorized keys | Inside vault as `vault_ssh_authorized_keys` | Yes (encrypted) |
+| Shared secrets | `.secrets/shared.sops.yaml` | Yes (encrypted) |
+| Dev secrets | `.secrets/dev.sops.yaml` | Yes (encrypted) |
+| Prod secrets | `.secrets/prod.sops.yaml` | Yes (encrypted) |
+| Age private key | `age.key` | No (gitignored) |
 
-Mise auto-configures `ANSIBLE_VAULT_PASSWORD_FILE` based on the active environment.
+`mise run sops:edit` opens secrets in the editor. `mise run sops:status` shows encryption status.
 
 ## Playbook Design
 

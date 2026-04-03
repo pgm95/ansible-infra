@@ -28,9 +28,9 @@ The script auto-detects the discovery method based on the group:
 Mise native `MISE_ENV` profiles replace the custom `PROJECT_ENV` system. Ansible is fully env-agnostic.
 
 - `.config/miserc.toml` sets default `env = ["dev"]`
-- `.mise/config.dev.toml` / `.mise/config.prod.toml` provide env-specific values (Proxmox address, VPS address, vault key)
-- Vault symlink: `enter` hook in config.toml creates `inventory/group_vars/all/vault.yml → secrets/vault-${MISE_ENV}.yml`
-- Per-profile `ANSIBLE_VAULT_PASSWORD_FILE` selects the vault key
+- `.mise/config.dev.toml` / `.mise/config.prod.toml` provide env-specific values (Proxmox address, VPS address, secrets)
+- Secrets: SOPS + age via mise `_.file` directive. Base config loads `shared.sops.yaml`, profile configs load `{env}.sops.yaml`
+- `SOPS_AGE_KEY_FILE` points to `age.key` at project root. `SOPS_CONFIG` points to `.config/sops.yaml`
 - Single unified `inventory/` directory — no per-env split
 
 ### Environment-Specific Values
@@ -42,7 +42,7 @@ Mise native `MISE_ENV` profiles replace the custom `PROJECT_ENV` system. Ansible
 | `VPS_ADDR` | `100.88.0.1` | `100.88.0.2` | `hosts.yml` → swarm-vps ansible_host |
 | `VPS_HOSTNAME` | `nerd1` | `prod-swarm-vps` | `swarm-vps.yml` → hostname |
 | `VPS_PUBLIC_IP` | (from env) | (from env) | `vps:first-run` → overrides `VPS_ADDR` for initial deploy |
-| `ANSIBLE_VAULT_PASSWORD_FILE` | `.secrets/vault-dev.key` | `.secrets/vault-prod.key` | Ansible vault decryption |
+| `SOPS_AGE_KEY_FILE` | `age.key` | `age.key` | SOPS decryption (single key for all envs) |
 
 All other values (Tailscale IPs, swarm config, disk layouts) are identical across envs and stay as literals in host_vars.
 

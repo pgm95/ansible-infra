@@ -18,7 +18,7 @@ Comprehensive user and group management with SSH key deployment, sudo configurat
 
 - Debian/Ubuntu based system
 - Root or sudo access
-- SSH keys defined in vault as `vault_ssh_authorized_keys` (list)
+- SSH keys provided via `ssh_authorized_keys` (list in group_vars)
 
 ## Role Variables
 
@@ -68,7 +68,7 @@ Custom home directory path.
 Grant sudo privileges.
 
 **ssh_keys** (boolean, default: `false`)
-Deploy SSH keys from vault (`vault_ssh_authorized_keys`).
+Deploy SSH keys from `ssh_authorized_keys` list.
 
 ## Workflow
 
@@ -173,7 +173,7 @@ SSH keys are ALWAYS deployed to root user for recovery access:
 # Automatic - no configuration needed
 ```
 
-Keys loaded from vault: `vault_ssh_authorized_keys` (list in `vault.yml`)
+Keys loaded from `ssh_authorized_keys` (list in group_vars)
 
 ### User SSH Access
 
@@ -183,7 +183,7 @@ Enable per-user SSH key deployment:
 users_list:
   - name: admin
     password: "plaintext"
-    ssh_keys: true  # Deploy keys from vault
+    ssh_keys: true  # Deploy SSH keys
 ```
 
 **Key Behavior:**
@@ -316,7 +316,7 @@ users_list:
 
 - Root keys preserve existing entries (recovery access)
 - User keys are exclusive (complete replacement)
-- Keys loaded from encrypted vault (tracked in git)
+- Keys loaded from `ssh_authorized_keys` (provided via group_vars)
 
 ### Sudo Validation
 
@@ -342,7 +342,7 @@ No handlers. Changes take effect immediately.
 /home/{username}/                      # User home directories
 /home/{username}/.ssh/authorized_keys  # User SSH keys
 /root/.ssh/authorized_keys             # Root SSH keys (recovery)
-vault.yml                              # Source SSH keys (vault_ssh_authorized_keys)
+group_vars/all/main.yml                # Source SSH keys (ssh_authorized_keys)
 ```
 
 ## Common Configurations

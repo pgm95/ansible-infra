@@ -235,7 +235,7 @@ iptables -A INPUT ! -i tailscale0 -p udp --dport 4789 -j DROP
 
 **Key insight**: The same file loaded via `vars_files` (play-level) has higher precedence than when auto-loaded via inventory group membership. Removing the explicit `vars_files` reference is the fix, not changing the file's contents.
 
-**Further evolution (env separation)**: All `vars_files` blocks referencing `../vault.yml` were removed from swarm plays. Vault secrets are now auto-loaded via `inventory/{env}/group_vars/all/vault.yml`. Shared group_vars moved to `playbooks/group_vars/` (auto-loaded by Ansible from the playbook directory).
+**Further evolution (env separation)**: All `vars_files` blocks were removed from swarm plays. Secrets are loaded as env vars via SOPS + age (mise `_.file`), consumed by group_vars via `lookup('env', ...)`. Shared group_vars moved to `playbooks/group_vars/` (auto-loaded by Ansible from the playbook directory).
 
 ### Jinja2 Length Filter on Non-Strings
 
@@ -346,7 +346,7 @@ mise run swarm:reset    # DESTRUCTIVE
 
 1. **Tailscale status integration**: Check `tailscale status --json` for peer connectivity before join attempts instead of blind wait_for
 2. **Dynamic timeout scaling**: Adjust timeouts based on geographic distance or measured latency
-3. **Idempotent token storage**: Auto-persist tokens to vault after init for truly idempotent reruns
+3. **Idempotent token storage**: Auto-persist tokens to SOPS secrets after init for truly idempotent reruns
 4. **Health check post-join**: Verify Raft quorum health after each manager join, not just at end
 5. **Graceful degradation**: On join failure, optionally continue with remaining nodes instead of hard fail
 6. **Token display security**: Truncate tokens in debug output (currently gated behind verbosity: 1 but could leak to CI logs)

@@ -18,5 +18,5 @@ mise run validate                    # Lint & validation
 ```
 
 - Environment: `MISE_ENV=dev` (default) or `prod` (native mise profiles)
-- Vault: `.secrets/vault-{env}.yml` (symlinked to `inventory/group_vars/all/vault.yml`)
+- Secrets: SOPS + age via mise `_.file` (`.secrets/{shared,dev,prod}.sops.yaml`)
 - Schemas: `schemas/*.schema.json`

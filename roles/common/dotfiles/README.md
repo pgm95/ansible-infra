@@ -60,13 +60,13 @@ The role does not parse or validate this string. Whatever `deploy.sh` supports t
 
 ## Authentication
 
-GitHub Personal Access Token is loaded from vault and used for OAuth2 authentication:
+GitHub Personal Access Token is provided via `dotfiles_github_token` variable:
 
 ```yaml
-# In vault.yml
-vault_github_dotfiles_url: "github.com/username/dotfiles"
-vault_github_dotfiles_branch: "main"
-vault_github_dotfiles_token: "ghp_xxxxxxxxxxxxx"
+# In group_vars or host_vars
+dotfiles_repo_url: "github.com/username/dotfiles"
+dotfiles_repo_branch: "main"
+dotfiles_github_token: "ghp_xxxxxxxxxxxxx"  # from env var via lookup
 ```
 
 Token is never logged (`no_log: true` on git tasks).

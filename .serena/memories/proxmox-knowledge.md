@@ -22,8 +22,8 @@ Play 1: Discovery [tags: always] (discover_definitions.yml)
         ↓
 inventory/group_vars/proxmox.yml (auto-loaded — lxc/vm are children of proxmox)
 ├── proxmox_api_host: "{{ hostvars[pve_host].ansible_host }}"
-├── proxmox_api_token_secret: "{{ vault_proxmox_token_secret }}"
-└── proxmox_api_password: "{{ vault_universal_pass }}"
+├── proxmox_api_token_secret: "{{ lookup('env', 'PROXMOX_TOKEN_SECRET') }}"
+└── proxmox_api_password: "{{ lookup('env', 'UNIVERSAL_PASS') }}"
         ↓
 Play 2: Create [hosts: lxc/vm] (delegate_to: "{{ pve_host }}")
 └── Skipped if resource exists, otherwise create on target PVE host
@@ -262,9 +262,9 @@ hostname  # This is the cluster node name
 | New disk creation | Use `create: regular` |
 | Password auth with module_defaults | Explicitly `omit` token params |
 
-### Vault Variable Resolution
+### Secret Variable Resolution
 
-~~Resolved~~: Each environment now has one PVE host, so vault variables use generic names (`vault_proxmox_token_secret`) directly. No dynamic lookup needed.
+Proxmox API credentials are sourced from environment variables via `lookup('env', ...)` in `group_vars/proxmox.yml`. Secrets are loaded by mise from SOPS-encrypted files (`_.file` directive).
 
 ### Common API Errors
 
@@ -530,19 +530,12 @@ Device access in LXC is controlled by the host's udev + Proxmox device passthrou
 
 ## SSH Keys Management
 
-SSH keys are stored in Ansible vault as `vault_ssh_authorized_keys` (list format):
-
-```yaml
-# inventory/{env}/group_vars/all/vault.yml
-vault_ssh_authorized_keys:
-  - "ssh-ed25519 AAAA... user1@host"
-  - "ssh-rsa AAAA... user2@host"
-```
+SSH keys are stored as a newline-delimited `SSH_AUTHORIZED_KEYS` env var (loaded from SOPS), split to a list in `group_vars/all/main.yml` as `ssh_authorized_keys`.
 
 Keys are deployed via:
 
 - `roles/common/users/tasks/main.yml` - deploys to managed hosts
-- `roles/proxmox/lxc/tasks/create.yml` - stages vault keys on PVE host for pct create, cleans up after
+- `roles/proxmox/lxc/tasks/create.yml` - stages keys on PVE host for pct create, cleans up after
 - `roles/proxmox/vm/tasks/create.yml` - stages keys in vm_temp_dir for qm create, cleaned up with temp dir
 
 ---

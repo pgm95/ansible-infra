@@ -40,7 +40,7 @@ Resources specify only which Proxmox host to target. Credentials are inherited a
 host_vars/{lxc,vm}/*.yml       →  defines pve_host: pve
 inventory/group_vars/proxmox.yml  →  lookups hostvars[pve_host] (auto-loaded via group inheritance)
 inventory/hosts.yml (pve)      →  ansible_host, proxmox_node_name
-inventory/group_vars/all/vault.yml  →  API secrets
+inventory/group_vars/proxmox.yml   →  API credentials (from env vars)
 ```
 
 ### Reconciliation System
@@ -241,7 +241,7 @@ The physical layer defines how Proxmox connects the VM to the network. The guest
 | Dual-stack | Above + `ip6=auto` or IPv6 CIDR | Optional IPv6 settings |
 
 **SSH Key Injection:**
-Keys from `vault_ssh_authorized_keys` are written to a temporary file on the Proxmox host, passed via `--sshkeys`, and injected by cloud-init into the user's `authorized_keys`. The temporary file is cleaned up after creation.
+Keys from `ssh_authorized_keys` are written to a temporary file on the Proxmox host, passed via `--sshkeys`, and injected by cloud-init into the user's `authorized_keys`. The temporary file is cleaned up after creation.
 
 **Custom Vendor Data (cicustom):**
 
@@ -266,8 +266,8 @@ The vendor data is rendered from `templates/vendor.yml.j2`, which derives disk c
 | `--ide2` | (auto) | Cloud-init CDROM on storage |
 | `--citype` | `vm_cloudinit_type` | Datasource: nocloud, configdrive2 |
 | `--ciuser` | `vm_cloudinit_user` | Initial user (default: root) |
-| `--cipassword` | `vm_cloudinit_password` | Optional password from vault |
-| `--sshkeys` | `vault_ssh_authorized_keys` | Public keys for injection |
+| `--cipassword` | `vm_cloudinit_password` | Optional password |
+| `--sshkeys` | `ssh_authorized_keys` | Public keys for injection |
 | `--ipconfig0` | `vm_cloudinit_ip` + gateway | Network configuration |
 | `--ciupgrade` | `vm_cloudinit_upgrade` | Upgrade packages on boot |
 | `--nameserver` | `vm_cloudinit_nameserver` | Custom DNS resolver |
