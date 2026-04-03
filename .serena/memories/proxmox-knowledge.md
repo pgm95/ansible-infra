@@ -9,35 +9,21 @@ Comprehensive reference for Proxmox infrastructure automation patterns, learning
 ### Multi-PVE Host Support
 
 ```text
-inventory/{env}/host_vars/lxc/*.yml or inventory/{env}/host_vars/vm/*.yml
-├── pve_host: pve1  (REQUIRED - target Proxmox host)
+inventory/host_vars/lxc/*.yml or inventory/host_vars/vm/*.yml
+├── pve_host: pve  (REQUIRED - must be in proxmox group)
 ├── lxc_vmid/vm_vmid, lxc_hostname/vm_hostname (REQUIRED)
 └── Other configuration...
         ↓
 Play 1: Discovery [tags: always] (discover_definitions.yml)
 ├── Find definition files in inventory_dir/host_vars/{lxc,vm}/
-├── add_host: register to single group (lxc or vm), pass _inventory_dir
-├── include_vars: load host-specific variables
-└── group_by: create dynamic pve_host groups
+├── add_host: register to temp group, then target group (lxc or vm)
+├── include_vars + delegate_facts: load host-specific variables
+└── Filter by env_scope (skip hosts not matching MISE_ENV)
         ↓
-playbooks/group_vars/proxmox.yml (evaluated in VM/LXC context)
+inventory/group_vars/proxmox.yml (auto-loaded — lxc/vm are children of proxmox)
 ├── proxmox_api_host: "{{ hostvars[pve_host].ansible_host }}"
 ├── proxmox_api_token_secret: "{{ vault_proxmox_token_secret }}"
 └── proxmox_api_password: "{{ vault_universal_pass }}"
-        ↓
-inventory/{env}/host_vars/{pve_host}.yml (PVE host-specific overrides)
-│   Auto-loaded by Ansible (filename matches static host in hosts.yml)
-│   Currently only defines proxmox_api_token_secret, which is redundant
-│   with playbooks/group_vars/proxmox.yml (same value, host_vars wins by
-│   precedence but has no effect). These files would only matter if each
-│   PVE host needed different API credentials.
-│
-│   Can hold any variable for the PVE host. Variables accessed via
-│   hostvars[pve_host] by LXC/VM plays: ansible_host, proxmox_node_name,
-│   proxmox_api_token_secret. First two are currently set inline in hosts.yml.
-└── VPS host_vars also live directly in host_vars/ (auto-loaded, same as PVE hosts).
-    Only host_vars/lxc/ and host_vars/vm/ subdirectories use manual loading
-    via the discovery task (include_vars + delegate_facts).
         ↓
 Play 2: Create [hosts: lxc/vm] (delegate_to: "{{ pve_host }}")
 └── Skipped if resource exists, otherwise create on target PVE host
@@ -45,15 +31,16 @@ Play 2: Create [hosts: lxc/vm] (delegate_to: "{{ pve_host }}")
 Play 3: Provision [hosts: lxc/vm] (SSH to resource)
 └── Apply configured roles
 
-Environment selection: PROJECT_ENV=prod or PROJECT_ENV=dev (default: dev)
+Environment selection: MISE_ENV=prod or MISE_ENV=dev (default: dev)
 Workflow: Always run `mise run lxc:deploy` or `mise run vm:deploy` - creation skipped if exists.
 
-Interactive deployment (prompts for hosts/tags when args omitted):
-  mise run vm:deploy [hosts] [tags]
-  mise run lxc:deploy [hosts] [tags]
+### Host Scoping (env_scope)
 
-All deploy/check/purge tasks use shared `.mise/scripts/deploy.sh`, parametrized via TOML env vars.
-Env vars: DEPLOY_GROUP (required), DEPLOY_INTERACTIVE, DEPLOY_CHECK_MODE, usage_tags.
+Hosts that only exist in one environment have `env_scope` in their host_vars. Discovery tasks filter by `env_scope` matching `MISE_ENV` — non-matching hosts are never registered to the dynamic group. Hosts without `env_scope` are shared across all environments.
+
+- **Shared hosts**: No `env_scope`. Discovered in every env. Env-specific values come from mise env vars via `lookup('env', ...)`.
+- **Prod-only hosts**: Have `env_scope: prod`. Never registered when running in dev.
+- **Static hosts** (`pve`, `swarm-vps`): Single entry in `hosts.yml`. Mise env vars control which physical machine they resolve to.
 ```
 
 ### Key Variables
@@ -66,33 +53,7 @@ lxc_vmid: "300"          # REQUIRED - explicit, no auto-assign
 lxc_hostname: "mycontainer"
 ```
 
-**Shared Settings (playbooks/group_vars/proxmox.yml)**:
-
-```yaml
-proxmox_api_user: "ansible@pve"
-proxmox_api_token_id: "homeops"
-proxmox_api_validate_certs: false
-
-# Dynamic lookups (evaluated per-resource)
-proxmox_api_host: "{{ hostvars[pve_host].ansible_host }}"
-proxmox_api_token_secret: "{{ hostvars[pve_host].proxmox_api_token_secret }}"
-proxmox_api_password: "{{ vault_universal_pass }}"
-
-# DRY pattern for shared tasks
-proxmox_api_auth:
-  api_host: "{{ proxmox_api_host }}"
-  api_user: "{{ proxmox_api_user }}"
-  api_token_id: "{{ proxmox_api_token_id }}"
-  api_token_secret: "{{ proxmox_api_token_secret }}"
-  validate_certs: "{{ proxmox_api_validate_certs }}"
-```
-
-### Vault Requirements
-
-```yaml
-# inventory/{env}/group_vars/all/vault.yml (auto-loaded, per-environment)
-vault_proxmox_token_secret: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-```
+**Shared Settings (inventory/group_vars/proxmox.yml)** — auto-loaded for lxc/vm hosts via group inheritance (lxc and vm are children of proxmox in hosts.yml). No `vars_files` needed.
 
 ---
 
@@ -231,12 +192,15 @@ The Ansible inventory hostname (`pve_host`) may differ from the actual Proxmox c
 Add `proxmox_node_name` to each Proxmox host in inventory:
 
 ```yaml
-# inventory/{env}/hosts.yml
+# inventory/hosts.yml
 proxmox:
   hosts:
     pve:
       ansible_host: "{{ lookup('env', 'PVE_HOST_ADDR') }}"
       proxmox_node_name: "{{ lookup('env', 'PVE_NODE_NAME') }}"
+  children:
+    lxc: {}
+    vm: {}
 ```
 
 ### API `node:` Parameter Pattern
@@ -587,14 +551,14 @@ Keys are deployed via:
 
 ### VM Role
 
-- `playbooks/group_vars/vm.yml` - vm_disks structure (shared defaults)
+- `inventory/group_vars/vm.yml` - vm_disks structure (shared defaults)
 - `roles/proxmox/vm/tasks/create.yml` - Multi-disk creation
 - `roles/proxmox/vm/tasks/validate.yml` - Disk array validation
 - `schemas/vm.schema.json` - JSON schema with vm_disks
 
 ### LXC Role
 
-- `playbooks/group_vars/lxc.yml` - lxc_disks structure, lxc_default_storage (shared defaults)
+- `inventory/group_vars/lxc.yml` - lxc_disks structure, lxc_default_storage (shared defaults)
 - `roles/proxmox/lxc/tasks/build_pct_command.yml` - Multi-disk command construction
 - `roles/proxmox/lxc/tasks/validate.yml` - Disk array validation
 - `schemas/lxc.schema.json` - JSON schema with lxc_disks
@@ -602,4 +566,4 @@ Keys are deployed via:
 ### Shared
 
 - `roles/proxmox/shared/` - Common tasks for VM/LXC
-- `playbooks/group_vars/proxmox.yml` - API credentials (shared defaults)
+- `inventory/group_vars/proxmox.yml` - API credentials (inherited by lxc/vm via group nesting)

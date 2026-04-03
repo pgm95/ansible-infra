@@ -7,27 +7,21 @@ Rules for the variable hierarchy and inventory organization.
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`) — Internal/computed variables only
-2. **Inventory group_vars** (`inventory/group_vars/`) — Vault (auto-loaded via symlink)
-3. **Playbook group_vars** (`playbooks/group_vars/`) — Shared defaults across environments
-4. **Host-Specific** (`inventory/host_vars/`) — Per-host overrides
-5. **Play vars_files** — Loaded explicitly in plays; higher than all group_vars and host_vars
-6. **Command-Line** (`--extra-vars`) — Runtime overrides (highest priority)
+2. **Group vars** (`inventory/group_vars/`) — Shared defaults, vault, API credentials
+3. **Host-Specific** (`inventory/host_vars/`) — Per-host overrides
+4. **Command-Line** (`--extra-vars`) — Runtime overrides (highest priority)
 
-## Partitioning Rule
-
-**Never define the same variable at both inventory and playbook group_vars levels.**
-
-If a variable needs to differ per-env, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
+All group_vars live in `inventory/group_vars/`. No playbook-level group_vars or `vars_files`.
 
 ## Vault
 
 Vault is **not** a separate precedence level. `inventory/group_vars/all/vault.yml` is a symlink to the active `secrets/vault-{env}.yml`, auto-loaded as standard inventory group_vars. The symlink is managed by a mise `enter` hook.
 
-## `vars_files` Caveat
+## Proxmox API Credentials
 
-The `lxc.yml` and `vm.yml` plays load `group_vars/proxmox.yml` via `vars_files`, which elevates those variables above inventory host_vars. This is intentional for API credentials, but means **host_vars cannot override variables loaded this way**.
+`inventory/group_vars/proxmox.yml` provides API credentials to all hosts in the `proxmox` group. Since `lxc` and `vm` are children of `proxmox` in the inventory, credentials auto-load for all LXC/VM hosts via group inheritance — no `vars_files` needed.
 
-**Do not add new `vars_files` references** unless you understand the precedence implications. Prefer auto-loaded group_vars (tier 2-3) where `add_host` and host_vars win naturally.
+If a variable needs to differ per-env, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
 
 ## Inventory Organization
 
@@ -37,18 +31,16 @@ Single unified inventory at `inventory/`. No per-environment directories — all
 
 - `hosts.yml` — Static hosts (`pve`, `swarm-vps`), env-specific values via `lookup('env', ...)`
 - `host_vars/` — Per-host variables (single file per host)
-- `group_vars/all/vault.yml` — Symlink to active vault (managed by mise hook)
-
-Shared group_vars live at `playbooks/group_vars/` (auto-loaded by Ansible from the playbook directory).
+- `group_vars/` — All group defaults, vault symlink, API credentials
 
 ### Groups
 
 | Group | Type | Source |
 |-------|------|--------|
 | **vps** | Static | `inventory/hosts.yml` |
-| **proxmox** | Static | `inventory/hosts.yml` |
-| **vm** | File-based | Discovered from `inventory/host_vars/vm/` |
-| **lxc** | File-based | Discovered from `inventory/host_vars/lxc/` |
+| **proxmox** | Static | `inventory/hosts.yml` (parent of `lxc` and `vm`) |
+| **lxc** | File-based | Child of `proxmox`. Discovered from `inventory/host_vars/lxc/` |
+| **vm** | File-based | Child of `proxmox`. Discovered from `inventory/host_vars/vm/` |
 | **swarm** | Dynamic | Populated by `swarm.yml` discovery |
 
 ### Host Vars Loading

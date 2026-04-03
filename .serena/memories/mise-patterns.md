@@ -33,6 +33,18 @@ Mise native `MISE_ENV` profiles replace the custom `PROJECT_ENV` system. Ansible
 - Per-profile `ANSIBLE_VAULT_PASSWORD_FILE` selects the vault key
 - Single unified `inventory/` directory — no per-env split
 
+### Environment-Specific Values
+
+| Variable | Dev | Prod | Consumed By |
+|----------|-----|------|-------------|
+| `PVE_HOST_ADDR` | `proxmox.home.arpa` | `nas.home.arpa` | `hosts.yml` → pve ansible_host |
+| `PVE_NODE_NAME` | `proxmox` | `nas` | `hosts.yml` → pve proxmox_node_name |
+| `VPS_ADDR` | `100.88.0.1` | `100.88.0.2` | `hosts.yml` → swarm-vps ansible_host |
+| `VPS_HOSTNAME` | `nerd1` | `prod-swarm-vps` | `swarm-vps.yml` → hostname |
+| `ANSIBLE_VAULT_PASSWORD_FILE` | `.secrets/vault-dev.key` | `.secrets/vault-prod.key` | Ansible vault decryption |
+
+All other values (Tailscale IPs, swarm config, disk layouts) are identical across envs and stay as literals in host_vars.
+
 ### Limit Format
 
 - `lxc` and `vm` groups prepend `localhost,` to `--limit` (needed for the discovery play).

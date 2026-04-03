@@ -171,9 +171,9 @@ Keys staged on PVE host during create, cleaned up after:
 
 | File | Purpose |
 |------|---------|
-| `playbooks/group_vars/proxmox.yml` | API credentials (shared defaults) |
-| `playbooks/group_vars/vm.yml` | vm_disks structure defaults |
-| `playbooks/group_vars/lxc.yml` | lxc_disks structure defaults |
+| `inventory/group_vars/proxmox.yml` | API credentials (inherited by lxc/vm via group nesting) |
+| `inventory/group_vars/vm.yml` | vm_disks structure defaults |
+| `inventory/group_vars/lxc.yml` | lxc_disks structure defaults |
 | `roles/proxmox/vm/tasks/create.yml` | VM multi-disk creation |
 | `roles/proxmox/lxc/tasks/build_pct_command.yml` | LXC multi-disk command |
 | `roles/proxmox/shared/` | Common tasks for VM/LXC |
