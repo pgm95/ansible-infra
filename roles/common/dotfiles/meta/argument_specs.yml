@@ -33,6 +33,12 @@ argument_specs:
         type: str
         default: ""
 
+      dotfiles_github_token:
+        description: GitHub OAuth token for private repo authentication
+        type: str
+        default: ""
+        no_log: true
+
       dotfiles_repo_branch:
         description: Git branch to checkout
         type: str

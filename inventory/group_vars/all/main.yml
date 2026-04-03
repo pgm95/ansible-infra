@@ -26,7 +26,11 @@ swap_disable: true
 # Dotfiles Repo Configuration
 dotfiles_enabled: false
 dotfiles_repo_branch: "main"
-dotfiles_repo_url: "{{ vault_github_dotfiles_url }}"
+dotfiles_repo_url: "{{ lookup('env', 'GITHUB_DOTFILES_URL') }}"
+dotfiles_github_token: "{{ lookup('env', 'GITHUB_DOTFILES_TOKEN') }}"
+
+# SSH Keys (newline-delimited string from SOPS → list)
+ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
 
 # Application Configuration
 packages_install_shell: false # (boolean) Install shell utilities
@@ -34,9 +38,9 @@ packages_install_network: false # (boolean) Install network utilities
 
 # Tailscale OAuth Credentials
 # Both point to the same OAuth client (has auth_keys + devices write scopes)
-# Actual secret is per-environment in inventory/{env}/group_vars/all/vault.yml
-tailscale_oauth_authkeys: "{{ vault_ts_oauth_key }}"
-tailscale_oauth_devices: "{{ vault_ts_oauth_key }}"
+# Per-environment secret loaded via SOPS
+tailscale_oauth_authkeys: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
+tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 
 # ============================================================================
 # Proxmox Infrastructure Settings

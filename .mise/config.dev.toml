@@ -1,4 +1,5 @@
 [env]
+_.file = { path = "{{config_root}}/.secrets/dev.sops.yaml", redact = true }
 
 # Proxmox
 PVE_HOST_ADDR = "proxmox.home.arpa"

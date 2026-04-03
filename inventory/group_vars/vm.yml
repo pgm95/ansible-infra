@@ -56,11 +56,10 @@ vm_net_firewall: false # (boolean) Enable Proxmox firewall for this interface
 vm_net_link_down: false # (boolean) Start with network link disabled
 
 # Cloud-Init Configuration
-# SSH keys: loaded from vault_ssh_authorized_keys (list in vault.yml)
 vm_cloudinit_enabled: true # (boolean) Enable cloud-init support (required for networking)
 vm_cloudinit_type: "nocloud" # (string) Cloud-init datasource: nocloud, configdrive2
 vm_cloudinit_user: "root" # (string) Default username created by cloud-init
-vm_cloudinit_password: "{{ vault_vm_cloudinit_pass | default('') }}" # (string) User password (from vault)
+vm_cloudinit_password: "{{ lookup('env', 'UNIVERSAL_PASS') }}" # (string) User password
 vm_cloudinit_upgrade: false # (boolean) Run package upgrade on first boot (slower)
 vm_cloudinit_ip: "dhcp" # (string) IPv4 config: "dhcp" or "192.168.1.100/24" (CIDR notation)
 vm_cloudinit_gateway: "" # (string) IPv4 gateway (required for static IP): "192.168.1.1"

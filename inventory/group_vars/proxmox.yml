@@ -11,11 +11,11 @@ proxmox_api_host: "{{ hostvars[pve_host].ansible_host }}"
 # Token Authentication (ansible@pve) - used for most API operations
 proxmox_api_user: "ansible@pve"
 proxmox_api_token_id: "homeops"
-proxmox_api_token_secret: "{{ vault_proxmox_token_secret }}"
+proxmox_api_token_secret: "{{ lookup('env', 'PROXMOX_TOKEN_SECRET') }}"
 
 # Password Authentication (root@pam) - required for disk import/resize operations
 # The proxmox_disk module does NOT support token auth for these operations.
-proxmox_api_password: "{{ vault_universal_pass }}"
+proxmox_api_password: "{{ lookup('env', 'UNIVERSAL_PASS') }}"
 
 # Connection Settings
 proxmox_api_validate_certs: false

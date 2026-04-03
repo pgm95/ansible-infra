@@ -16,12 +16,8 @@
 #   - Service list for systemd management
 #
 # Internal/Computed Variables (documented as comments only):
-#   - samba_password: Sourced from vault_smb_pass
 #   - user_exists: System user verification result
 #   - samba_user_check: Samba database user check result
-#
-# Vault Variables Required:
-#   - vault_smb_pass: Samba user password
 #
 # Host Variables Required:
 #   - samba_existing_user: Reference to user from users_list (must be defined in host_vars)
@@ -48,7 +44,7 @@ samba_user: "{{ samba_existing_user | mandatory }}" # (string) Samba user (refer
 # Authentication Configuration
 # ==================================================================================
 
-samba_password: "{{ vault_smb_pass }}" # (string) Samba user password from vault
+samba_password: "{{ undef(hint='samba_password must be provided via host_vars') }}" # (string) Samba user password
 
 # ==================================================================================
 # Service Management

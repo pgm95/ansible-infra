@@ -59,11 +59,11 @@ docker_swarm_labels: {} # (dict) Node labels for placement constraints
 # ============================================================================
 # Token Configuration
 # ============================================================================
-# Tokens are retrieved dynamically during swarm init and shared via hostvars
-# For existing swarms, store tokens in vault.yml for idempotent joins:
-#   vault_docker_swarm_manager_token: "SWMTKN-1-..."
-#   vault_docker_swarm_worker_token: "SWMTKN-1-..."
+# Tokens are retrieved dynamically during swarm init and shared via hostvars.
+# For existing swarms, persist tokens in secrets for idempotent joins:
+#   DOCKER_SWARM_MANAGER_TOKEN: "SWMTKN-1-..."
+#   DOCKER_SWARM_WORKER_TOKEN: "SWMTKN-1-..."
 
-docker_swarm_manager_token: "{{ vault_docker_swarm_manager_token | default('') }}"
-docker_swarm_worker_token: "{{ vault_docker_swarm_worker_token | default('') }}"
+docker_swarm_manager_token: "{{ lookup('env', 'DOCKER_SWARM_MANAGER_TOKEN') | default('', true) }}"
+docker_swarm_worker_token: "{{ lookup('env', 'DOCKER_SWARM_WORKER_TOKEN') | default('', true) }}"
 docker_swarm_manager_addrs: [] # (list) Manager addresses ["192.168.1.10:2377"]

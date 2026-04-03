@@ -90,9 +90,9 @@
           Swarm initialized successfully on {{ inventory_hostname }}
           Manager address: {{ _advertise_addr }}:2377
 
-          To persist tokens for future runs, add to vault.yml:
-            vault_docker_swarm_manager_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Manager }}"
-            vault_docker_swarm_worker_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Worker }}"
+          To persist tokens for future runs, add to SOPS secrets:
+            DOCKER_SWARM_MANAGER_TOKEN: "{{ _swarm_tokens.swarm_facts.JoinTokens.Manager }}"
+            DOCKER_SWARM_WORKER_TOKEN: "{{ _swarm_tokens.swarm_facts.JoinTokens.Worker }}"
         verbosity: 1
 
 # ============================================================================
@@ -159,8 +159,8 @@
           - _manager_addrs | length > 0
         fail_msg: >-
           Missing join token or manager address. Ensure the init manager has
-          been provisioned first, or set vault_docker_swarm_manager_token /
-          vault_docker_swarm_worker_token.
+          been provisioned first, or set docker_swarm_manager_token /
+          docker_swarm_worker_token in group_vars or host_vars.
         success_msg: "Join requirements validated for {{ docker_swarm_role }}"
 
     - name: Swarm | Wait for connectivity to manager
