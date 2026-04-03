@@ -11,7 +11,8 @@ dotfiles_enabled: false # (boolean) Enable/disable dotfiles deployment
 # Repository Configuration
 dotfiles_repo_url: "" # (string) Git repository URL (without https:// prefix)
 # Example: "github.com/username/dotfiles.git"
-# Authentication via OAuth token from vault_github_dotfiles_token
+
+dotfiles_github_token: "" # (string) GitHub OAuth token for private repo authentication
 
 dotfiles_repo_branch: "" # (string) Git branch to checkout (e.g., "main", "master", "develop")
 

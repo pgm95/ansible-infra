@@ -16,6 +16,7 @@
 *.crt
 *.pub
 /files/
+*decrypted*
 **/host_vars
 
 # OS files

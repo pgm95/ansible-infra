@@ -148,10 +148,10 @@
     success_msg: "Static IPv4 configuration is valid"
   when: lxc_net_ipv4_method == 'static'
 
-- name: LXC | Check vault SSH keys are available
+- name: LXC | Check SSH keys are available
   ansible.builtin.debug:
-    msg: "WARNING: vault_ssh_authorized_keys is not defined or empty — containers will have no SSH access"
-  when: vault_ssh_authorized_keys | default([]) | length == 0
+    msg: "WARNING: ssh_authorized_keys is not defined or empty — containers will have no SSH access"
+  when: ssh_authorized_keys | default([]) | length == 0
 
 - name: LXC | Display validation summary
   ansible.builtin.debug:

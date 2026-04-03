@@ -33,13 +33,11 @@ users_list: [] # (list) User definitions with properties:
 # ============================================================================
 # SSH Key Management
 # ============================================================================
-# SSH keys are stored in vault as vault_ssh_authorized_keys (list of strings)
-# Example vault entry:
-#   vault_ssh_authorized_keys:
-#     - "ssh-ed25519 AAAA... user@host"
-#     - "ssh-rsa AAAA... user2@host"
-#
-# Keys are deployed to root (exclusive=false) and users with ssh_keys: true (exclusive=true)
+# ssh_authorized_keys must be provided via group_vars or host_vars as a list
+# of public key strings. Keys are deployed to root (exclusive=false) and
+# users with ssh_keys: true (exclusive=true).
+
+ssh_authorized_keys: [] # (list) SSH public keys for deployment
 
 # ============================================================================
 # Sudo Configuration

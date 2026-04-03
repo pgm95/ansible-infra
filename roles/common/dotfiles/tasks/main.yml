@@ -21,7 +21,7 @@
 
     - name: Dotfiles | Clone or update dotfiles repository
       ansible.builtin.git:
-        repo: "https://oauth2:{{ vault_github_dotfiles_token }}@{{ dotfiles_repo_url | regex_replace('^https://', '') }}"
+        repo: "https://oauth2:{{ dotfiles_github_token }}@{{ dotfiles_repo_url | regex_replace('^https://', '') }}"
         dest: "{{ dotfiles_cache_dir }}"
         version: "{{ dotfiles_repo_branch }}"
         update: true
