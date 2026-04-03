@@ -34,10 +34,7 @@
 - name: Create VMs on Proxmox
   hosts: vm
   gather_facts: false
-  vars_files:
-    - group_vars/proxmox.yml
-  # Note: delegate_to uses pve_host from host_vars (dynamic per-VM)
-  # Module defaults for all community.proxmox modules - eliminates auth repetition
+  # Proxmox API credentials auto-loaded via group_vars/proxmox.yml (vm is child of proxmox group)
   module_defaults:
     group/community.proxmox.proxmox:
       api_host: "{{ proxmox_api_host }}"
@@ -49,10 +46,6 @@
   tasks:
     - name: Create VM using VM role
       delegate_to: "{{ pve_host }}"
-      # Variables automatically merged by Ansible's native precedence:
-      # 1. group_vars/vm.yml (73 defaults) - inherited via groups: ['vm']
-      # 2. Host-specific overrides from include_vars delegation
-      # 3. Vault variables from vars_files (template evaluation)
       block:
         - name: Include VM role
           ansible.builtin.include_role:
@@ -113,8 +106,6 @@
   hosts: vm
   gather_facts: false
   tags: [purge, never]
-  vars_files:
-    - group_vars/proxmox.yml
   tasks:
     - name: Purge VM using shared task
       ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/proxmox/shared/tasks/purge_resource.yml"

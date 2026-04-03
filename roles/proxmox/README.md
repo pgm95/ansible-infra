@@ -34,12 +34,13 @@ Both `playbooks/lxc.yml` and `playbooks/vm.yml` follow a 4-play architecture:
 
 ### Credential Flow
 
-Resources specify only which Proxmox host to target. Credentials are inherited automatically:
+Resources specify only which Proxmox host to target. Credentials are inherited automatically via group nesting (`lxc` and `vm` are children of `proxmox` in the inventory):
 
 ```text
-host_vars/{lxc,vm}/*.yml  →  defines pve_host: pve
-group_vars/proxmox.yml    →  lookups hostvars[pve_host]
-host_vars/proxmox/pve.yml →  contains actual secrets
+host_vars/{lxc,vm}/*.yml       →  defines pve_host: pve
+inventory/group_vars/proxmox.yml  →  lookups hostvars[pve_host] (auto-loaded via group inheritance)
+inventory/hosts.yml (pve)      →  ansible_host, proxmox_node_name
+inventory/group_vars/all/vault.yml  →  API secrets
 ```
 
 ### Reconciliation System

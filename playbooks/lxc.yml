@@ -29,10 +29,7 @@
 - name: Create LXC Containers on Proxmox
   hosts: lxc
   gather_facts: false
-  vars_files:
-    - group_vars/proxmox.yml
-  # Note: delegate_to uses pve_host from host_vars (dynamic per-container)
-  # Module defaults for all community.proxmox modules - eliminates auth repetition
+  # Proxmox API credentials auto-loaded via group_vars/proxmox.yml (lxc is child of proxmox group)
   module_defaults:
     group/community.proxmox.proxmox:
       api_host: "{{ proxmox_api_host }}"
@@ -44,10 +41,6 @@
   tasks:
     - name: Create container using LXC role
       delegate_to: "{{ pve_host }}"
-      # Variables automatically merged by Ansible's native precedence:
-      # 1. group_vars/lxc.yml (144 defaults) - inherited via groups: ['lxc']
-      # 2. Host-specific overrides from include_vars delegation
-      # 3. Vault variables from vars_files (template evaluation)
       block:
         - name: Include LXC role
           ansible.builtin.include_role:
@@ -106,8 +99,6 @@
   hosts: lxc
   gather_facts: false
   tags: [purge, never]
-  vars_files:
-    - group_vars/proxmox.yml
   tasks:
     - name: Purge container using shared task
       ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/proxmox/shared/tasks/purge_resource.yml"

@@ -50,9 +50,8 @@ mise run validate
 ├── inventory/
 │   ├── hosts.yml        # Static hosts (vps, proxmox), env values via lookup('env')
 │   ├── host_vars/       # Per-host configs (lxc/, vm/, and static host files)
-│   └── group_vars/all/  # Vault symlink (auto-loaded)
+│   └── group_vars/      # Group defaults and vault (auto-loaded by Ansible)
 ├── playbooks/
-│   ├── group_vars/      # Shared defaults across environments
 │   ├── tasks/           # Shared discovery tasks
 │   └── *.yml            # Playbooks (vps, lxc, vm, swarm, get-facts)
 ├── roles/
@@ -92,22 +91,20 @@ Ansible is fully environment-agnostic. All env-specific values (Proxmox address,
 Configuration follows Ansible-native precedence (later overrides earlier):
 
 1. **Role Defaults** (`roles/*/defaults/main.yml`): internal and computed variables
-2. **Inventory group_vars** (`inventory/group_vars/`): vault (auto-loaded via symlink)
-3. **Playbook group_vars** (`playbooks/group_vars/`): shared defaults across environments
-4. **Host-Specific** (`inventory/host_vars/`): per-host overrides
-5. **Play vars_files**: loaded explicitly in plays (higher than all group/host vars)
-6. **Command-Line** (`--extra-vars`): runtime overrides (highest priority)
+2. **Group vars** (`inventory/group_vars/`): shared defaults, vault, API credentials
+3. **Host-Specific** (`inventory/host_vars/`): per-host overrides
+4. **Command-Line** (`--extra-vars`): runtime overrides (highest priority)
 
-> **Important:** Never define the same variable at both inventory and playbook group_vars levels. If a variable needs to differ per environment, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
+> **Important:** If a variable needs to differ per environment, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
 
 ### Inventory and Host Discovery
 
 | Group | Type | Source |
 |-------|------|--------|
 | `vps` | Static | Defined in `inventory/hosts.yml` |
-| `proxmox` | Static | Defined in `inventory/hosts.yml` |
-| `vm` | File-based | Discovered from `inventory/host_vars/vm/*.yml` |
-| `lxc` | File-based | Discovered from `inventory/host_vars/lxc/*.yml` |
+| `proxmox` | Static | Defined in `inventory/hosts.yml` (parent of `lxc` and `vm`) |
+| `lxc` | File-based | Child of `proxmox`. Discovered from `inventory/host_vars/lxc/*.yml` |
+| `vm` | File-based | Child of `proxmox`. Discovered from `inventory/host_vars/vm/*.yml` |
 | `swarm` | Dynamic | Populated at runtime by the `swarm.yml` discovery play |
 
 **Static groups** (vps, proxmox) require entries in `hosts.yml`. **File-based groups** (vm, lxc) need no inventory editing: drop a YAML file in the right `host_vars/` subdirectory and the discovery play finds it automatically via `add_host`. The **swarm** group is assembled at runtime by scanning all host_vars directories for `docker_swarm_enabled: true`. Hosts with `env_scope` are filtered by `MISE_ENV` during discovery.
@@ -132,7 +129,7 @@ First-time provisioning uses password auth (`mise run vps:first-run`). Subsequen
 
 ### VM and LXC Lifecycle (`vm.yml`, `lxc.yml`)
 
-Both follow a three-play architecture:
+Both follow a four-play architecture (discover, create, provision, purge):
 
 1. **Discovery** (localhost): scans `host_vars/{vm,lxc}/` for definition files, registers each host dynamically via `add_host`, and loads its variables with `include_vars` + `delegate_facts`.
 2. **Create** (delegated to Proxmox host): each VM/LXC definition specifies `pve_host` (e.g., `pve`), and creation tasks delegate to that host. Skips resources that already exist (matched by `ansible_id` tag or VMID).
