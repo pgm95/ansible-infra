@@ -5,12 +5,15 @@
 experimental = true
 auto_install = false
 python.uv_venv_auto = true
+sops.age_key_file = "age.key"
 unix_default_file_shell_args = "bash -o errexit -o nounset -o pipefail"
 unix_default_inline_shell_args = "bash -c -o errexit -o nounset -o pipefail"
 
 [tools]
 "aqua:jdx/usage" = "latest"
 "aqua:astral-sh/uv" = "latest"
+"aqua:getsops/sops" = "latest"
+"aqua:FiloSottile/age" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
 "aqua:pre-commit/pre-commit" = "latest"
 
@@ -22,8 +25,12 @@ uvx_args = "--with requests --with netaddr --with dnspython --with passlib --wit
 MISE_ENV = "{{ mise_env | first }}"
 PROJECT_CONFIGS_DIR = "{{config_root}}/.config"
 PROJECT_SECRETS_DIR = "{{config_root}}/.secrets"
-_.file = "{{ env.PROJECT_SECRETS_DIR }}/.env"
+
 YAMLLINT_CONFIG_FILE = "{{ env.PROJECT_CONFIGS_DIR }}/yamllint.yml"
+SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
+SOPS_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/sops.yaml"
+
+_.file = { path = "{{ env.PROJECT_SECRETS_DIR }}/shared.sops.yaml", redact = true }
 
 ANSIBLE_HOME = "{{config_root}}/.ansible"
 ANSIBLE_LOCAL_TEMP = "{{ env.ANSIBLE_HOME }}/tmp"
@@ -33,17 +40,14 @@ ANSIBLE_CACHE_PLUGIN_CONNECTION = "{{ env.ANSIBLE_HOME }}/facts"
 ANSIBLE_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/ansible.cfg"
 ANSIBLE_ROLES_PATH = "{{config_root}}/roles"
 ANSIBLE_INVENTORY = "{{config_root}}/inventory"
-ANSIBLE_VAULT_PASSWORD_FILE = "{{ env.PROJECT_SECRETS_DIR }}/vault-{{ env.MISE_ENV }}.key"
-
-[hooks]
-enter = "ln -sf ${PROJECT_SECRETS_DIR}/vault-${MISE_ENV}.yml inventory/group_vars/all/vault.yml"
 
 [task_config]
 includes = [
     ".mise/tasks/lxc.toml",
     ".mise/tasks/vm.toml",
     ".mise/tasks/vps.toml",
-    ".mise/tasks/swarm.toml"
+    ".mise/tasks/swarm.toml",
+    ".mise/tasks/sops.toml"
 ]
 
 ############################ TASKS ############################
@@ -81,8 +85,3 @@ ansible-playbook playbooks/get-facts.yml 2>&1 | \
   sed 's/\\\\n/\\n/g' | \
   while IFS= read -r line; do printf '%b\\n' \"$line\"; done || true
 """
-
-[tasks."vault"]
-description = " " # View/edit vault file in VSCode
-env.EDITOR = "code --wait"
-run = "ansible-vault edit $PROJECT_SECRETS_DIR/vault-${MISE_ENV}.yml"

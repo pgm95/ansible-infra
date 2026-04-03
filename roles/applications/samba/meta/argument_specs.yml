@@ -41,8 +41,9 @@ argument_specs:
       # Authentication Configuration
       # ========================================================================
       samba_password:
-        description: Samba user password (from vault_smb_pass)
+        description: Samba user password (provided via host_vars)
         type: str
+        required: true
         no_log: true
 
       # ========================================================================

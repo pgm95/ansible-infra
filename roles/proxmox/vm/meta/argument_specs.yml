@@ -224,7 +224,7 @@ argument_specs:
         type: str
         no_log: true
 
-      # SSH keys: loaded from vault_ssh_authorized_keys (list in vault.yml)
+      # SSH keys: loaded from ssh_authorized_keys (list in group_vars)
 
       vm_cloudinit_upgrade:
         description: Run package upgrade on first boot

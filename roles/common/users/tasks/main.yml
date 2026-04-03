@@ -8,25 +8,25 @@
 # Root SSH Access (Always Enabled for Recovery)
 # ============================================================================
 
-- name: Validate SSH keys are defined in vault
+- name: Validate SSH keys are defined
   ansible.builtin.assert:
     that:
-      - vault_ssh_authorized_keys is defined
-      - vault_ssh_authorized_keys | length > 0
+      - ssh_authorized_keys is defined
+      - ssh_authorized_keys | length > 0
     fail_msg: >-
-      vault_ssh_authorized_keys is missing or empty. Add at least one SSH
-      public key to vault.yml to ensure access to managed hosts.
-    success_msg: "SSH keys validated: {{ vault_ssh_authorized_keys | length }} key(s)"
+      ssh_authorized_keys is missing or empty. Add at least one SSH
+      public key to group_vars or host_vars to ensure access to managed hosts.
+    success_msg: "SSH keys validated: {{ ssh_authorized_keys | length }} key(s)"
   tags: [users, validation]
 
 - name: Add SSH keys to root user
   ansible.posix.authorized_key:
     user: root
-    key: "{{ vault_ssh_authorized_keys | join('\n') }}"
+    key: "{{ ssh_authorized_keys | join('\n') }}"
     state: present
     exclusive: false # Don't remove existing keys
   no_log: true
-  when: vault_ssh_authorized_keys is defined and vault_ssh_authorized_keys | length > 0
+  when: ssh_authorized_keys is defined and ssh_authorized_keys | length > 0
 
 # ============================================================================
 # User Management Validation
@@ -40,7 +40,7 @@
     fail_msg: >-
       User '{{ item.name }}' has an interactive shell
       ({{ item.shell | default('/bin/bash') }}) but no password is defined.
-      Set a password in vault or use a non-interactive shell
+      Set a password or use a non-interactive shell
       (e.g. /usr/sbin/nologin).
     success_msg: "User '{{ item.name }}' password validated"
   loop: "{{ users_list | default([]) }}"
@@ -108,7 +108,7 @@
 - name: Add SSH keys for users
   ansible.posix.authorized_key:
     user: "{{ item.name }}"
-    key: "{{ vault_ssh_authorized_keys | join('\n') }}"
+    key: "{{ ssh_authorized_keys | join('\n') }}"
     state: present
     exclusive: true
   no_log: true
@@ -119,4 +119,4 @@
     - users_list | default([]) | length > 0
     - item.ssh_keys | default(false) | bool # Changed default to false (safer)
     - item.name != 'root' # Root keys handled separately
-    - vault_ssh_authorized_keys is defined and vault_ssh_authorized_keys | length > 0
+    - ssh_authorized_keys is defined and ssh_authorized_keys | length > 0

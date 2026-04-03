@@ -24,13 +24,13 @@
 
 - name: VM | Stage SSH public keys for cloud-init
   ansible.builtin.copy:
-    content: "{{ vault_ssh_authorized_keys | join('\n') }}\n"
+    content: "{{ ssh_authorized_keys | join('\n') }}\n"
     dest: "{{ vm_temp_dir }}/ssh-keys.pub"
     mode: "0600"
   diff: false
   when:
     - vm_cloudinit_enabled
-    - vault_ssh_authorized_keys | default([]) | length > 0
+    - ssh_authorized_keys | default([]) | length > 0
 
 - name: VM | Execute qm create command
   ansible.builtin.command: "{{ qm_create_cmd }}"

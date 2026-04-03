@@ -54,7 +54,7 @@ lxc_net_search_domain: "" # (string) Search domain, empty = use host
 lxc_net_apt_cacher_ip: "" # (string) Apt-cacher-ng server IP
 
 # Access Configuration
-lxc_root_password: "{{ vault_lxc_root_pass | default('') }}" # (string) Root password (from vault)
+lxc_root_password: "{{ lookup('env', 'LXC_ROOT_PASS') }}" # (string) Root password
 
 # Features (disabled by default)
 lxc_feature_fuse: false # (boolean) FUSE support (rclone, mergerfs, AppImage)

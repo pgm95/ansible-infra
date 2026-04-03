@@ -184,12 +184,12 @@
     index_var: idx
     label: "disk {{ idx }}"
 
-- name: VM | Warn if SSH keys not defined in vault
+- name: VM | Warn if SSH keys not defined
   ansible.builtin.debug:
-    msg: "WARNING: vault_ssh_authorized_keys is not defined or empty — VM will have no SSH access"
+    msg: "WARNING: ssh_authorized_keys is not defined or empty — VM will have no SSH access"
   when:
     - vm_cloudinit_enabled
-    - vault_ssh_authorized_keys | default([]) | length == 0
+    - ssh_authorized_keys | default([]) | length == 0
 
 - name: VM | Display validation summary
   ansible.builtin.debug:
