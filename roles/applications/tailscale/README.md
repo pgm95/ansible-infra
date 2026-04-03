@@ -38,7 +38,7 @@ Tailscale release channel (stable, unstable).
 ### OAuth Configuration
 
 Both credential variables are OAuth client credentials (`tskey-client-*`), differing only by scope.
-Define in `group_vars` or `host_vars` — can point to vault variables, plaintext, or the same
+Define in `group_vars` or `host_vars` -- can use env var lookups, plaintext, or the same
 OAuth client if it has both scopes.
 
 **tailscale_oauth_authkeys** (string, REQUIRED)
@@ -120,11 +120,11 @@ The role is organized into separate task files:
 
 1. Create an OAuth client at <https://login.tailscale.com/admin/settings/oauth> with `auth_keys` scope
 
-2. Store the credential in vault and map it in group_vars or host_vars:
+2. Map the credential in group_vars or host_vars:
 
 ```yaml
 # group_vars or host_vars
-tailscale_oauth_authkeys: "{{ vault_tailscale_oauth }}"
+tailscale_oauth_authkeys: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 ```
 
 1. Enable in host_vars:
@@ -148,8 +148,8 @@ mise run vps:deploy
 
 ```yaml
 # Single OAuth client with both scopes
-tailscale_oauth_authkeys: "{{ vault_tailscale_oauth }}"
-tailscale_oauth_devices: "{{ vault_tailscale_oauth }}"
+tailscale_oauth_authkeys: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
+tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 ```
 
 1. Enable with custom IP in host_vars:

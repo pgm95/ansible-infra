@@ -16,7 +16,7 @@ Simplified Samba file sharing role using static configuration. Deploys a pre-con
 - Debian/Ubuntu based system
 - Pre-existing system user (created by users role)
 - SMB configuration file at `files/smb.conf`
-- Samba password in vault
+- Samba password provided via host_vars
 
 ## Packages Installed
 
@@ -40,8 +40,8 @@ Name of an existing system user to configure for Samba access. Must reference a 
 **samba_user** (string, default: `{{ samba_existing_user }}`)
 Resolved username for Samba authentication.
 
-**samba_password** (string, default: `{{ vault_smb_pass }}`)
-Samba password loaded from ansible-vault encrypted secrets.
+**samba_password** (string, REQUIRED)
+Samba user password. Must be provided via host_vars.
 
 **samba_services** (list)
 Services to manage:
@@ -68,14 +68,10 @@ users_list:
     groups: ['users']
 ```
 
-1. Create Samba password in vault:
-
-```bash
-ansible-vault edit vault.yml
-```
+1. Set Samba password in host_vars:
 
 ```yaml
-vault_smb_pass: "samba_password"
+samba_password: "{{ lookup('env', 'SMB_PASS') }}"
 ```
 
 1. Create SMB configuration:
@@ -171,7 +167,7 @@ This role requires:
 
 - `users` role: For system user creation
 - `files/smb.conf`: Static SMB configuration file
-- `vault_smb_pass`: Encrypted password in vault
+- `samba_password`: Must be provided via host_vars
 
 ## Security Considerations
 
