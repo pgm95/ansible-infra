@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "$id": "https://homeops.local/schemas/host.schema.json",
+  "title": "Host Provisioning Configuration",
+  "description": "Schema for host_vars provisioning variables. Guest lifecycle is managed by Terraform.",
+  "type": "object",
+
+  "properties": {
+    "env_scope": {
+      "type": "string",
+      "enum": ["dev", "prod"],
+      "description": "Restrict this host to a specific environment. Omit for shared hosts."
+    },
+
+    "hostname": { "type": "string", "description": "System hostname override" },
+    "hostname_configure": { "type": "boolean", "description": "Enable hostname configuration" },
+    "hostname_domain_suffix": { "type": "string", "description": "Domain suffix for FQDN" },
+
+    "system_timezone": { "type": "string", "description": "System timezone (e.g. UTC, America/New_York)" },
+
+    "ssh_password_authentication": { "type": "boolean", "description": "Allow password authentication" },
+    "ssh_pubkey_authentication": { "type": "boolean", "description": "Allow public key authentication" },
+    "ssh_permit_empty_passwords": { "type": "boolean", "description": "Allow empty passwords" },
+    "ssh_challenge_response_authentication": { "type": "boolean", "description": "Allow challenge-response authentication" },
+    "ssh_permit_root_login": {
+      "type": "string",
+      "enum": ["yes", "no", "prohibit-password", "forced-commands-only"],
+      "description": "Root login policy"
+    },
+    "ssh_use_pam": { "type": "boolean", "description": "Enable PAM authentication" },
+    "ssh_max_auth_tries": { "type": "integer", "minimum": 1, "description": "Max authentication attempts" },
+    "ssh_client_alive_interval": { "type": "integer", "minimum": 0, "description": "Keepalive interval in seconds" },
+    "ssh_client_alive_count_max": { "type": "integer", "minimum": 0, "description": "Max missed keepalives before disconnect" },
+    "ssh_authorized_keys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "SSH public keys for deployment"
+    },
+
+    "users_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "password": { "type": "string" },
+          "uid": { "type": "integer" },
+          "gid": { "type": "integer" },
+          "group": { "type": "string" },
+          "groups": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "shell": { "type": "string" },
+          "system": { "type": "boolean" },
+          "create_home": { "type": "boolean" },
+          "home": { "type": "string" },
+          "sudo_access": { "type": "boolean" },
+          "ssh_keys": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "List of system users to create"
+    },
+    "users_sudo_nopasswd": { "type": "boolean", "description": "Allow sudo without password for all users" },
+
+    "packages_fullupgrade": { "type": "boolean", "description": "Perform full system upgrade" },
+    "packages_install_base": { "type": "boolean", "description": "Install base packages" },
+    "packages_install_shell": { "type": "boolean", "description": "Install shell utilities" },
+    "packages_install_network": { "type": "boolean", "description": "Install network utilities" },
+    "packages_base_list": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Base packages to install"
+    },
+    "packages_shell_list": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Shell packages to install"
+    },
+    "packages_network_list": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Network packages to install"
+    },
+
+    "dotfiles_enabled": { "type": "boolean", "description": "Deploy dotfiles" },
+    "dotfiles_repo_url": { "type": "string", "description": "Git repo URL (without https://)" },
+    "dotfiles_github_token": { "type": "string", "description": "GitHub OAuth token for private repos" },
+    "dotfiles_repo_branch": { "type": "string", "description": "Branch to checkout" },
+    "dotfiles_deploy_to_root": { "type": "boolean", "description": "Deploy dotfiles to root user" },
+    "dotfiles_deploy_to_users": { "type": "boolean", "description": "Deploy dotfiles to users_list users" },
+    "dotfiles_deploy_args": { "type": "string", "description": "Arguments for deploy.sh" },
+    "dotfiles_force_update": { "type": "boolean", "description": "Force git pull on each run" },
+    "dotfiles_continue_on_error": { "type": "boolean", "description": "Continue on deployment failure" },
+    "dotfiles_cache_dir": { "type": "string", "description": "Local cache directory" },
+    "dotfiles_staging_dir": { "type": "string", "description": "Remote staging directory" },
+
+    "swap_disable": { "type": "boolean", "description": "Disable swap" },
+
+    "qemu_agent_enabled": { "type": "boolean", "description": "Enable QEMU guest agent" },
+
+    "net_dns_configure": { "type": "boolean", "description": "Configure DNS servers" },
+    "net_dns_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS server addresses"
+    },
+    "net_dns_search": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS search domains"
+    },
+    "net_dns_stub_resolver": { "type": "boolean", "description": "Enable systemd-resolved stub resolver" },
+    "net_dns_mdns": { "type": "boolean", "description": "Enable mDNS" },
+    "net_dns_llmnr": { "type": "boolean", "description": "Enable LLMNR" },
+
+    "net_ntp_configure": { "type": "boolean", "description": "Configure NTP servers" },
+    "net_ntp_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "NTP server addresses"
+    },
+
+    "net_iface_configure": { "type": "boolean", "description": "Configure network interface" },
+    "net_iface_name": { "type": "string", "description": "Interface name (eth0, ens3, etc.)" },
+    "net_iface_mode": {
+      "type": "string",
+      "enum": ["static", "dhcp"],
+      "description": "IP configuration mode"
+    },
+    "net_iface_address": { "type": "string", "description": "Static IP address (with optional CIDR)" },
+    "net_iface_netmask": { "type": "string", "description": "Subnet mask" },
+    "net_iface_gateway": { "type": "string", "description": "Default gateway" },
+
+    "tailscale_enabled": { "type": "boolean", "description": "Install and configure Tailscale" },
+    "tailscale_state": {
+      "type": "string",
+      "enum": ["latest", "present"],
+      "description": "Package state"
+    },
+    "tailscale_release_stability": {
+      "type": "string",
+      "enum": ["stable", "unstable"],
+      "description": "Release channel"
+    },
+    "tailscale_oauth_authkeys": { "type": "string", "description": "OAuth client with auth_keys scope" },
+    "tailscale_oauth_devices": { "type": "string", "description": "OAuth client with devices scope" },
+    "tailscale_tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "ACL tags for OAuth keys"
+    },
+    "tailscale_oauth_ephemeral": { "type": "boolean", "description": "Mark device as ephemeral" },
+    "tailscale_oauth_preauthorized": { "type": "boolean", "description": "Skip manual authorization" },
+    "tailscale_ip": { "type": "string", "description": "Custom Tailscale IP address" },
+    "tailscale_device_registration_delay": { "type": "integer", "description": "Seconds to wait for registration" },
+    "tailscale_device_registration_retries": { "type": "integer", "description": "Max registration retries" },
+    "tailscale_api_timeout": { "type": "integer", "description": "API request timeout" },
+    "tailscale_hostname": { "type": "string", "description": "Tailscale hostname override" },
+    "tailscale_args": { "type": "string", "description": "Additional tailscale up arguments" },
+    "tailscale_up_skip": { "type": "boolean", "description": "Skip tailscale up" },
+    "tailscale_up_timeout": { "type": "integer", "description": "Tailscale up timeout in seconds" },
+    "tailscale_bind_ssh": { "type": "boolean", "description": "Bind SSH to Tailscale interface" },
+    "tailscale_verbose": { "type": "boolean", "description": "Enable verbose output" },
+    "tailscale_insecurely_log_authkey": { "type": "boolean", "description": "Log authkey (INSECURE)" },
+
+    "docker_enabled": { "type": "boolean", "description": "Install and configure Docker" },
+    "docker_data_root": { "type": "string", "description": "Docker data root path" },
+    "docker_storage_driver": {
+      "type": "string",
+      "enum": ["", "overlay2", "btrfs", "zfs"],
+      "description": "Storage driver (empty for auto)"
+    },
+    "docker_mtu": { "type": "integer", "minimum": 0, "description": "Docker network MTU (0 for auto)" },
+    "docker_bridge_ip": { "type": "string", "description": "Custom docker0 bridge IP" },
+    "docker_default_address_pools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "base": { "type": "string" },
+          "size": { "type": "integer" }
+        }
+      },
+      "description": "Default address pools for networks"
+    },
+    "docker_dns_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS servers for containers"
+    },
+    "docker_dns_search": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS search domains for containers"
+    },
+    "docker_dns_options": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS options for containers"
+    },
+    "docker_iptables_enabled": { "type": "boolean", "description": "Enable Docker iptables rules" },
+    "docker_ip_forward": { "type": "boolean", "description": "Enable IP forwarding" },
+    "docker_ipv6_enabled": { "type": "boolean", "description": "Enable IPv6 in Docker" },
+    "docker_fixed_cidr_v6": { "type": "string", "description": "IPv6 subnet for docker0" },
+    "docker_log_driver": { "type": "string", "description": "Logging driver" },
+    "docker_log_max_size": { "type": "string", "description": "Max log file size" },
+    "docker_log_max_file": { "type": "string", "description": "Max log files to retain" },
+    "docker_log_compress": { "type": "boolean", "description": "Compress rotated logs" },
+    "docker_live_restore": { "type": "boolean", "description": "Keep containers running on daemon downtime" },
+    "docker_userland_proxy": { "type": "boolean", "description": "Use userland proxy" },
+    "docker_default_ulimits": { "type": "object", "description": "Default ulimits for containers" },
+    "docker_registry_mirrors": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Registry mirror URLs"
+    },
+    "docker_insecure_registries": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Insecure registry URLs"
+    },
+    "docker_metrics_enabled": { "type": "boolean", "description": "Enable Prometheus metrics endpoint" },
+    "docker_metrics_addr": { "type": "string", "description": "Metrics endpoint address" },
+    "docker_experimental": { "type": "boolean", "description": "Enable experimental features" },
+    "docker_node_generic_resources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Generic resources for Swarm scheduling"
+    },
+    "docker_gpu_enabled": { "type": "boolean", "description": "Enable GPU support in Docker" },
+    "docker_packages": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Docker packages to install"
+    },
+
+    "docker_swarm_enabled": { "type": "boolean", "description": "Enable Docker Swarm mode" },
+    "docker_swarm_init": { "type": "boolean", "description": "This node initializes the swarm cluster" },
+    "docker_swarm_role": {
+      "type": "string",
+      "enum": ["manager", "worker"],
+      "description": "Swarm node role"
+    },
+    "docker_swarm_advertise_addr": { "type": "string", "description": "Swarm advertise address" },
+    "docker_swarm_listen_addr": { "type": "string", "description": "Swarm management listen address" },
+    "docker_swarm_data_path_addr": { "type": "string", "description": "Swarm data traffic address" },
+    "docker_swarm_data_path_port": { "type": "integer", "description": "Swarm VXLAN port" },
+    "docker_swarm_default_addr_pool": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Overlay network address pools"
+    },
+    "docker_swarm_subnet_size": { "type": "integer", "description": "Default overlay subnet size" },
+    "docker_swarm_autolock": { "type": "boolean", "description": "Encrypt Raft logs at rest" },
+    "docker_swarm_election_tick": { "type": "integer", "description": "Raft election timeout multiplier" },
+    "docker_swarm_heartbeat_tick": { "type": "integer", "description": "Raft heartbeat interval" },
+    "docker_swarm_cert_expiry": { "type": "string", "description": "Node certificate expiry duration" },
+    "docker_swarm_timeout": { "type": "integer", "description": "Docker API timeout in seconds" },
+    "docker_swarm_vxlan_interface": { "type": "string", "description": "Restrict VXLAN traffic to interface" },
+    "docker_swarm_labels": { "type": "object", "description": "Swarm node labels" },
+    "docker_swarm_availability": {
+      "type": "string",
+      "enum": ["active", "pause", "drain"],
+      "description": "Swarm node availability"
+    },
+
+    "samba_enabled": { "type": "boolean", "description": "Install and configure Samba" },
+    "samba_existing_user": { "type": "string", "description": "Existing system user for Samba" },
+    "samba_password": { "type": "string", "description": "Samba user password" },
+    "samba_services": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Samba services to manage"
+    },
+
+    "k3s_enabled": { "type": "boolean", "description": "K3s integration flag" }
+  },
+
+  "allOf": [
+    {
+      "if": {
+        "properties": { "docker_gpu_enabled": { "const": true } },
+        "required": ["docker_gpu_enabled"]
+      },
+      "then": {
+        "required": ["docker_enabled"],
+        "properties": { "docker_enabled": { "const": true } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "docker_swarm_enabled": { "const": true } },
+        "required": ["docker_swarm_enabled"]
+      },
+      "then": {
+        "required": ["docker_enabled"],
+        "properties": { "docker_enabled": { "const": true } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "docker_swarm_init": { "const": true } },
+        "required": ["docker_swarm_init"]
+      },
+      "then": {
+        "required": ["docker_swarm_role"],
+        "properties": { "docker_swarm_role": { "const": "manager" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "samba_enabled": { "const": true } },
+        "required": ["samba_enabled"]
+      },
+      "then": {
+        "required": ["samba_existing_user", "samba_password"]
+      }
+    }
+  ],
+
+  "additionalProperties": false
+}

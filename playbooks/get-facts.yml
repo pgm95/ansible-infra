@@ -1,41 +1,18 @@
 ---
 # Playbook to gather and display comprehensive system facts
-# Includes dynamic discovery of VMs and LXCs from host_vars
+# All hosts are statically defined in inventory/hosts.yml
 
-# Discover VMs from host_vars/vm/
-- name: Discover VMs
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Discover VM definitions
-      ansible.builtin.include_tasks: tasks/discover_definitions.yml
-      vars:
-        _resource_type: vm
-        _host_vars_subdir: vm
-        _group_name: vm
-        _hostname_var: vm_hostname
-
-# Discover LXCs from host_vars/lxc/
-- name: Discover LXCs
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tasks:
-    - name: Discover LXC definitions
-      ansible.builtin.include_tasks: tasks/discover_definitions.yml
-      vars:
-        _resource_type: lxc
-        _host_vars_subdir: lxc
-        _group_name: lxc
-        _hostname_var: lxc_hostname
-
-# Gather facts from all hosts (static + dynamically discovered)
 - name: Get System Facts
   hosts: "{{ target | default('all:!localhost') }}"
   gather_facts: true
   ignore_unreachable: true
   any_errors_fatal: false
+
+  pre_tasks:
+    - name: Skip hosts outside current environment
+      ansible.builtin.meta: end_host
+      when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
+      tags: [always]
 
   tasks:
     - name: Detect public IPv4 from interfaces

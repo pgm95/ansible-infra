@@ -6,7 +6,7 @@ description = " " # "Deploy LXC container to specific host(s)"
 depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. test1,test2)"
-arg "[tags]" help="Ansible tags (e.g. create,provision,common)"
+arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
 '''
 env = { DEPLOY_GROUP = "lxc" }
 file = ".mise/scripts/deploy.sh"
@@ -14,9 +14,4 @@ file = ".mise/scripts/deploy.sh"
 ["lxc:check"]
 description = " " # "Dry-run LXC provisioning"
 env = { DEPLOY_GROUP = "lxc", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
-file = ".mise/scripts/deploy.sh"
-
-["lxc:purge"]
-description = " " # "Purge LXC containers (DESTRUCTIVE)"
-env = { DEPLOY_GROUP = "lxc", DEPLOY_INTERACTIVE = "false", usage_tags = "purge" }
 file = ".mise/scripts/deploy.sh"

@@ -24,6 +24,11 @@
   become: true
   gather_facts: false # Gather selectively for performance
   pre_tasks:
+    - name: Skip hosts outside current environment
+      ansible.builtin.meta: end_host
+      when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
+      tags: [always]
+
     # Gather facts only when needed by specific roles
     - name: Gather facts for network and system configuration
       ansible.builtin.setup:

@@ -41,10 +41,3 @@ packages_install_network: false # (boolean) Install network utilities
 # Per-environment secret loaded via SOPS
 tailscale_oauth_authkeys: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
-
-# ============================================================================
-# Proxmox Infrastructure Settings
-# ============================================================================
-# DNS domain used for VM/LXC hostname resolution
-# Used by playbooks to construct ansible_host for SSH connections
-proxmox_dns_domain: "home.arpa"
