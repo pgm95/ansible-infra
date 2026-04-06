@@ -2,102 +2,25 @@
 # ============================================================================
 # Discover Swarm-Enabled Hosts
 # ============================================================================
-# Finds hosts with docker_swarm_enabled: true across host_vars
-# Registers them to the 'swarm' group with variables loaded via include_vars
+# Finds hosts with docker_swarm_enabled: true across static inventory groups.
+# Registers them to the 'swarm' group sorted for bootstrap order (init first).
 #
-# Two-phase approach:
-#   Phase 1: Register all candidates and load their variables
-#   Phase 2: Filter, validate, sort, and register swarm-enabled hosts
-#
-# Required variables (from group_vars):
-#   - proxmox_dns_domain: DNS domain for host resolution
+# All host_vars are auto-loaded by Ansible from static inventory — no file
+# scanning or include_vars needed.
 # ============================================================================
 
 # ============================================================================
-# Phase 1: Discover Candidates and Load Variables
-# ============================================================================
-
-- name: Find LXC host definition files
-  ansible.builtin.find:
-    paths: "{{ inventory_dir }}/host_vars/lxc"
-    patterns: "*.yml"
-    file_type: file
-  register: _lxc_files
-  failed_when: false
-
-- name: Find VM host definition files
-  ansible.builtin.find:
-    paths: "{{ inventory_dir }}/host_vars/vm"
-    patterns: "*.yml"
-    file_type: file
-  register: _vm_files
-  failed_when: false
-
-- name: Find static host definition files
-  ansible.builtin.find:
-    paths: "{{ inventory_dir }}/host_vars"
-    patterns: "*.yml"
-    file_type: file
-    recurse: false
-  register: _static_files
-  failed_when: false
-
-- name: Combine all host definition files
-  ansible.builtin.set_fact:
-    _all_host_files: >-
-      {{ (_lxc_files.files | default([])) +
-         (_vm_files.files | default([])) +
-         (_static_files.files | default([])) }}
-
-- name: Build candidate metadata
-  ansible.builtin.set_fact:
-    _all_candidates: >-
-      {{ _all_candidates | default([]) + [{
-           'name': item.path | basename | regex_replace('\.yml$', ''),
-           'path': item.path,
-           'type': 'lxc' if '/lxc/' in item.path else ('vm' if '/vm/' in item.path else 'vps')
-         }] }}
-  loop: "{{ _all_host_files }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-
-- name: Register candidates for variable loading
-  ansible.builtin.add_host:
-    name: "{{ item.name }}"
-    groups: _swarm_candidates
-    ansible_host: >-
-      {{ (hostvars[item.name].ansible_host | default(none) if item.name in hostvars else none)
-         or (item.name ~ '.' ~ proxmox_dns_domain) }}
-  loop: "{{ _all_candidates | default([]) }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: _all_candidates | default([]) | length > 0
-
-- name: Load candidate host variables
-  ansible.builtin.include_vars:
-    file: "{{ item.path }}"
-  delegate_to: "{{ item.name }}"
-  delegate_facts: true
-  loop: "{{ _all_candidates | default([]) }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: _all_candidates | default([]) | length > 0
-
-# ============================================================================
-# Phase 2: Filter, Validate, Sort, and Register Swarm Hosts
+# Phase 1: Filter Swarm-Enabled Hosts from Inventory
 # ============================================================================
 
 - name: Filter swarm-enabled hosts
   ansible.builtin.set_fact:
     _swarm_hosts: >-
-      {{ _swarm_hosts | default([]) + (
-           [item] if (hostvars[item.name].docker_swarm_enabled | default(false)
-                      and hostvars[item.name].env_scope | default(lookup('env', 'MISE_ENV')) == lookup('env', 'MISE_ENV'))
-                 else []
-         ) }}
-  loop: "{{ _all_candidates | default([]) }}"
-  loop_control:
-    label: "{{ item.name }}"
+      {{ _swarm_hosts | default([]) + [{'name': item}] }}
+  loop: "{{ groups['lxc'] | default([]) + groups['vm'] | default([]) + groups['vps'] | default([]) }}"
+  when:
+    - hostvars[item].docker_swarm_enabled | default(false)
+    - hostvars[item].env_scope | default(lookup('env', 'MISE_ENV')) == lookup('env', 'MISE_ENV')
 
 - name: Display discovered swarm hosts
   ansible.builtin.debug:
@@ -106,16 +29,20 @@
       {% for host in _swarm_hosts | default([]) %}
       {% set role = hostvars[host.name].docker_swarm_role | default('worker') %}
       {% set init = ' [INIT]' if hostvars[host.name].docker_swarm_init | default(false) else '' %}
-        - {{ host.name }} ({{ host.type }}, {{ role }}{{ init }})
+        - {{ host.name }} ({{ role }}{{ init }})
       {% endfor %}
   when: _swarm_hosts | default([]) | length > 0
 
 - name: No swarm hosts found
   ansible.builtin.debug:
-    msg: |
-      No hosts found with docker_swarm_enabled: true
-      Add docker_swarm_enabled: true to the host's host_vars file
+    msg: >-
+      No hosts found with docker_swarm_enabled: true.
+      Add docker_swarm_enabled: true to the host's host_vars file.
   when: _swarm_hosts | default([]) | length == 0
+
+# ============================================================================
+# Phase 2: Validate, Sort, and Register Swarm Hosts
+# ============================================================================
 
 - name: Identify init node
   ansible.builtin.set_fact:
@@ -132,9 +59,9 @@
   ansible.builtin.assert:
     that:
       - _init_hosts | length == 1
-    fail_msg: |
-      Exactly ONE host must have docker_swarm_init: true
-      Found: {{ _init_hosts | length }}
+    fail_msg: >-
+      Exactly ONE host must have docker_swarm_init: true.
+      Found: {{ _init_hosts | length }}.
     success_msg: "Init node: {{ _init_hosts[0].name }}"
   when: _swarm_hosts | default([]) | length > 0
 
@@ -185,9 +112,6 @@
   ansible.builtin.add_host:
     name: "{{ item.name }}"
     groups: swarm
-    ansible_host: >-
-      {{ hostvars[item.name].ansible_host | default(none)
-         or (item.name ~ '.' ~ proxmox_dns_domain) }}
     _swarm_init_host: "{{ _init_hosts[0].name }}"
   loop: "{{ _swarm_hosts_sorted | default([]) }}"
   loop_control:

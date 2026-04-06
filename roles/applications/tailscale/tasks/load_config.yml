@@ -7,7 +7,7 @@
     _ts_devices_token: "{{ tailscale_oauth_devices | default('') }}"
     _ts_ip: "{{ tailscale_ip | default(lookup('env', inventory_hostname.upper() + '_TS_IP')) | default('') }}"
     _ts_tags: "{{ tailscale_tags | default([]) }}"
-    _ts_hostname: "{{ tailscale_hostname | default(hostname | default(lxc_hostname | default(inventory_hostname))) }}"
+    _ts_hostname: "{{ tailscale_hostname | default(hostname | default(inventory_hostname)) }}"
     _ts_args: "{{ tailscale_args | default('') }}"
     _ts_oauth_ephemeral: "{{ tailscale_oauth_ephemeral | default(false) }}"
     _ts_oauth_preauthorized: "{{ tailscale_oauth_preauthorized | default(false) }}"

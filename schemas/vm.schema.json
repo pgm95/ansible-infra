@@ -1,11 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema",
   "$id": "https://homeops.local/schemas/vm.schema.json",
-  "title": "VM Configuration",
-  "description": "Schema for vm variables - Validates VM definitions",
+  "title": "VM Host Configuration",
+  "description": "Schema for VM host provisioning variables. Guest lifecycle is managed by Terraform.",
   "type": "object",
-
-  "required": ["pve_host", "vm_vmid", "vm_hostname"],
 
   "properties": {
     "env_scope": {
@@ -13,807 +11,139 @@
       "enum": ["dev", "prod"],
       "description": "Restrict this host to a specific environment. Omit for hosts shared across all environments."
     },
-    "pve_host": {
-      "type": "string",
-      "description": "Target Proxmox host (REQUIRED) - credentials inherited from group_vars/proxmox.yml"
-    },
-    "vm_vmid": {
-      "type": "string",
-      "pattern": "^[1-9][0-9]{1,8}$",
-      "description": "VM ID (100-999999999) - REQUIRED for ansible_id reconciliation"
-    },
-    "vm_hostname": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,62}$",
-      "description": "VM hostname (RFC 1123) - REQUIRED for ansible_id reconciliation"
-    },
-    "vm_description": {
-      "type": "string",
-      "description": "VM description shown in Proxmox UI"
-    },
-    "vm_tags": {
-      "type": "string",
-      "pattern": "^[a-zA-Z0-9;_-]*$",
-      "description": "Semicolon-separated tags (e.g., 'ansible;test;production')"
-    },
-    "vm_template": {
-      "type": "boolean",
-      "default": false,
-      "description": "Mark as template (prevents starting)"
-    },
-    "vm_protection": {
-      "type": "boolean",
-      "default": false,
-      "description": "Prevent accidental removal"
-    },
-    "vm_start_on_boot": {
-      "type": "boolean",
-      "default": false,
-      "description": "Start VM when Proxmox host boots"
-    },
-    "vm_startup_order": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 999,
-      "default": 0,
-      "description": "Boot priority (0=any order, 1-999=ordered)"
-    },
-    "vm_pool": {
-      "type": "string",
-      "default": "",
-      "description": "Proxmox resource pool assignment"
-    },
-    "vm_ostype": {
-      "type": "string",
-      "enum": ["l24", "l26", "other", "solaris", "w2k", "w2k3", "w2k8", "win10", "win11", "win7", "win8", "wvista", "wxp"],
-      "default": "l26",
-      "description": "Guest OS type (l24=Linux 2.4, l26=Linux 2.6+, win*=Windows)"
-    },
 
-    "vm_cores": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 128,
-      "default": 2,
-      "description": "Number of CPU cores per socket"
-    },
-    "vm_sockets": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 4,
-      "default": 1,
-      "description": "Number of CPU sockets"
-    },
-    "vm_cpu_type": {
-      "type": "string",
-      "default": "host",
-      "description": "CPU emulation type (host, kvm64, qemu64, max, or specific model)"
-    },
-    "vm_memory": {
-      "type": "integer",
-      "minimum": 512,
-      "maximum": 524288,
-      "default": 2048,
-      "description": "RAM in MiB"
-    },
-    "vm_balloon": {
-      "type": "integer",
-      "minimum": 0,
-      "default": 512,
-      "description": "Minimum RAM for memory ballooning (0 to disable)"
-    },
-
-    "vm_default_storage": {
-      "type": "string",
-      "default": "",
-      "description": "Default storage pool for all VM disks (empty for auto-select)"
-    },
-    "vm_scsi_controller": {
-      "type": "string",
-      "enum": ["lsi", "lsi53c810", "megasas", "pvscsi", "virtio-scsi-pci", "virtio-scsi-single"],
-      "default": "virtio-scsi-single",
-      "description": "SCSI controller type (virtio-scsi-single recommended for Linux)"
-    },
-    "vm_disks": {
-      "type": "array",
-      "minItems": 1,
-      "description": "Disk configuration. First disk (index 0) is boot disk (scsi0), additional disks follow.",
-      "items": {
-        "type": "object",
-        "required": ["size"],
-        "additionalProperties": false,
-        "properties": {
-          "size": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 999999,
-            "description": "Disk size in GiB (REQUIRED)"
-          },
-          "bus": {
-            "type": "string",
-            "enum": ["scsi", "sata", "virtio", "ide"],
-            "default": "scsi",
-            "description": "Disk bus type (ignored for boot disk - always scsi0)"
-          },
-          "storage": {
-            "type": "string",
-            "default": "",
-            "description": "Storage pool (empty = inherit from vm_default_storage)"
-          },
-          "cache": {
-            "type": "string",
-            "enum": ["", "none", "writethrough", "writeback", "directsync", "unsafe"],
-            "default": "none",
-            "description": "Disk cache mode (none=safest, writeback=fastest)"
-          },
-          "ssd": {
-            "type": "boolean",
-            "default": true,
-            "description": "SSD emulation for better guest performance"
-          },
-          "discard": {
-            "type": "string",
-            "enum": ["", "on", "ignore"],
-            "default": "on",
-            "description": "TRIM/discard support"
-          },
-          "iothread": {
-            "type": "boolean",
-            "default": true,
-            "description": "Dedicated IO thread per disk"
-          },
-          "backup": {
-            "type": "boolean",
-            "default": true,
-            "description": "Include disk in Proxmox backup jobs"
-          },
-          "mp": {
-            "type": "string",
-            "default": "",
-            "description": "Guest mount point for cloud-init disk setup (additional disks only)"
-          }
-        }
-      }
-    },
-
-    "vm_cloud_image_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable automatic cloud image download"
-    },
-    "vm_cloud_image_url": {
-      "type": "string",
-      "format": "uri",
-      "description": "Full URL to cloud image (raw/qcow2)"
-    },
-    "vm_cloud_image_cache_dir": {
-      "type": "string",
-      "description": "Directory on Proxmox host to cache downloaded images"
-    },
-
-    "vm_net_model": {
-      "type": "string",
-      "enum": ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"],
-      "default": "virtio",
-      "description": "Network card model (virtio recommended for Linux)"
-    },
-    "vm_net_bridge": {
-      "type": "string",
-      "pattern": "^vmbr[0-9]+$",
-      "default": "vmbr0",
-      "description": "Proxmox network bridge"
-    },
-    "vm_net_vlan": {
-      "type": "string",
-      "pattern": "^([1-9][0-9]{0,2}|[1-3][0-9]{3}|40[0-8][0-9]|409[0-4])?$",
-      "default": "",
-      "description": "VLAN tag (1-4094) or empty for untagged"
-    },
-    "vm_net_mac": {
-      "type": "string",
-      "pattern": "^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$|^$",
-      "default": "",
-      "description": "MAC address or empty for auto-generate"
-    },
-    "vm_net_mtu": {
-      "type": "string",
-      "default": "",
-      "description": "MTU size (empty for default 1500)"
-    },
-    "vm_net_firewall": {
-      "type": "boolean",
-      "default": false,
-      "description": "Enable Proxmox firewall for this interface"
-    },
-    "vm_net_link_down": {
-      "type": "boolean",
-      "default": false,
-      "description": "Start with network link disabled"
-    },
-
-    "vm_cloudinit_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable cloud-init support (required for networking)"
-    },
-    "vm_cloudinit_type": {
-      "type": "string",
-      "enum": ["nocloud", "configdrive2"],
-      "default": "nocloud",
-      "description": "Cloud-init datasource type"
-    },
-    "vm_cloudinit_user": {
-      "type": "string",
-      "default": "root",
-      "description": "Default username created by cloud-init"
-    },
-    "vm_cloudinit_password": {
-      "type": "string",
-      "description": "User password (use vault reference)"
-    },
-    "vm_cloudinit_ssh_keys_file": {
-      "type": "string",
-      "description": "Path to SSH public keys file on control node"
-    },
-    "vm_cloudinit_upgrade": {
-      "type": "boolean",
-      "default": false,
-      "description": "Run package upgrade on first boot (slower)"
-    },
-    "vm_cloudinit_ip": {
-      "type": "string",
-      "default": "dhcp",
-      "description": "IPv4 config: 'dhcp' or CIDR notation (e.g., '192.168.1.100/24')"
-    },
-    "vm_cloudinit_gateway": {
-      "type": "string",
-      "default": "",
-      "description": "IPv4 gateway (required for static IP)"
-    },
-    "vm_cloudinit_ip6": {
-      "type": "string",
-      "default": "",
-      "description": "IPv6 config: 'dhcp', 'auto', CIDR, or empty to omit"
-    },
-    "vm_cloudinit_nameserver": {
-      "type": "string",
-      "default": "",
-      "description": "DNS nameserver for cloud-init"
-    },
-    "vm_cloudinit_searchdomain": {
-      "type": "string",
-      "default": "",
-      "description": "DNS search domain for cloud-init"
-    },
-
-    "vm_cicustom_vendor_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Enable custom vendor.yml for pre-boot configuration"
-    },
-    "vm_cicustom_vendor_storage": {
-      "type": "string",
-      "description": "Proxmox storage name for vendor.yml (required when enabled)"
-    },
-    "vm_cicustom_vendor_path": {
-      "type": "string",
-      "default": "snippets",
-      "description": "Path within storage for vendor.yml file"
-    },
-    "vm_bios_type": {
-      "type": "string",
-      "enum": ["seabios", "ovmf"],
-      "default": "seabios",
-      "description": "BIOS type (seabios=legacy, ovmf=UEFI)"
-    },
-    "vm_machine_type": {
-      "type": "string",
-      "enum": ["q35", "i440fx"],
-      "default": "q35",
-      "description": "QEMU machine type (q35=modern, i440fx=legacy)"
-    },
-    "vm_boot_order": {
-      "type": "string",
-      "default": "scsi0",
-      "description": "Boot device order"
-    },
-    "vm_reboot_allowed": {
-      "type": "boolean",
-      "default": true,
-      "description": "Allow guest-initiated reboot"
-    },
-
-    "vm_vga_type": {
-      "type": "string",
-      "enum": ["cirrus", "none", "qxl", "qxl2", "qxl3", "qxl4", "serial0", "serial1", "serial2", "serial3", "std", "virtio", "virtio-gl", "vmware"],
-      "default": "std",
-      "description": "VGA adapter type (serial0 for headless, qxl for SPICE)"
-    },
-    "vm_keyboard_layout": {
-      "type": "string",
-      "default": "en-us",
-      "description": "Keyboard layout"
-    },
-    "vm_tablet_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable USB tablet for better mouse integration"
-    },
-
-    "vm_kvm_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable KVM hardware virtualization"
-    },
-    "vm_acpi_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable ACPI support"
-    },
-    "vm_agent_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Enable QEMU guest agent (requires qemu-guest-agent package)"
-    },
-    "vm_hotplug_features": {
-      "type": "string",
-      "default": "network,disk,usb",
-      "description": "Comma-separated hotplug features"
-    },
-
-    "vm_temp_dir": {
-      "type": "string",
-      "default": "/root/.ansible/vm",
-      "description": "Directory for temporary files on Proxmox host"
-    },
-    "vm_start_after_create": {
-      "type": "boolean",
-      "default": true,
-      "description": "Start VM immediately after creation"
-    },
-    "vm_wait_for_boot": {
-      "type": "boolean",
-      "default": true,
-      "description": "Wait for VM to fully boot before provisioning"
-    },
-    "vm_ip_discovery_method": {
-      "type": "string",
-      "enum": ["dns", "agent"],
-      "default": "dns",
-      "description": "IP discovery method: dns (hostname lookup) or agent (qemu-agent)"
-    },
-    "vm_ip_discovery_retries": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 100,
-      "default": 20,
-      "description": "Number of retry attempts for IP discovery"
-    },
-    "vm_ip_discovery_delay": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 60,
-      "default": 5,
-      "description": "Seconds between IP discovery retries"
-    },
-
-    "docker_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Install Docker"
-    },
-    "docker_data_root": {
-      "type": "string",
-      "default": "/var/lib/docker",
-      "description": "Docker root data directory"
-    },
-    "docker_storage_driver": {
-      "type": "string",
-      "default": "",
-      "description": "Storage driver: overlay2, btrfs, zfs, etc (empty = auto)"
-    },
-    "docker_mtu": {
-      "type": "integer",
-      "default": 0,
-      "minimum": 0,
-      "maximum": 65535,
-      "description": "Default MTU for networks (0 = auto, 1400 for tunneled traffic)"
-    },
-    "docker_bridge_ip": {
-      "type": "string",
-      "default": "",
-      "description": "Custom docker0 bridge IP in CIDR"
-    },
-    "docker_dns_servers": {
-      "type": "array",
-      "default": [],
-      "description": "DNS servers for containers",
-      "items": { "type": "string" }
-    },
-    "docker_dns_search": {
-      "type": "array",
-      "default": [],
-      "description": "DNS search domains",
-      "items": { "type": "string" }
-    },
-    "docker_log_driver": {
-      "type": "string",
-      "default": "json-file",
-      "description": "Logging driver: json-file, journald, syslog, etc"
-    },
-    "docker_log_max_size": {
-      "type": "string",
-      "default": "50m",
-      "description": "Maximum log file size before rotation"
-    },
-    "docker_log_max_file": {
-      "type": "string",
-      "default": "3",
-      "description": "Maximum number of log files to retain"
-    },
-    "docker_live_restore": {
-      "type": "boolean",
-      "default": true,
-      "description": "Keep containers running during daemon downtime"
-    },
-    "docker_registry_mirrors": {
-      "type": "array",
-      "default": [],
-      "description": "Registry mirrors",
-      "items": { "type": "string" }
-    },
-    "docker_insecure_registries": {
-      "type": "array",
-      "default": [],
-      "description": "Insecure registries",
-      "items": { "type": "string" }
-    },
-    "docker_metrics_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Enable Prometheus metrics endpoint"
-    },
-    "docker_metrics_addr": {
-      "type": "string",
-      "default": "127.0.0.1:9323",
-      "description": "Metrics endpoint address"
-    },
-    "docker_gpu_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Deploy DRM udev rules and auto-register gpu=1 generic resource for Swarm scheduling"
-    },
-    "docker_node_generic_resources": {
-      "type": "array",
-      "default": [],
-      "description": "Non-GPU generic resources for Swarm scheduling. For GPU, use docker_gpu_enabled",
-      "items": { "type": "string" }
-    },
-    "docker_swarm_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Enable Docker Swarm mode (requires docker_enabled)"
-    },
-    "docker_swarm_role": {
-      "type": "string",
-      "enum": ["manager", "worker"],
-      "default": "worker",
-      "description": "Swarm node role: manager (control plane) or worker (workloads only)"
-    },
-    "docker_swarm_init": {
-      "type": "boolean",
-      "default": false,
-      "description": "Initialize new swarm cluster (true ONLY on first manager)"
-    },
-    "docker_swarm_advertise_addr": {
-      "type": "string",
-      "default": "",
-      "description": "Advertise address for swarm traffic (empty for auto-detect)"
-    },
-    "docker_swarm_listen_addr": {
-      "type": "string",
-      "default": "0.0.0.0:2377",
-      "description": "Listen address for swarm management traffic"
-    },
-    "docker_swarm_data_path_addr": {
-      "type": "string",
-      "default": "",
-      "description": "Address/interface for overlay data traffic"
-    },
-    "docker_swarm_data_path_port": {
-      "type": "integer",
-      "default": 4789,
-      "minimum": 1,
-      "maximum": 65535,
-      "description": "UDP port for VXLAN overlay network traffic"
-    },
-    "docker_swarm_default_addr_pool": {
-      "type": "array",
-      "default": [],
-      "description": "Default address pools for overlay networks (e.g., [\"10.10.0.0/16\"])",
-      "items": {
-        "type": "string"
-      }
-    },
-    "docker_swarm_subnet_size": {
-      "type": "integer",
-      "default": 24,
-      "minimum": 1,
-      "maximum": 29,
-      "description": "Default subnet size for overlay networks"
-    },
-    "docker_swarm_autolock": {
-      "type": "boolean",
-      "default": false,
-      "description": "Encrypt Raft logs at rest"
-    },
-    "docker_swarm_election_tick": {
-      "type": "integer",
-      "default": 10,
-      "minimum": 1,
-      "description": "Raft election timeout in ticks (role default: 10, swarm group_vars overrides to 30 for WAN/Tailscale)"
-    },
-    "docker_swarm_heartbeat_tick": {
-      "type": "integer",
-      "default": 1,
-      "minimum": 1,
-      "description": "Raft heartbeat interval in ticks (role default: 1, swarm group_vars overrides to 3 for WAN/Tailscale)"
-    },
-    "docker_swarm_cert_expiry": {
-      "type": "string",
-      "default": "",
-      "description": "Node certificate expiry (e.g., 2160h)"
-    },
-    "docker_swarm_labels": {
-      "type": "object",
-      "default": {},
-      "description": "Node labels for placement constraints",
-      "additionalProperties": {
-        "type": "string"
-      }
-    },
-    "docker_swarm_availability": {
-      "type": "string",
-      "enum": ["active", "pause", "drain"],
-      "default": "active",
-      "description": "Node availability: active, pause, or drain"
-    },
-    "docker_swarm_manager_token": {
-      "type": "string",
-      "default": "",
-      "description": "Manager join token (from vault or runtime discovery)"
-    },
-    "docker_swarm_worker_token": {
-      "type": "string",
-      "default": "",
-      "description": "Worker join token (from vault or runtime discovery)"
-    },
-    "docker_swarm_manager_addrs": {
-      "type": "array",
-      "default": [],
-      "description": "Manager addresses for joining (e.g., [\"192.168.1.10:2377\"])",
-      "items": {
-        "type": "string",
-        "pattern": "^.+:[0-9]+$"
-      }
-    },
-    "tailscale_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Install Tailscale VPN"
-    },
-    "tailscale_tags": {
-      "type": "array",
-      "default": [],
-      "description": "Tailscale ACL tags (e.g., [\"server\", \"swarm\"])",
-      "items": { "type": "string" }
-    },
-    "tailscale_ip": {
-      "type": "string",
-      "default": "",
-      "description": "Expected Tailscale IP address (100.x.x.x)"
-    },
-    "tailscale_bind_ssh": {
-      "type": "boolean",
-      "default": false,
-      "description": "Bind SSH to Tailscale interface only"
-    },
-    "samba_enabled": {
-      "type": "boolean",
-      "default": false,
-      "description": "Install and configure Samba fileserver"
-    },
-    "samba_existing_user": {
-      "type": "string",
-      "description": "Existing system user for Samba access"
-    },
-    "samba_password": {
-      "type": "string",
-      "description": "Samba password (use vault reference)"
-    },
-    "dotfiles_enabled": {
-      "type": "boolean",
-      "default": true,
-      "description": "Deploy dotfiles from GitHub repository"
-    },
-    "dotfiles_deploy_to_root": {
-      "type": "boolean",
-      "default": false,
-      "description": "Deploy dotfiles to root user's home"
-    },
-    "dotfiles_deploy_args": {
-      "type": "string",
-      "default": "",
-      "description": "Arguments passed verbatim to deploy.sh (e.g. 'bash nano claude')"
-    },
-    "packages_install_shell": {
-      "type": "boolean",
-      "default": false,
-      "description": "Install shell utilities"
-    },
-    "packages_install_network": {
-      "type": "boolean",
-      "default": false,
-      "description": "Install network utilities"
-    },
-    "net_ntp_configure": {
-      "type": "boolean",
-      "default": false,
-      "description": "Configure NTP time synchronization"
-    },
+    "net_ntp_configure": { "type": "boolean", "description": "Configure NTP servers" },
     "net_ntp_servers": {
       "type": "array",
-      "description": "List of NTP server addresses",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" },
+      "description": "NTP server addresses"
     },
+    "net_dns_configure": { "type": "boolean", "description": "Configure DNS servers" },
+    "net_dns_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "DNS server addresses"
+    },
+    "qemu_agent_enabled": { "type": "boolean", "description": "Enable QEMU guest agent" },
 
     "users_list": {
       "type": "array",
-      "description": "List of system users to create",
       "items": {
         "type": "object",
+        "required": ["name"],
         "properties": {
-          "name": {
-            "type": "string",
-            "pattern": "^[a-z_][a-z0-9_-]*$",
-            "description": "Username"
-          },
-          "uid": {
-            "type": "integer",
-            "minimum": 1000,
-            "maximum": 65534,
-            "description": "User ID"
-          },
-          "gid": {
-            "type": "integer",
-            "minimum": 1000,
-            "maximum": 65534,
-            "description": "Primary group ID"
-          },
-          "group": {
-            "type": "string",
-            "description": "Primary group name"
-          },
-          "shell": {
-            "type": "string",
-            "description": "Login shell"
-          },
-          "home": {
-            "type": "string",
-            "description": "Home directory path"
-          },
-          "create_home": {
-            "type": "boolean",
-            "default": true,
-            "description": "Create home directory"
-          }
+          "name": { "type": "string" },
+          "group": { "type": "string" },
+          "uid": { "type": "integer" },
+          "gid": { "type": "integer" },
+          "shell": { "type": "string" },
+          "home": { "type": "string" },
+          "create_home": { "type": "boolean" }
         },
-        "required": ["name"]
-      }
-    }
+        "additionalProperties": false
+      },
+      "description": "List of system users to create"
+    },
+    "packages_install_shell": { "type": "boolean", "description": "Install shell utilities" },
+    "packages_install_network": { "type": "boolean", "description": "Install network utilities" },
+
+    "dotfiles_enabled": { "type": "boolean", "description": "Deploy dotfiles" },
+    "dotfiles_deploy_args": { "type": "string", "description": "Arguments for dotfile deployment" },
+    "dotfiles_deploy_to_root": { "type": "boolean", "description": "Deploy dotfiles to root user" },
+
+    "hostname": { "type": "string", "description": "System hostname override" },
+
+    "tailscale_enabled": { "type": "boolean", "description": "Install and configure Tailscale" },
+    "tailscale_hostname": { "type": "string", "description": "Tailscale hostname override" },
+    "tailscale_tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tailscale ACL tags"
+    },
+    "tailscale_ip": { "type": "string", "description": "Expected Tailscale IP" },
+    "tailscale_bind_ssh": { "type": "boolean", "description": "Bind SSH to Tailscale interface" },
+
+    "docker_enabled": { "type": "boolean", "description": "Install and configure Docker" },
+    "docker_data_root": { "type": "string", "description": "Docker data root path" },
+    "docker_mtu": { "type": "integer", "description": "Docker network MTU (0 for auto)" },
+    "docker_dns_servers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Docker DNS servers"
+    },
+    "docker_dns_search": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Docker DNS search domains"
+    },
+    "docker_gpu_enabled": { "type": "boolean", "description": "Enable GPU support in Docker" },
+    "docker_insecure_registries": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Docker insecure registry URLs"
+    },
+
+    "docker_swarm_enabled": { "type": "boolean", "description": "Enable Docker Swarm" },
+    "docker_swarm_init": { "type": "boolean", "description": "This node initializes the swarm cluster" },
+    "docker_swarm_role": {
+      "type": "string",
+      "enum": ["manager", "worker"],
+      "description": "Swarm node role"
+    },
+    "docker_swarm_advertise_addr": { "type": "string", "description": "Swarm advertise address (Tailscale IP)" },
+    "docker_swarm_listen_addr": { "type": "string", "description": "Swarm management listen address" },
+    "docker_swarm_data_path_addr": { "type": "string", "description": "Swarm data path address" },
+    "docker_swarm_data_path_port": { "type": "integer", "description": "Swarm VXLAN port" },
+    "docker_swarm_labels": { "type": "object", "description": "Swarm node labels" },
+    "docker_swarm_availability": {
+      "type": "string",
+      "enum": ["active", "pause", "drain"],
+      "description": "Swarm node availability"
+    },
+    "docker_swarm_vxlan_interface": { "type": "string", "description": "Interface to restrict VXLAN traffic" },
+
+    "samba_enabled": { "type": "boolean", "description": "Install and configure Samba" },
+    "samba_existing_user": { "type": "string", "description": "Existing system user for Samba" },
+    "samba_password": { "type": "string", "description": "Samba user password" },
+
+    "k3s_enabled": { "type": "boolean", "description": "K3s integration flag" }
   },
 
   "allOf": [
     {
       "if": {
-        "properties": {
-          "vm_cloudinit_enabled": { "const": true }
-        },
-        "required": ["vm_cloudinit_enabled"]
+        "properties": { "docker_gpu_enabled": { "const": true } },
+        "required": ["docker_gpu_enabled"]
       },
       "then": {
-        "required": ["vm_cloudinit_ip", "vm_cloudinit_user"]
+        "properties": { "docker_enabled": { "const": true } }
       }
     },
     {
       "if": {
-        "properties": {
-          "vm_cloudinit_enabled": { "const": true },
-          "vm_cloudinit_ip": {
-            "type": "string",
-            "not": { "const": "dhcp" }
-          }
-        },
-        "required": ["vm_cloudinit_enabled", "vm_cloudinit_ip"]
+        "properties": { "docker_swarm_enabled": { "const": true } },
+        "required": ["docker_swarm_enabled"]
       },
       "then": {
-        "required": ["vm_cloudinit_gateway"]
+        "properties": { "docker_enabled": { "const": true } }
       }
     },
     {
       "if": {
-        "properties": {
-          "vm_cicustom_vendor_enabled": { "const": true }
-        },
-        "required": ["vm_cicustom_vendor_enabled"]
+        "properties": { "docker_swarm_init": { "const": true } },
+        "required": ["docker_swarm_init"]
       },
       "then": {
-        "required": ["vm_cicustom_vendor_storage"]
+        "properties": { "docker_swarm_role": { "const": "manager" } }
       }
     },
     {
       "if": {
-        "properties": {
-          "samba_enabled": { "const": true }
-        },
+        "properties": { "samba_enabled": { "const": true } },
         "required": ["samba_enabled"]
       },
       "then": {
         "required": ["samba_existing_user", "samba_password"]
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "vm_bios_type": { "const": "ovmf" }
-        },
-        "required": ["vm_bios_type"]
-      },
-      "then": {
-        "properties": {
-          "vm_machine_type": { "const": "q35" }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "docker_gpu_enabled": { "const": true }
-        },
-        "required": ["docker_gpu_enabled"]
-      },
-      "then": {
-        "properties": {
-          "docker_enabled": { "const": true }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "docker_swarm_enabled": { "const": true }
-        },
-        "required": ["docker_swarm_enabled"]
-      },
-      "then": {
-        "properties": {
-          "docker_enabled": { "const": true }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "docker_swarm_init": { "const": true }
-        },
-        "required": ["docker_swarm_init"]
-      },
-      "then": {
-        "properties": {
-          "docker_swarm_role": { "const": "manager" }
-        }
       }
     }
   ],

@@ -1,70 +1,17 @@
 ---
-# LXC Deployment Playbook, contains four plays:
-#   1. Discover container definitions and register dynamically
-#   2. Create containers on Proxmox hosts (skipped if container exists)
-#   3. Provision containers via SSH
-#   4. Purge containers (only with --tags purge)
+# LXC Provisioning Playbook
 #
-# Key Features:
-# - Fully dynamic inventory (no manual inventory/hosts.yml maintenance)
-# - Single source of truth: host_vars/lxc/{container}.yml
-################################################################################
+# Provisions LXC containers via SSH with base system and applications.
+# Guest lifecycle (create/destroy) is managed by Terraform.
 
-## PLAY 1: Discover Container Definitions (Dynamic Inventory)
-- name: Discover LXC Container Definitions
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  tags: ["discover", "always"]
-  tasks:
-    - name: Discover LXC definitions using shared task
-      ansible.builtin.include_tasks: tasks/discover_definitions.yml
-      vars:
-        _resource_type: lxc
-        _host_vars_subdir: lxc
-        _group_name: lxc
-        _hostname_var: lxc_hostname
-
-## PLAY 2: Create LXC Containers on Proxmox
-- name: Create LXC Containers on Proxmox
-  hosts: lxc
-  gather_facts: false
-  # Proxmox API credentials auto-loaded via group_vars/proxmox.yml (lxc is child of proxmox group)
-  module_defaults:
-    group/community.proxmox.proxmox:
-      api_host: "{{ proxmox_api_host }}"
-      api_user: "{{ proxmox_api_user }}"
-      api_token_id: "{{ proxmox_api_token_id }}"
-      api_token_secret: "{{ proxmox_api_token_secret }}"
-      validate_certs: "{{ proxmox_api_validate_certs }}"
-  tags: ["create"]
-  tasks:
-    - name: Create container using LXC role
-      delegate_to: "{{ pve_host }}"
-      block:
-        - name: Include LXC role
-          ansible.builtin.include_role:
-            name: proxmox/lxc
-  post_tasks:
-    - name: Update ansible_host to discovered IP (if available)
-      ansible.builtin.set_fact:
-        ansible_host: "{{ discovered_ip }}"
-      delegate_to: "{{ lxc_hostname | default(inventory_hostname) }}"
-      delegate_facts: true
-      when: discovered_ip is defined and discovered_ip | length > 0
-
-## PLAY 3: Provision LXC Containers
-# NOTE: No become directive needed, containers use root user by default
 - name: Provision LXC Containers
-  hosts: lxc # Uses dynamic inventory from Play 1
-  gather_facts: true # Facts needed by docker, tailscale, and other application roles
-  tags: ["provision"]
+  hosts: lxc
+  gather_facts: true
   pre_tasks:
-    - name: Load container configuration
-      ansible.builtin.include_vars:
-        file: "{{ _inventory_dir }}/host_vars/lxc/{{ inventory_hostname }}.yml"
-      tags: ["always"]
-      failed_when: false # Allow missing file (variables already loaded via add_host)
+    - name: Skip hosts outside current environment
+      ansible.builtin.meta: end_host
+      when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
+      tags: [always]
   roles:
     - role: common/ssh
       tags: [common, ssh]
@@ -79,8 +26,8 @@
     - role: applications/tailscale
       tags: [application, tailscale, vpn]
       when:
-        - not ansible_check_mode # Skip in check mode due to collection limitation
-        - not k3s_enabled | default(false) # K3s playbook handles Tailscale when K3s is enabled
+        - not ansible_check_mode
+        - not k3s_enabled | default(false)
         - tailscale_enabled
     - role: applications/docker
       tags: [application, docker]
@@ -92,17 +39,3 @@
       when:
         - not k3s_enabled | default(false)
         - samba_enabled
-
-## PLAY 4: Purge LXC Containers
-# Only runs when --tags purge is explicitly specified
-- name: Purge LXC Containers
-  hosts: lxc
-  gather_facts: false
-  tags: [purge, never]
-  tasks:
-    - name: Purge container using shared task
-      ansible.builtin.include_tasks: "{{ playbook_dir }}/../roles/proxmox/shared/tasks/purge_resource.yml"
-      vars:
-        _resource_type: lxc
-        _hostname: "{{ lxc_hostname | default(inventory_hostname) }}"
-        _vmid: "{{ lxc_vmid }}"

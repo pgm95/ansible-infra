@@ -6,7 +6,7 @@ description = " " # "Deploy VM to specific host(s)"
 depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. vmtest1,vmtest2)"
-arg "[tags]" help="Ansible tags (e.g. create,provision,common)"
+arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
 '''
 env = { DEPLOY_GROUP = "vm" }
 file = ".mise/scripts/deploy.sh"
@@ -14,9 +14,4 @@ file = ".mise/scripts/deploy.sh"
 ["vm:check"]
 description = " " # "Dry run VM provisioning (check mode)"
 env = { DEPLOY_GROUP = "vm", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
-file = ".mise/scripts/deploy.sh"
-
-["vm:purge"]
-description = " " # "Purge VMs (DESTRUCTIVE)"
-env = { DEPLOY_GROUP = "vm", DEPLOY_INTERACTIVE = "false", usage_tags = "purge" }
 file = ".mise/scripts/deploy.sh"
