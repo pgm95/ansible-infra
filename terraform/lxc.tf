@@ -83,7 +83,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   # Generates the standard 6-entry idmap:
   #   u 0 100000 <uid>        g 0 100000 <gid>
   #   u <uid> <uid> 1         g <gid> <gid> 1
-  #   u <uid+1> 10<uid+1> N   g <gid+1> 10<gid+1> N
+  #   u <uid+1> 100000+<uid+1> N   g <gid+1> 100000+<gid+1> N
   dynamic "idmap" {
     for_each = lookup(each.value, "idmap_uid", null) != null ? [
       { type = "uid", container_id = 0, host_id = 100000, size = each.value.idmap_uid },
