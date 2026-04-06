@@ -20,6 +20,13 @@
 *decrypted*
 **/host_vars
 
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate.d/
+*.tfplan
+
 # OS files
 ._*
 *~

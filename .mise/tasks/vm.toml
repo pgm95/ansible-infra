@@ -3,6 +3,7 @@
 
 ["vm:deploy"]
 description = " " # "Deploy VM to specific host(s)"
+depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. vmtest1,vmtest2)"
 arg "[tags]" help="Ansible tags (e.g. create,provision,common)"
