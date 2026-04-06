@@ -1,0 +1,38 @@
+#:schema https://mise.jdx.dev/schema/mise-task.json
+#:tombi schema.strict = false
+
+["tf:init"]
+description = " " # Initialize Terraform (download providers, create workspace)
+run = """
+cd terraform
+terraform init
+terraform workspace new "$TF_WORKSPACE" 2>/dev/null || true
+"""
+
+["tf:plan"]
+description = " " # Preview infrastructure changes
+run = "cd terraform && terraform plan"
+
+["tf:apply"]
+description = " " # Apply infrastructure changes
+run = "cd terraform && terraform apply -auto-approve"
+
+["tf:destroy"]
+description = " " # Destroy all infrastructure (DESTRUCTIVE)
+run = "cd terraform && terraform destroy"
+
+["tf:import"]
+description = " " # Import existing resource into Terraform state
+usage = '''
+arg "<resource>" help="TF resource address (e.g. proxmox_virtual_environment_container.lxc[\"swarm-lxc\"])"
+arg "<id>" help="Proxmox resource ID (e.g. proxmox/403)"
+'''
+run = 'cd terraform && terraform import "$usage_resource" "$usage_id"'
+
+["tf:state"]
+description = " " # Show Terraform state
+run = "cd terraform && terraform state list"
+
+["tf:output"]
+description = " " # Show Terraform outputs
+run = "cd terraform && terraform output"
