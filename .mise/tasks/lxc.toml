@@ -3,6 +3,7 @@
 
 ["lxc:deploy"]
 description = " " # "Deploy LXC container to specific host(s)"
+depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. test1,test2)"
 arg "[tags]" help="Ansible tags (e.g. create,provision,common)"

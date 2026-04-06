@@ -9,3 +9,9 @@ PVE_NODE_NAME = "proxmox"
 VPS_ADDR = "100.88.0.1"
 VPS_HOSTNAME = "nerd1"
 VPS_PUBLIC_IP = "{{ env.NERD1_PUBLIC_IP }}"
+
+# Terraform
+TF_VAR_pve_download_storage = "local-btrfs"
+TF_VAR_pve_node_name = "{{ env.PVE_NODE_NAME }}"
+TF_VAR_pve_host_addr = "{{ env.PVE_HOST_ADDR }}"
+PROXMOX_VE_ENDPOINT = "https://{{ env.PVE_HOST_ADDR }}:8006/"

@@ -16,6 +16,7 @@ unix_default_inline_shell_args = "bash -c -o errexit -o nounset -o pipefail"
 "aqua:FiloSottile/age" = "latest"
 "aqua:koalaman/shellcheck" = "latest"
 "aqua:pre-commit/pre-commit" = "latest"
+"aqua:hashicorp/terraform" = "latest"
 
 [tools."pipx:ansible-core"]
 version = "latest"
@@ -41,13 +42,22 @@ ANSIBLE_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/ansible.cfg"
 ANSIBLE_ROLES_PATH = "{{config_root}}/roles"
 ANSIBLE_INVENTORY = "{{config_root}}/inventory"
 
+# Terraform
+TF_WORKSPACE = "{{ mise_env | first }}"
+TF_VAR_universal_pass = "{{ env.UNIVERSAL_PASS }}"
+TF_VAR_lxc_root_pass = "{{ env.LXC_ROOT_PASS }}"
+TF_VAR_ssh_authorized_keys = "{{ env.SSH_AUTHORIZED_KEYS }}"
+PROXMOX_VE_PASSWORD = "{{ env.UNIVERSAL_PASS }}"
+PROXMOX_VE_USERNAME = "root@pam"
+
 [task_config]
 includes = [
     ".mise/tasks/lxc.toml",
     ".mise/tasks/vm.toml",
     ".mise/tasks/vps.toml",
     ".mise/tasks/swarm.toml",
-    ".mise/tasks/sops.toml"
+    ".mise/tasks/sops.toml",
+    ".mise/tasks/terraform.toml",
 ]
 
 ############################ TASKS ############################
