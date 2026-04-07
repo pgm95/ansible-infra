@@ -17,12 +17,12 @@
   tasks:
     - name: Detect public IPv4 from interfaces
       ansible.builtin.set_fact:
-        public_ipv4: "{{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('public') | first | default('N/A') }}"
+        public_ipv4: "{{ ansible_facts.all_ipv4_addresses | ansible.utils.ipaddr('public') | first | default('N/A') }}"
       no_log: true
 
     - name: Get all private IPv4 addresses
       ansible.builtin.set_fact:
-        private_ipv4_list: "{{ ansible_all_ipv4_addresses | ansible.utils.ipaddr('private') | list }}"
+        private_ipv4_list: "{{ ansible_facts.all_ipv4_addresses | ansible.utils.ipaddr('private') | list }}"
       no_log: true
 
     - name: Check if Tailscale is installed
@@ -134,30 +134,30 @@
         msg: |2
 
           ================================================================================
-          HOST: {{ ansible_hostname | upper }}
+          HOST: {{ ansible_facts.hostname | upper }}
           ================================================================================
 
           SYSTEM INFORMATION
           ------------------
-          Hostname       : {{ ansible_hostname }}
-          FQDN           : {{ ansible_fqdn }}
-          OS             : {{ ansible_distribution }} {{ ansible_distribution_version }}
-          Kernel         : {{ ansible_kernel }}
-          Architecture   : {{ ansible_architecture }}
-          CPU            : {{ ansible_processor[1] | default('N/A') }}
-          vCPUs          : {{ ansible_processor_vcpus }}
-          Memory         : {{ ansible_memtotal_mb }} MB
-          Swap           : {{ ansible_swaptotal_mb | default(0) }} MB
-          Virtualization : {{ ansible_virtualization_type | default('none') }}
-          Python         : {{ ansible_python_version }}
+          Hostname       : {{ ansible_facts.hostname }}
+          FQDN           : {{ ansible_facts.fqdn }}
+          OS             : {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+          Kernel         : {{ ansible_facts.kernel }}
+          Architecture   : {{ ansible_facts.architecture }}
+          CPU            : {{ ansible_facts.processor[1] | default('N/A') }}
+          vCPUs          : {{ ansible_facts.processor_vcpus }}
+          Memory         : {{ ansible_facts.memtotal_mb }} MB
+          Swap           : {{ ansible_facts.swaptotal_mb | default(0) }} MB
+          Virtualization : {{ ansible_facts.virtualization_type | default('none') }}
+          Python         : {{ ansible_facts.python_version }}
 
           NETWORK INFORMATION
           -------------------
           Public IPv4    : {{ public_ipv4 }}
           Private IPv4   : {{ private_ipv4_list | join(', ') if private_ipv4_list | length > 0 else 'N/A' }}
-          Default IPv4   : {{ ansible_default_ipv4.address | default('N/A') }}
-          Default IPv6   : {{ ansible_default_ipv6.address | default('N/A') }}
-          Interfaces     : {{ ansible_interfaces | join(', ') }}
+          Default IPv4   : {{ ansible_facts.default_ipv4.address | default('N/A') }}
+          Default IPv6   : {{ ansible_facts.default_ipv6.address | default('N/A') }}
+          Interfaces     : {{ ansible_facts.interfaces | join(', ') }}
 
           TAILSCALE STATUS
           ----------------
@@ -182,10 +182,10 @@
 
           STORAGE
           -------
-          Devices: {{ ansible_devices.keys() | list | join(', ') }}
+          Devices: {{ ansible_facts.devices.keys() | list | join(', ') }}
 
           Mounts:
-          {% for mount in ansible_mounts %}
+          {% for mount in ansible_facts.mounts %}
           {% set size_gb = (mount.size_total / 1024 / 1024 / 1024) | round(1) | string + ' GB' %}
           {% set avail_gb = (mount.size_available / 1024 / 1024 / 1024) | round(1) | string + ' GB' %}
           {% set used_pct = ((mount.size_total - mount.size_available) * 100 / mount.size_total) | round(0) | int %}

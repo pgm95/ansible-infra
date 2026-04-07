@@ -29,7 +29,7 @@ dotfiles_force_update: true # (boolean) Force git pull (overwrite local changes 
 dotfiles_continue_on_error: true # (boolean) Continue playbook execution on dotfiles failure
 
 # Directory Configuration
-dotfiles_cache_dir: "{{ playbook_dir | dirname }}/.cache/dotfiles" # (string) Local cache for git clone (control node)
+dotfiles_cache_dir: "{{ lookup('config', 'ANSIBLE_HOME') }}/cache/dotfiles" # (string) Local cache for git clone (control node)
 dotfiles_staging_dir: /tmp/.ansible/dotfiles # (string) Remote staging directory for repository sync
 
 # ============================================================================

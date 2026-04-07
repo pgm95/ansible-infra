@@ -5,7 +5,7 @@
 - name: Detect QEMU/KVM virtualization
   when: qemu_agent_enabled | bool
   ansible.builtin.set_fact:
-    __is_qemu_vm: "{{ ansible_virtualization_type in ['kvm', 'qemu'] }}"
+    __is_qemu_vm: "{{ ansible_facts.virtualization_type in ['kvm', 'qemu'] }}"
 
 - name: Check virtio guest agent port availability
   when:

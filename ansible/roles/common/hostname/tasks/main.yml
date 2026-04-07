@@ -29,7 +29,7 @@
 ### /etc/hosts Management for VPS with Static IP
 - name: Get primary IP address
   ansible.builtin.set_fact:
-    _primary_ip: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+    _primary_ip: "{{ ansible_facts.default_ipv4.address | default(ansible_facts.all_ipv4_addresses[0]) }}"
 
 - name: Configure /etc/hosts from template
   ansible.builtin.template:

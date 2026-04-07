@@ -35,7 +35,11 @@ SOPS_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/sops.yaml"
 _.file = { path = "{{ env.PROJECT_SECRETS_DIR }}/shared.sops.yaml", redact = true }
 
 # Ansible
+ANSIBLE_HOME = "{{config_root}}/.ansible"
 ANSIBLE_CONFIG = "{{config_root}}/ansible/ansible.cfg"
+ANSIBLE_INVENTORY = "{{config_root}}/ansible/hosts.yml"
+ANSIBLE_ROLES_PATH = "{{config_root}}/ansible/roles"
+ANSIBLE_CACHE_PLUGIN_CONNECTION = "{{ env.ANSIBLE_HOME }}/facts"
 
 # Terraform
 TF_WORKSPACE = "{{ mise_env | first }}"
@@ -60,8 +64,8 @@ description = " " # Complete environment setup via mise
 run = """
 mise trust 2>/dev/null || true
 mise install
-mkdir -p .ansible/collections
-mise exec -- ansible-galaxy collection install -r ansible/requirements.yml --force -p .ansible/collections
+mkdir -p $ANSIBLE_HOME/collections
+mise exec -- ansible-galaxy collection install -r ansible/requirements.yml --force -p $ANSIBLE_HOME/collections
 mise exec -- pre-commit install --config $PROJECT_CONFIGS_DIR/pre-commit.yaml
 """
 

@@ -42,7 +42,7 @@
 
 - name: Swarm | Determine advertise address
   ansible.builtin.set_fact:
-    _advertise_addr: "{{ docker_swarm_advertise_addr | default('') | string or ansible_default_ipv4.address }}"
+    _advertise_addr: "{{ docker_swarm_advertise_addr | default('') | string or ansible_facts.default_ipv4.address }}"
   when: not _swarm_reset_mode | default(false)
   tags: [always]
 
@@ -302,7 +302,7 @@
 - name: Swarm | Warn if public IP without VXLAN restriction
   ansible.builtin.debug:
     msg: |
-      WARNING: This node appears to have a public IP ({{ ansible_default_ipv4.address }})
+      WARNING: This node appears to have a public IP ({{ ansible_facts.default_ipv4.address }})
       but docker_swarm_vxlan_interface is not set. Port {{ docker_swarm_data_path_port }}/UDP
       (VXLAN overlay) will be accessible from the internet.
 
@@ -313,7 +313,7 @@
     - not _swarm_reset_mode | default(false)
     - docker_swarm_vxlan_interface | length == 0
     - _swarm_active or docker_swarm_init | bool
-    - ansible_default_ipv4.address | default('') is not
+    - ansible_facts.default_ipv4.address | default('') is not
       regex('^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|127\.|169\.254\.)')
 
 - name: Swarm | Ensure iptables-persistent for VXLAN restriction
@@ -347,17 +347,17 @@
 - name: Swarm | Warn if system hostname differs from inventory hostname
   ansible.builtin.debug:
     msg: >-
-      System hostname '{{ ansible_hostname }}' differs from inventory hostname
+      System hostname '{{ ansible_facts.hostname }}' differs from inventory hostname
       '{{ inventory_hostname }}'. Node operations will use the system hostname
       since Docker Swarm registers nodes by system hostname.
   when:
     - not _swarm_reset_mode | default(false)
     - _swarm_active or docker_swarm_init | bool
-    - ansible_hostname != inventory_hostname
+    - ansible_facts.hostname != inventory_hostname
 
 - name: Swarm | Configure node labels
   community.docker.docker_node:
-    hostname: "{{ ansible_hostname }}"
+    hostname: "{{ ansible_facts.hostname }}"
     labels: "{{ docker_swarm_labels }}"
   delegate_to: "{{ _swarm_init_host }}"
   when:
@@ -368,7 +368,7 @@
 
 - name: Swarm | Configure node availability
   community.docker.docker_node:
-    hostname: "{{ ansible_hostname }}"
+    hostname: "{{ ansible_facts.hostname }}"
     availability: "{{ docker_swarm_availability }}"
   delegate_to: "{{ _swarm_init_host }}"
   when:

@@ -28,7 +28,7 @@ qemu_agent_enabled: false # (boolean) Enable/disable QEMU guest agent installati
 # Detection Logic (Automatic)
 # ============================================================================
 # Role performs multi-stage detection:
-# 1. Check ansible_virtualization_type for QEMU/KVM
+# 1. Check ansible_facts.virtualization_type for QEMU/KVM
 # 2. Verify /dev/virtio-ports/org.qemu.guest_agent.0 exists
 # 3. Only install if both conditions are true
 

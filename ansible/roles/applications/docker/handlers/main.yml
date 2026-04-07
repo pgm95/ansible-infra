@@ -17,7 +17,7 @@
 - name: Docker | Reload udev rules
   ansible.builtin.shell: udevadm control --reload-rules && udevadm trigger
   changed_when: true
-  when: ansible_virtualization_type | default('') != 'lxc'
+  when: ansible_facts.virtualization_type | default('') != 'lxc'
 - name: Docker | Save iptables rules
   ansible.builtin.command: netfilter-persistent save
   listen: Docker | Save iptables rules

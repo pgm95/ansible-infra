@@ -9,7 +9,7 @@
         name: ethtool
         state: present
         update_cache: false
-      when: ansible_os_family == "Debian"
+      when: ansible_facts.os_family == "Debian"
 
     - name: Tailscale | Check if sysctl.d directory exists
       ansible.builtin.stat:
@@ -61,8 +61,8 @@
     - name: Tailscale | Get primary network interface
       ansible.builtin.set_fact:
         _primary_interface:
-          stdout: "{{ ansible_default_ipv4.interface | default('') }}"
-          rc: "{{ 0 if ansible_default_ipv4.interface is defined else 1 }}"
+          stdout: "{{ ansible_facts.default_ipv4.interface | default('') }}"
+          rc: "{{ 0 if ansible_facts.default_ipv4.interface is defined else 1 }}"
 
     - name: Tailscale | Configure UDP throughput improvements
       when: _primary_interface.rc == 0 and _primary_interface.stdout != ""
