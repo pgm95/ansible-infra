@@ -2,7 +2,7 @@
 # ============================================================================
 # Clones dotfiles Git repository, syncs it to the remote host, and invokes
 # the repository's own deploy.sh script. The role is intentionally agnostic
-# to deploy.sh internals — components/flags are passed through verbatim via
+# to deploy.sh internals - components/flags are passed through verbatim via
 # dotfiles_deploy_args so the role never needs updating when the script grows.
 # ============================================================================
 

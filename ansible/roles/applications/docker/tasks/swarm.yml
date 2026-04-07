@@ -293,7 +293,7 @@
     - name: Swarm | Log stale swarm recovery
       ansible.builtin.debug:
         msg: >-
-          {{ inventory_hostname }} was in a different cluster — forced leave.
+          {{ inventory_hostname }} was in a different cluster - forced leave.
           Will rejoin current cluster.
 
 # ============================================================================

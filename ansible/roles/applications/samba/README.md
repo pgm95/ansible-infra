@@ -57,56 +57,6 @@ Location: `files/smb.conf` (relative to playbook root)
 
 ## Workflow
 
-### Prerequisites
-
-1. Create system user with users role:
-
-```yaml
-users_list:
-  - name: shareuser
-    password: "system_password"
-    groups: ['users']
-```
-
-1. Set Samba password in host_vars:
-
-```yaml
-samba_password: "{{ lookup('env', 'SMB_PASS') }}"
-```
-
-1. Create SMB configuration:
-
-```bash
-cat > files/smb.conf << 'EOF'
-[global]
-    workgroup = WORKGROUP
-    server string = File Server
-    security = user
-    map to guest = bad user
-
-[share]
-    path = /srv/samba/share
-    browseable = yes
-    writable = yes
-    valid users = shareuser
-EOF
-```
-
-### Basic Deployment
-
-1. Enable in host_vars:
-
-```yaml
-samba_enabled: true
-samba_existing_user: shareuser
-```
-
-1. Run playbook:
-
-```bash
-task vps:deploy -- --tags samba
-```
-
 ## User Validation
 
 The role validates that:
@@ -169,18 +119,14 @@ This role requires:
 - `files/smb.conf`: Static SMB configuration file
 - `samba_password`: Must be provided via host_vars
 
-## Security Considerations
+## Notes
 
+- This is a simplified role for static configurations
 - Samba passwords are not logged (no_log: true)
 - Only existing system users can be configured
 - Password updates use secure shell piping (no interactive input)
 - Configuration changes are validated before application
 - Backup of existing configuration is always created
-
-## Notes
-
-- This is a simplified role for static configurations
 - Dynamic share creation is not supported
-- User must exist before running this role
 - NetBIOS is disabled by default
 - Avahi provides mDNS/Zeroconf network discovery

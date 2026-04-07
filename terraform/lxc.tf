@@ -79,7 +79,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
     }
   }
 
-  # UID/GID idmap — 1:1 mapping for a single uid/gid
+  # UID/GID idmap - 1:1 mapping for a single uid/gid
   # Generates the standard 6-entry idmap:
   #   u 0 100000 <uid>        g 0 100000 <gid>
   #   u <uid> <uid> 1         g <gid> <gid> 1

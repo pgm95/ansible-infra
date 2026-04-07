@@ -27,15 +27,12 @@
       tags: [application, tailscale, vpn]
       when:
         - not ansible_check_mode
-        - not k3s_enabled | default(false)
         - tailscale_enabled
     - role: applications/docker
       tags: [application, docker]
       when:
-        - not k3s_enabled | default(false)
         - docker_enabled
     - role: applications/samba
       tags: [application, samba]
       when:
-        - not k3s_enabled | default(false)
         - samba_enabled

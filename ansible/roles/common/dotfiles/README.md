@@ -1,6 +1,6 @@
 # Dotfiles Role
 
-Deploys dotfiles from a private GitHub repository by cloning locally, syncing to the remote host, and invoking the repository's own `deploy.sh` script. The role is intentionally agnostic to `deploy.sh` internals — components and flags are passed through verbatim so the role never needs updating when the script grows.
+Deploys dotfiles from a private GitHub repository by cloning locally, syncing to the remote host, and invoking the repository's own `deploy.sh` script. The role is intentionally agnostic to `deploy.sh` internals - components and flags are passed through verbatim so the role never needs updating when the script grows.
 
 ## Features
 

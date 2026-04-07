@@ -56,7 +56,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
     floating  = each.value.balloon
   }
 
-  # Boot disk — cloud image import
+  # Boot disk - cloud image import
   disk {
     datastore_id = each.value.storage
     import_from  = proxmox_download_file.debian_13_cloud.id

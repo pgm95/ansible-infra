@@ -5,7 +5,7 @@
 # Finds hosts with docker_swarm_enabled: true across static inventory groups.
 # Registers them to the 'swarm' group sorted for bootstrap order (init first).
 #
-# All host_vars are auto-loaded by Ansible from static inventory — no file
+# All host_vars are auto-loaded by Ansible from static inventory - no file
 # scanning or include_vars needed.
 # ============================================================================
 

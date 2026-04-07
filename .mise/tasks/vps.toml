@@ -1,5 +1,4 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
-#:tombi schema.strict = false
 
 ["vps:deploy"]
 description = " " # "Deploy VPS to specific host(s)"

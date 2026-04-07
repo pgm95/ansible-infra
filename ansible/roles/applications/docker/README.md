@@ -122,7 +122,7 @@ Override entirely in host_vars if custom structure needed.
 
 ## Swarm + Tailscale
 
-For heterogeneous clusters across NAT boundaries, set daemon config variables in each node's host_vars (not in `playbooks/group_vars/swarm.yml` — the swarm playbook does not write daemon.json):
+For heterogeneous clusters across NAT boundaries, set daemon config variables in each node's host_vars (not in `playbooks/group_vars/swarm.yml` - the swarm playbook does not write daemon.json):
 
 ```yaml
 # host_vars/swarm-node.yml
@@ -140,13 +140,7 @@ For Docker Swarm nodes with GPU passthrough, set `docker_gpu_enabled: true`. Thi
 - **Udev rules**: Deploys `/etc/udev/rules.d/99-dri.rules` to set permissive DRM device permissions (`MODE="0666"`)
 - **Swarm scheduling**: Auto-appends `gpu=1` to `node-generic-resources` in daemon.json
 
-Do not add `"gpu=1"` to `docker_node_generic_resources` directly — use `docker_gpu_enabled` instead.
-
-```yaml
-# host_vars/gpu-node.yml
-docker_enabled: true
-docker_gpu_enabled: true
-```
+Do not add `"gpu=1"` to `docker_node_generic_resources` directly - use `docker_gpu_enabled` instead.
 
 For LXC containers, ensure GPU device passthrough is also enabled (`lxc_device_vaapi`, `lxc_device_kfd`).
 

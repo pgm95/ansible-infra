@@ -118,7 +118,7 @@ The role is organized into separate task files:
 
 ### Basic Installation with OAuth
 
-1. Create an OAuth client at <https://login.tailscale.com/admin/settings/oauth> with `auth_keys` scope
+1. Create an OAuth client with `auth_keys` write scope
 
 2. Map the credential in group_vars or host_vars:
 
@@ -142,7 +142,7 @@ mise run vps:deploy
 
 ### Custom IP Assignment
 
-1. Create an OAuth client with both `auth_keys` and `devices` write scopes (or use separate clients)
+1. Create an OAuth client with `devices` write scope
 
 2. Map credentials in group_vars or host_vars:
 
@@ -213,13 +213,6 @@ When `tailscale_bind_ssh: true`:
 3. Validates configuration with `sshd -t`
 4. Reloads SSH daemon
 
-**Recovery**: If locked out, use console access to disable binding:
-
-```bash
-rm /etc/ssh/sshd_config.d/01-tailscale-binding.conf
-systemctl reload sshd
-```
-
 ## Tags
 
 - `tailscale`: All Tailscale-related tasks
@@ -227,11 +220,7 @@ systemctl reload sshd
 
 ## Dependencies
 
-This role uses the `artis3n.tailscale` collection for installation. Install with:
-
-```bash
-ansible-galaxy collection install artis3n.tailscale
-```
+This role uses the `artis3n.tailscale` collection for installation.
 
 ## Handler Behavior
 

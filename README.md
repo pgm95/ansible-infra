@@ -50,7 +50,7 @@ mise run validate
 
 **Terraform** owns Proxmox guest lifecycle (create/destroy). Resource definitions (VMIDs, disk layouts, network, device passthrough, bind mounts) live in `terraform/locals.tf`. Environment scoping uses Terraform workspaces aligned to `MISE_ENV`.
 
-**Ansible** owns guest provisioning — everything after the guest exists and is reachable via SSH. Playbooks are single-play, connecting directly to hosts and applying roles (SSH hardening, users, packages, Docker, Tailscale, etc.).
+**Ansible** owns guest provisioning - everything after the guest exists and is reachable via SSH. Playbooks are single-play, connecting directly to hosts and applying roles (SSH hardening, users, packages, Docker, Tailscale, etc.).
 
 LXC and VM deploy tasks chain both tools: `mise run lxc:deploy` runs `tf:apply` first (idempotent, fast when no changes), then `ansible-playbook`.
 
@@ -149,7 +149,7 @@ First-time provisioning uses password auth (`mise run vps:first-run`), which aut
 
 ### LXC and VM Provisioning (`lxc.yml`, `vm.yml`)
 
-Single-play playbooks that connect to guests via SSH and apply provisioning roles. Guest lifecycle (create/destroy) is managed by Terraform — these playbooks only handle configuration after the guest exists.
+Single-play playbooks that connect to guests via SSH and apply provisioning roles. Guest lifecycle (create/destroy) is managed by Terraform - these playbooks only handle configuration after the guest exists.
 
 Each playbook:
 
@@ -167,7 +167,7 @@ Swarm requires cross-host orchestration that doesn't fit the standard provision-
 2. **Validate**: verifies Docker is active on all swarm hosts.
 3. **Bootstrap** (`serial: 1`): init node creates cluster and retrieves join tokens cached on localhost; remaining nodes join using cached tokens.
 4. **Status**: displays cluster info from init node.
-5-7. **Reset** (requires explicit `--tags reset`): tears down in order — workers, non-init managers, init node — all with `ignore_unreachable: true`.
+5-7. **Reset** (requires explicit `--tags reset`): tears down in order - workers, non-init managers, init node - all with `ignore_unreachable: true`.
 
 Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemon.json is computed from individual variables (e.g., `docker_mtu`, `docker_data_root`) with empty value filtering, so there is no need to override the full config dict per host.
 
@@ -181,7 +181,7 @@ Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemo
 tailscale0 (MTU 1280) - VXLAN overhead (50) = Docker MTU 1230
 ```
 
-`docker_mtu: 1230` must be set in each swarm node's host_vars (applied during provisioning via `lxc:deploy`/`vm:deploy`/`vps:deploy`). Do not set it in `playbooks/group_vars/swarm.yml` — the swarm playbook does not write daemon.json, so daemon config variables there have no effect.
+`docker_mtu: 1230` must be set in each swarm node's host_vars (applied during provisioning via `lxc:deploy`/`vm:deploy`/`vps:deploy`). Do not set it in `playbooks/group_vars/swarm.yml` - the swarm playbook does not write daemon.json, so daemon config variables there have no effect.
 
 **VXLAN on public IPs.** Docker Swarm binds VXLAN (port 4789/UDP) to `0.0.0.0` regardless of `--data-path-addr`. On nodes with public IPs, set `docker_swarm_vxlan_interface: tailscale0` to restrict overlay traffic to the VPN interface via iptables.
 

@@ -14,7 +14,6 @@ unix_default_inline_shell_args = "bash -c -o errexit -o nounset -o pipefail"
 "aqua:astral-sh/uv" = "latest"
 "aqua:getsops/sops" = "latest"
 "aqua:FiloSottile/age" = "latest"
-"aqua:koalaman/shellcheck" = "latest"
 "aqua:pre-commit/pre-commit" = "latest"
 "aqua:hashicorp/terraform" = "latest"
 
@@ -27,12 +26,15 @@ MISE_ENV = "{{ mise_env | first }}"
 PROJECT_CONFIGS_DIR = "{{config_root}}/.config"
 PROJECT_SECRETS_DIR = "{{config_root}}/.secrets"
 
+# Tooling configs
 YAMLLINT_CONFIG_FILE = "{{ env.PROJECT_CONFIGS_DIR }}/yamllint.yml"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 SOPS_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/sops.yaml"
 
+# Shared secrets
 _.file = { path = "{{ env.PROJECT_SECRETS_DIR }}/shared.sops.yaml", redact = true }
 
+# Ansible
 ANSIBLE_HOME = "{{config_root}}/.ansible"
 ANSIBLE_LOCAL_TEMP = "{{ env.ANSIBLE_HOME }}/tmp"
 ANSIBLE_COLLECTIONS_PATH = "{{ env.ANSIBLE_HOME }}/collections"
@@ -57,7 +59,7 @@ includes = [
     ".mise/tasks/vps.toml",
     ".mise/tasks/swarm.toml",
     ".mise/tasks/sops.toml",
-    ".mise/tasks/terraform.toml",
+    ".mise/tasks/terraform.toml"
 ]
 
 ############################ TASKS ############################
@@ -88,6 +90,7 @@ run = "pre-commit run --config $PROJECT_CONFIGS_DIR/pre-commit.yaml --all-files"
 description = " " # Gather and display system facts (includes VMs/LXCs)
 env.ANSIBLE_CALLBACKS_ENABLED = "default"
 run = """
+#!/usr/bin/env bash
 ansible-playbook ansible/playbooks/get-facts.yml 2>&1 | \
   grep -E '^\\s+\"msg\":' | \
   sed 's/^[[:space:]]*\"msg\": \"//' | \

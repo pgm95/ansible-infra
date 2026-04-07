@@ -278,9 +278,7 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Samba services to manage"
-    },
-
-    "k3s_enabled": { "type": "boolean", "description": "K3s integration flag" }
+    }
   },
 
   "allOf": [
