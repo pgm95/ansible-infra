@@ -126,6 +126,15 @@
 # ============================================================================
 # Docker Configuration
 # ============================================================================
+# In check mode on unprovisioned hosts, Docker is not yet installed (the
+# install block above only reports what would change). Skip configuration
+# tasks that require Docker to be present (/etc/docker/, docker.service).
+# On already-provisioned hosts, check mode still validates config drift.
+
+- name: Check if Docker is installed
+  ansible.builtin.stat:
+    path: /usr/bin/dockerd
+  register: __docker_installed
 
 - name: Configure GPU support
   ansible.builtin.include_tasks: gpu.yml
@@ -138,6 +147,7 @@
     mode: "0644"
     backup: true
   notify: Docker | Restart docker
+  when: not ansible_check_mode or __docker_installed.stat.exists
 
 - name: Start and enable Docker service
   ansible.builtin.systemd:
@@ -145,6 +155,7 @@
     enabled: true
     state: started
     daemon_reload: true
+  when: not ansible_check_mode or __docker_installed.stat.exists
 
 - name: Display Docker configuration summary
   ansible.builtin.debug:
