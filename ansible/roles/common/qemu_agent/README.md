@@ -29,7 +29,7 @@ Master switch to enable QEMU guest agent auto-detection and installation.
 
 The role performs three checks before installation:
 
-1. **Virtualization Detection**: Checks if `ansible_virtualization_type` is `kvm` or `qemu`
+1. **Virtualization Detection**: Checks if `ansible_facts.virtualization_type` is `kvm` or `qemu`
 2. **Port Availability**: Verifies `/dev/virtio-ports/org.qemu.guest_agent.0` exists
 3. **Installation**: Only installs if both checks pass
 

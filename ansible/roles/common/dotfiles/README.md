@@ -44,7 +44,7 @@ Deploys dotfiles from a private GitHub repository by cloning locally, syncing to
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `dotfiles_cache_dir` | `{{ playbook_dir \| dirname }}/.cache/dotfiles` | Local cache for git clone (control node) |
+| `dotfiles_cache_dir` | `{{ lookup('config', 'ANSIBLE_HOME') }}/cache/dotfiles` | Local cache for git clone (control node) |
 | `dotfiles_staging_dir` | `/root/.dotfiles` | Remote staging directory for repository sync |
 
 ### `dotfiles_deploy_args` Examples

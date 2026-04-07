@@ -108,8 +108,8 @@ For VPS with static public IPs:
 
 Primary IP is automatically detected using:
 
-1. `ansible_default_ipv4.address` (preferred)
-2. `ansible_all_ipv4_addresses[0]` (fallback)
+1. `ansible_facts.default_ipv4.address` (preferred)
+2. `ansible_facts.all_ipv4_addresses[0]` (fallback)
 
 This ensures the correct public IP is used in /etc/hosts.
 

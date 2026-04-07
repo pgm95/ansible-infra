@@ -1,5 +1,39 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
+["lxc:deploy"]
+description = " " # "Deploy LXC container to specific host(s)"
+depends = ["tf:apply"]
+usage = '''
+arg "[hosts]" help="Hostnames (e.g. test1,test2)"
+arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
+'''
+env = { DEPLOY_GROUP = "lxc" }
+file = ".mise/scripts/deploy.sh"
+
+["lxc:check"]
+description = " " # "Dry-run LXC provisioning"
+env = { DEPLOY_GROUP = "lxc", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
+file = ".mise/scripts/deploy.sh"
+
+# ================================================================================
+
+["vm:deploy"]
+description = " " # "Deploy VM to specific host(s)"
+depends = ["tf:apply"]
+usage = '''
+arg "[hosts]" help="Hostnames (e.g. vmtest1,vmtest2)"
+arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
+'''
+env = { DEPLOY_GROUP = "vm" }
+file = ".mise/scripts/deploy.sh"
+
+["vm:check"]
+description = " " # "Dry run VM provisioning (check mode)"
+env = { DEPLOY_GROUP = "vm", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
+file = ".mise/scripts/deploy.sh"
+
+# ================================================================================
+
 ["vps:deploy"]
 description = " " # "Deploy VPS to specific host(s)"
 usage = '''

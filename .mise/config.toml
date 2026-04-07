@@ -50,9 +50,7 @@ PROXMOX_VE_USERNAME = "root@pam"
 
 [task_config]
 includes = [
-    ".mise/tasks/lxc.toml",
-    ".mise/tasks/vm.toml",
-    ".mise/tasks/vps.toml",
+    ".mise/tasks/site.toml",
     ".mise/tasks/swarm.toml",
     ".mise/tasks/sops.toml",
     ".mise/tasks/terraform.toml"
@@ -67,6 +65,9 @@ mise install
 mkdir -p $ANSIBLE_HOME/collections
 mise exec -- ansible-galaxy collection install -r ansible/requirements.yml --force -p $ANSIBLE_HOME/collections
 mise exec -- pre-commit install --config $PROJECT_CONFIGS_DIR/pre-commit.yaml
+cd terraform
+mise exec -- terraform init
+mise exec -- terraform workspace new \"$TF_WORKSPACE\" || true
 """
 
 [tasks."env:clean"]

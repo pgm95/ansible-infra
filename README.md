@@ -2,34 +2,9 @@
 
 Automation for provisioning and configuring VPS servers, Proxmox VMs, LXC containers, and Docker Swarm clusters. Uses [Terraform](https://www.terraform.io/) (bpg/proxmox provider) for Proxmox guest lifecycle and [Ansible](https://docs.ansible.com/) for guest configuration. [Mise](https://mise.jdx.dev) handles task management, tool versioning, and environment isolation. Supports multi-environment deployments (dev/prod) with SOPS + age secret encryption.
 
-## Quick Reference
-
-```bash
-mise run env:setup                     # Install tools, collections, hooks
-mise run validate                      # Lint, schema check, secrets scan
-
-mise run vps:deploy [hosts] [tags]     # Provision VPS hosts
-mise run vps:first-run [password]      # First-time VPS deploy (password auth)
-mise run lxc:deploy [hosts] [tags]     # TF apply + LXC provisioning
-mise run vm:deploy [hosts] [tags]      # TF apply + VM provisioning
-mise run swarm:deploy                  # Bootstrap/update Swarm cluster
-
-mise run tf:plan                       # Preview Terraform changes
-mise run tf:apply                      # Apply Terraform changes
-mise run tf:destroy                    # Destroy all TF-managed resources
-
-mise run swarm:reset                   # Tear down Swarm cluster
-
-mise run info                          # Display system facts
-mise run sops:edit                     # Edit shared secrets in editor
-```
-
-Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompting for selection. All operations go through mise; never run `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
-
 ## Prerequisites
 
 - [mise](https://mise.jdx.dev), which automatically installs ansible-core (via pipx), terraform, uv, shellcheck, and pre-commit
-- SSH access to target hosts
 - Proxmox host accessible via SSH (for Terraform provider)
 - Tailscale (for Swarm clusters communicating over WAN)
 
@@ -38,9 +13,7 @@ Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompti
 ```bash
 git clone <repo-url> && cd ansible-infra
 mise trust && mise run env:setup
-# Place age.key at project root (obtain from secure channel)
-mise run sops:status    # verify secrets are encrypted
-mise run tf:init        # initialize Terraform providers and workspace
+mise run sops:init
 mise run validate
 ```
 
@@ -58,7 +31,7 @@ LXC and VM deploy tasks chain both tools: `mise run lxc:deploy` runs `tf:apply` 
 
 ```text
 .
-├── .config/             # Ansible, lint, and pre-commit configuration
+├── .config/             # Linting, sops, and pre-commit configurations
 ├── terraform/
 │   ├── locals.tf        # Guest definitions (VMID, disks, network, devices)
 │   ├── lxc.tf           # LXC resource logic with dynamic blocks
@@ -71,13 +44,11 @@ LXC and VM deploy tasks chain both tools: `mise run lxc:deploy` runs `tf:apply` 
 │   ├── hosts.yml        # All hosts defined statically
 │   ├── host_vars/       # Per-host provisioning configs (flat directory)
 │   ├── group_vars/      # Group defaults (auto-loaded by Ansible)
-│   ├── playbooks/
-│   │   ├── tasks/       # Shared tasks (swarm discovery)
-│   │   └── *.yml        # Playbooks (vps, lxc, vm, swarm, get-facts)
+│   ├── playbooks/       # Playbooks
 │   ├── roles/
 │   │   ├── common/      # Base system (packages, users, ssh, dotfiles, hostname, qemu_agent, swap)
 │   │   ├── network/     # Network config (dns, ntp, interface)
-│   │   └── applications/  # Services (docker, tailscale, samba)
+│   │   └── applications/ # Services (docker, tailscale, samba)
 │   └── schemas/         # JSON schema for host_vars validation (host.schema.json)
 ├── .secrets/            # SOPS-encrypted secrets (committed), age key (gitignored)
 └── .mise/
@@ -85,7 +56,7 @@ LXC and VM deploy tasks chain both tools: `mise run lxc:deploy` runs `tf:apply` 
     ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, VPS addr, secrets)
     ├── config.prod.toml # Prod-specific env vars
     ├── scripts/         # Shared deploy script
-    └── tasks/           # Per-group TOML task definitions
+    └── tasks/           # TOML task definitions
 ```
 
 ### Environment Separation
@@ -221,14 +192,14 @@ For role variables, see `ansible/roles/<name>/defaults/main.yml` and `ansible/ro
 ### LXC Container
 
 1. Add the resource definition to `terraform/locals.tf` (`lxc_definitions` map).
-2. Add the host to `ansible/hosts.yml` under the `lxc` group with `ansible_host` set to the hostname.
+2. Add the host to `ansible/hosts.yml` under the `lxc` group.
 3. Create `ansible/host_vars/<hostname>.yml` with provisioning variables.
 4. Run `mise run lxc:deploy` (chains `tf:apply` → Ansible provisioning).
 
 ### Virtual Machine
 
 1. Add the resource definition to `terraform/locals.tf` (`vm_definitions` map).
-2. Add the host to `ansible/hosts.yml` under the `vm` group with `ansible_host` set to the hostname.
+2. Add the host to `ansible/hosts.yml` under the `vm` group.
 3. Create `ansible/host_vars/<hostname>.yml` with provisioning variables.
 4. Run `mise run vm:deploy` (chains `tf:apply` → Ansible provisioning).
 
@@ -248,26 +219,25 @@ Runs all pre-commit hooks: ansible-lint (includes yamllint), shellcheck, check-j
 
 A unified JSON schema (`ansible/schemas/host.schema.json`) validates host_vars structure covering all provisioning variables from every role.
 
-Hook configs live in `.config/`. Never run linters directly.
+## Mise Task Reference
 
-## Roadmap
+```bash
+mise run env:setup                     # Install tools, collections, hooks
+mise run validate                      # Lint, schema check, secrets scan
+mise run info                          # Display system facts
+mise run sops:edit                     # Edit shared secrets in editor
 
-### Proxmox Host Management (Planned)
+mise run vps:first-run [password]      # First-time VPS deploy (password auth)
+mise run vps:deploy [hosts] [tags]     # Provision VPS hosts
+mise run lxc:deploy [hosts] [tags]     # TF apply + LXC provisioning
+mise run vm:deploy [hosts] [tags]      # TF apply + VM provisioning
 
-- Network bridge/VLAN management
-- Backup and snapshot management
-- Storage pool configuration
-- Backup/restore playbooks
+mise run swarm:deploy                  # Bootstrap/update Swarm cluster
+mise run swarm:reset                   # Tear down Swarm cluster
 
-## Config Files
+mise run tf:plan                       # Preview Terraform changes
+mise run tf:apply                      # Apply Terraform changes
+mise run tf:destroy                    # Destroy all TF-managed resources
+```
 
-| Config | Location |
-|--------|----------|
-| Ansible | `ansible/ansible.cfg` |
-| Ansible Lint | `.config/ansible-lint.yml` |
-| YAML Lint | `.config/yamllint.yml` |
-| Pre-commit | `.config/pre-commit.yaml` |
-| Galaxy Requirements | `ansible/requirements.yml` |
-| JSON Schema | `ansible/schemas/host.schema.json` |
-| Mise | `.mise/config.toml` |
-| Mise Tasks | `.mise/tasks/*.toml` |
+Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompting for selection. All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.

@@ -1,13 +1,5 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
-["tf:init"]
-description = " " # Initialize Terraform (download providers, create workspace)
-dir = "{{config_root}}/terraform"
-run = [
-  "terraform init",
-  "terraform workspace new \"$TF_WORKSPACE\" || true"
-]
-
 ["tf:plan"]
 description = " " # Preview infrastructure changes
 dir = "{{config_root}}/terraform"
@@ -22,15 +14,6 @@ run = "terraform apply -auto-approve"
 description = " " # Destroy all infrastructure (DESTRUCTIVE)
 dir = "{{config_root}}/terraform"
 run = "terraform destroy"
-
-["tf:import"]
-description = " " # Import existing resource into Terraform state
-dir = "{{config_root}}/terraform"
-usage = '''
-arg "<resource>" help="TF resource address (e.g. proxmox_virtual_environment_container.lxc[\"swarm-lxc\"])"
-arg "<id>" help="Proxmox resource ID (e.g. proxmox/403)"
-'''
-run = 'terraform import "$usage_resource" "$usage_id"'
 
 ["tf:state"]
 description = " " # Show Terraform state
