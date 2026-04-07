@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+env_scope: prod
+
+# General
+docker_enabled: true
+tailscale_enabled: false
+packages_install_shell: true
+packages_install_network: true
+
+# Dotfiles
+dotfiles_enabled: true
+dotfiles_deploy_to_root: true
+
+# Users
+users_list:
+  - name: pggm95
+    uid: 1000
+    gid: 1000
+    group: pggm95
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+
+# Samba
+samba_enabled: true
+samba_existing_user: pggm95
+samba_password: "{{ lookup('env', 'SMB_PASS') }}"

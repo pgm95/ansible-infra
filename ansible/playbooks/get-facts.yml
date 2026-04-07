@@ -1,6 +1,6 @@
 ---
 # Playbook to gather and display comprehensive system facts
-# All hosts are statically defined in inventory/hosts.yml
+# All hosts are statically defined in ansible/hosts.yml
 
 - name: Get System Facts
   hosts: "{{ target | default('all:!localhost') }}"

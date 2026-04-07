@@ -1,0 +1,15 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+env_scope: prod
+
+# General
+samba_enabled: false
+docker_enabled: true
+tailscale_enabled: false
+packages_install_shell: true
+packages_install_network: true
+
+# Dotfiles
+dotfiles_enabled: true
+dotfiles_deploy_to_root: true

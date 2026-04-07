@@ -10,9 +10,9 @@ kinds:
   - vars: "**/defaults/*.yml"
   - vars: "**/group_vars/**/*.yml"
   - vars: "**/host_vars/**/*.yml"
-  - playbook: "playbooks/*.yml"
+  - playbook: "**/playbooks/*.yml"
   - handlers: "**/handlers/*.yml"
-  - inventory: "inventory/hosts.yml"
+  - inventory: "**/hosts.yml"
   - requirements: "**/requirements.yml"
 
 skip_list:

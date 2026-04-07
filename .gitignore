@@ -18,7 +18,6 @@
 *.pub
 /files/
 *decrypted*
-**/host_vars
 
 # Terraform
 .terraform/

@@ -1,0 +1,48 @@
+---
+hostname: "{{ lookup('env', 'VPS_HOSTNAME') }}"
+hostname_configure: true
+qemu_agent_enabled: false
+net_dns_configure: true
+net_ntp_configure: true
+
+# Packages
+packages_install_shell: true
+packages_install_network: true
+
+# Dotfiles
+dotfiles_enabled: true
+dotfiles_deploy_args: "bash claude nano"
+
+# Users
+users_list:
+  - name: swarm
+    group: swarm
+    uid: 1000
+    gid: 1000
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+
+# Tailscale
+tailscale_enabled: true
+tailscale_tags: ["swarm"]
+tailscale_ip: "100.88.0.1"
+tailscale_bind_ssh: true
+
+# Docker
+docker_enabled: true
+docker_mtu: 1230
+docker_dns_servers: []
+docker_dns_search: []
+docker_swarm_enabled: true
+docker_swarm_init: false
+docker_swarm_role: worker
+# docker_data_root: "/data/docker-data"
+docker_swarm_advertise_addr: 100.88.0.1
+docker_swarm_listen_addr: 100.88.0.1:2377
+docker_swarm_data_path_port: 4789
+docker_swarm_vxlan_interface: tailscale0
+docker_swarm_labels: { type: "vps", location: "cloud", ip: "public" }
+docker_swarm_availability: active
+docker_insecure_registries:
+  - "registry.{{ lookup('env', 'DOMAIN_PRIVATE') }}"

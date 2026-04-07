@@ -37,7 +37,7 @@ repos:
     hooks:
       - id: check-jsonschema
         name: validate json schemas
-        files: ^schemas/.*\.json$
+        files: ^ansible/schemas/.*\.json$
         args: [--check-metaschema]
 
   - repo: https://github.com/gitleaks/gitleaks

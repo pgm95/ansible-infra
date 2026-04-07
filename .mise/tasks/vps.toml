@@ -25,9 +25,9 @@ run = '''
 if [ -n "${usage_password:-}" ]; then
   mkdir -p .tmp
   echo "$usage_password" > .tmp/vps-firstrun-pass
-  ansible-playbook playbooks/vps.yml --connection-password-file .tmp/vps-firstrun-pass --user root
+  ansible-playbook ansible/playbooks/vps.yml --connection-password-file .tmp/vps-firstrun-pass --user root
   rm -f .tmp/vps-firstrun-pass
 else
-  ansible-playbook playbooks/vps.yml --ask-pass --user root
+  ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root
 fi
 '''

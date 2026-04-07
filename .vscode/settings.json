@@ -3,7 +3,7 @@
   "yaml.schemas": {
     "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json#/$defs/playbook": [
       // ansible playbooks
-      "playbooks/*.yml"
+      "**/playbooks/*.yml"
     ],
     "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json#/$defs/tasks": [
       // ansible tasks

@@ -39,8 +39,8 @@ ANSIBLE_COLLECTIONS_PATH = "{{ env.ANSIBLE_HOME }}/collections"
 ANSIBLE_GALAXY_CACHE_DIR = "{{ env.ANSIBLE_HOME }}/galaxy_cache"
 ANSIBLE_CACHE_PLUGIN_CONNECTION = "{{ env.ANSIBLE_HOME }}/facts"
 ANSIBLE_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/ansible.cfg"
-ANSIBLE_ROLES_PATH = "{{config_root}}/roles"
-ANSIBLE_INVENTORY = "{{config_root}}/inventory"
+ANSIBLE_ROLES_PATH = "{{config_root}}/ansible/roles"
+ANSIBLE_INVENTORY = "{{config_root}}/ansible/hosts.yml"
 
 # Terraform
 TF_WORKSPACE = "{{ mise_env | first }}"
@@ -88,7 +88,7 @@ run = "pre-commit run --config $PROJECT_CONFIGS_DIR/pre-commit.yaml --all-files"
 description = " " # Gather and display system facts (includes VMs/LXCs)
 env.ANSIBLE_CALLBACKS_ENABLED = "default"
 run = """
-ansible-playbook playbooks/get-facts.yml 2>&1 | \
+ansible-playbook ansible/playbooks/get-facts.yml 2>&1 | \
   grep -E '^\\s+\"msg\":' | \
   sed 's/^[[:space:]]*\"msg\": \"//' | \
   sed 's/\"$//' | \

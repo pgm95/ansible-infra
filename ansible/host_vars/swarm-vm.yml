@@ -1,0 +1,49 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+# Network
+net_ntp_configure: true
+net_ntp_servers:
+  - "10.10.10.1"
+  - "time.cloudflare.com"
+
+# Users
+users_list:
+  - name: swarm
+    group: swarm
+    uid: 1000
+    gid: 1000
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+
+# Packages
+packages_install_shell: true
+packages_install_network: true
+
+# Dotfiles
+dotfiles_enabled: true
+dotfiles_deploy_args: "bash claude nano"
+
+# Tailscale
+tailscale_enabled: true
+tailscale_tags: ["swarm"]
+tailscale_ip: "100.88.0.2"
+tailscale_bind_ssh: false
+
+# Docker
+docker_enabled: true
+docker_mtu: 1230
+docker_dns_servers: []
+docker_dns_search: []
+docker_swarm_enabled: true
+docker_swarm_init: true
+docker_swarm_role: manager
+docker_data_root: "/data/docker-data"
+docker_swarm_advertise_addr: 100.88.0.2
+docker_swarm_listen_addr: 100.88.0.2:2377
+docker_swarm_data_path_port: 4789
+docker_swarm_labels: { type: "vm", location: "onprem", ip: "private" }
+docker_swarm_availability: active
+docker_insecure_registries:
+  - "registry.{{ lookup('env', 'DOMAIN_PRIVATE') }}"

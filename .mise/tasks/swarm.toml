@@ -3,11 +3,11 @@
 
 ["swarm:deploy"]
 description = " " # "Bootstrap/update Docker Swarm cluster"
-run = "ansible-playbook playbooks/swarm.yml"
+run = "ansible-playbook ansible/playbooks/swarm.yml"
 
 ["swarm:check"]
 description = " " # "Dry-run Swarm bootstrap"
-run = "ansible-playbook playbooks/swarm.yml --check --diff"
+run = "ansible-playbook ansible/playbooks/swarm.yml --check --diff"
 
 ["swarm:status"]
 description = " " # "Display Swarm cluster status"
@@ -15,7 +15,7 @@ env.ANSIBLE_STDOUT_CALLBACK = "json"
 env.ANSIBLE_CALLBACKS_ENABLED = "default"
 run = """
 #!/usr/bin/env bash
-ansible-playbook playbooks/swarm.yml --tags status 2>/dev/null \
+ansible-playbook ansible/playbooks/swarm.yml --tags status 2>/dev/null \
   | jq -r '.plays[].tasks[]
     | select(.task.name == "Display cluster summary")
     | .hosts | to_entries[]
@@ -25,4 +25,4 @@ ansible-playbook playbooks/swarm.yml --tags status 2>/dev/null \
 
 ["swarm:reset"]
 description = " " # "Destroy Swarm cluster (DESTRUCTIVE)"
-run = "ansible-playbook playbooks/swarm.yml --tags reset"
+run = "ansible-playbook ansible/playbooks/swarm.yml --tags reset"

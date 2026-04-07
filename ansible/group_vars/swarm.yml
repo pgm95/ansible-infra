@@ -3,7 +3,7 @@
 # Swarm Group Defaults
 # ============================================================================
 # Applied to all swarm hosts via dynamic inventory (groups: ['swarm'])
-# Override in inventory/host_vars/{type}/{hostname}.yml (single source of truth)
+# Override in ansible/host_vars/<hostname>.yml (single source of truth)
 # ============================================================================
 
 # SSH Connection Settings (inherit from parent group, ensure consistency)

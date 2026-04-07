@@ -5,11 +5,11 @@
 # These are universal settings that apply to every host type.
 # Role-specific defaults are in roles/*/defaults/main.yml
 # Host-type-specific preferences are in group_vars/{hosttype}.yml
-# Host-specific overrides are in host_vars/{hosttype}/{hostname}.yml
+# Host-specific overrides are in host_vars/<hostname>.yml
 # ============================================================================
 
 # Connection Settings
-# NOTE: ansible_connection is set per-host in inventory/hosts.yml
+# NOTE: ansible_connection is set per-host in ansible/hosts.yml
 # - localhost: local
 # - remote hosts: ssh (default)
 ansible_user: "{{ lookup('env', 'ANSIBLE_USER') | default('root', true) }}"

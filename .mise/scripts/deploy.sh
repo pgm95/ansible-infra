@@ -2,7 +2,7 @@
 set -euo pipefail
 
 GROUP="${DEPLOY_GROUP:?DEPLOY_GROUP not set}"
-PLAYBOOK="playbooks/${GROUP}.yml"
+PLAYBOOK="ansible/playbooks/${GROUP}.yml"
 INTERACTIVE="${DEPLOY_INTERACTIVE:-true}"
 CHECK_MODE="${DEPLOY_CHECK_MODE:-false}"
 
