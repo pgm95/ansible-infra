@@ -263,11 +263,11 @@ Hook configs live in `.config/`. Never run linters directly.
 
 | Config | Location |
 |--------|----------|
-| Ansible | `.config/ansible.cfg` |
+| Ansible | `ansible/ansible.cfg` |
 | Ansible Lint | `.config/ansible-lint.yml` |
 | YAML Lint | `.config/yamllint.yml` |
 | Pre-commit | `.config/pre-commit.yaml` |
-| Galaxy Requirements | `.config/requirements.yml` |
+| Galaxy Requirements | `ansible/requirements.yml` |
 | JSON Schema | `ansible/schemas/host.schema.json` |
 | Mise | `.mise/config.toml` |
 | Mise Tasks | `.mise/tasks/*.toml` |

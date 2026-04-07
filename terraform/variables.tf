@@ -19,12 +19,6 @@ variable "universal_pass" {
   sensitive   = true
 }
 
-variable "lxc_root_pass" {
-  description = "LXC container root password"
-  type        = string
-  sensitive   = true
-}
-
 variable "ssh_authorized_keys" {
   description = "SSH public keys (newline-delimited string)"
   type        = string
