@@ -23,7 +23,7 @@
 #   - samba_existing_user: Reference to user from users_list (must be defined in host_vars)
 #
 # Configuration Source:
-#   - Static smb.conf deployed from: {{ playbook_dir | dirname }}/files/smb.conf
+#   - smb_conf_file: Path to smb.conf file (must be defined in host_vars)
 # ==================================================================================
 
 # ==================================================================================
@@ -45,6 +45,12 @@ samba_user: "{{ samba_existing_user | mandatory }}" # (string) Samba user (refer
 # ==================================================================================
 
 samba_password: "{{ undef(hint='samba_password must be provided via host_vars') }}" # (string) Samba user password
+
+# ==================================================================================
+# Configuration Source
+# ==================================================================================
+
+smb_conf_file: "{{ undef(hint='smb_conf_file must be provided via host_vars') }}" # (string) Path to smb.conf file
 
 # ==================================================================================
 # Service Management

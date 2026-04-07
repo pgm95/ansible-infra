@@ -16,7 +16,7 @@
 *.key
 *.crt
 *.pub
-/files/
+**/files/
 *decrypted*
 
 # Terraform

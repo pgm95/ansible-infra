@@ -1,43 +1,168 @@
 ---
-# ============================================================================
-# Global Variables - Applied to ALL Hosts
-# ============================================================================
-# These are universal settings that apply to every host type.
-# Role-specific defaults are in roles/*/defaults/main.yml
-# Host-type-specific preferences are in group_vars/{hosttype}.yml
-# Host-specific overrides are in host_vars/<hostname>.yml
-# ============================================================================
+## This file serves as a complete variable reference for all roles.
+## Precedence: role defaults < group_vars/all < group_vars/{type} < host_vars
 
-# Connection Settings
-# NOTE: ansible_connection is set per-host in ansible/hosts.yml
-# - localhost: local
-# - remote hosts: ssh (default)
+## Connection Settings
 ansible_user: "{{ lookup('env', 'ANSIBLE_USER') | default('root', true) }}"
 ansible_python_interpreter: /usr/bin/python3
 
-# System Settings
-system_timezone: UTC
-net_iface_configure: false
-hostname_configure: false
-users_sudo_nopasswd: false
-qemu_agent_enabled: false
-swap_disable: true
+## Host Scoping
+# env_scope: ""                      # (string) prod/dev. empty = all environments
 
-# Dotfiles Repo Configuration
-dotfiles_enabled: false
-dotfiles_repo_branch: "main"
+## System Settings
+system_timezone: UTC                 # (string) System timezone
+
+## Role: common/hostname
+hostname_configure: false            # (boolean) Enable hostname configuration
+# hostname: ""                       # (string) Override hostname (default: inventory_hostname)
+# hostname_domain_suffix: ""         # (string) Domain suffix for FQDN (e.g., "home.arpa")
+
+## Role: common/users
+users_sudo_nopasswd: false           # (boolean) Allow sudo without password
+ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
+# users_list: []
+#   - name: (string, required) Username
+#   - password: (string, required) Plain text (auto-hashed)
+#   - uid: (integer) User ID
+#   - group: (string) Primary group name
+#   - gid: (integer) Primary group ID
+#   - groups: (list) Additional groups
+#   - shell: (string) Login shell (default: /bin/bash)
+#   - system: (boolean) System account (default: false)
+#   - create_home: (boolean) Create home dir (default: true)
+#   - home: (string) Home directory path
+#   - sudo_access: (boolean) Grant sudo (default: false)
+#   - ssh_keys: (boolean) Deploy SSH keys (default: false)
+
+## Role: common/ssh
+ssh_password_authentication: false # (boolean) Enable password authentication
+ssh_pubkey_authentication: true    # (boolean) Enable public key authentication
+ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords
+# ssh_challenge_response_authentication: false # (boolean) Enable challenge-response auth
+# ssh_permit_root_login: prohibit-password # (string) Root login: yes|no|prohibit-password|forced-commands-only
+# ssh_use_pam: true                  # (boolean) Enable PAM authentication
+# ssh_max_auth_tries: 3              # (integer) Max authentication attempts per connection
+# ssh_client_alive_interval: 300     # (integer) Seconds between keepalive messages
+# ssh_client_alive_count_max: 2      # (integer) Missed keepalives before disconnect
+
+## Role: common/packages
+packages_fullupgrade: true         # (boolean) Perform full system upgrade
+packages_install_base: true        # (boolean) Install base packages
+packages_install_shell: false        # (boolean) Install shell utilities (ripgrep, fzf, bat, etc.)
+packages_install_network: false      # (boolean) Install network tools (nmap, traceroute, etc.)
+
+## Role: common/swap
+swap_disable: true                   # (boolean) Disable swap
+
+## Role: common/qemu_agent
+qemu_agent_enabled: false            # (boolean) Enable QEMU guest agent (auto-detects VM environment)
+
+## Role: common/dotfiles
+dotfiles_enabled: false              # (boolean) Enable dotfiles deployment
 dotfiles_repo_url: "{{ lookup('env', 'GITHUB_DOTFILES_URL') }}"
 dotfiles_github_token: "{{ lookup('env', 'GITHUB_DOTFILES_TOKEN') }}"
+dotfiles_repo_branch: "main"         # (string) Git branch to checkout
+# dotfiles_deploy_to_root: true      # (boolean) Deploy to root home directory
+# dotfiles_deploy_to_users: false    # (boolean) Deploy to users from users_list
+# dotfiles_deploy_args: ""           # (string) Arguments passed verbatim to deploy.sh
+# dotfiles_force_update: true        # (boolean) Force git pull (overwrite local cache)
+# dotfiles_continue_on_error: true   # (boolean) Continue playbook on dotfiles failure
+# dotfiles_cache_dir: "{{ playbook_dir | dirname }}/.cache/dotfiles" # (string) Local git cache
+# dotfiles_staging_dir: /tmp/.ansible/dotfiles # (string) Remote staging directory
 
-# SSH Keys (newline-delimited string from SOPS → list)
-ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
+## Role: network/interface
+net_iface_configure: false           # (boolean) Enable network interface configuration
+# net_iface_name: ""                 # (string) Interface name (e.g., "eth0") -- empty = auto-detect
+# net_iface_mode: "static"           # (string) IP mode: "static" | "dhcp"
+# net_iface_address: ""              # (string) Static IP with optional CIDR (e.g., "192.168.1.100/24")
+# net_iface_netmask: "255.255.255.0" # (string) Subnet mask (used if address has no CIDR)
+# net_iface_gateway: ""              # (string) Default gateway IP
 
-# Application Configuration
-packages_install_shell: false # (boolean) Install shell utilities
-packages_install_network: false # (boolean) Install network utilities
+## Role: network/ntp
+# net_ntp_configure: false           # (boolean) Enable NTP time synchronization
+# net_ntp_servers: []                # (list) NTP servers (e.g., ["pool.ntp.org", "time.cloudflare.com"])
 
-# Tailscale OAuth Credentials
-# Both point to the same OAuth client (has auth_keys + devices write scopes)
-# Per-environment secret loaded via SOPS
+## Role: network/dns
+# net_dns_configure: false           # (boolean) Enable DNS resolver configuration
+# net_dns_servers: []                # (list) DNS server IPs (e.g., ["1.1.1.1", "9.9.9.9"])
+# net_dns_search: []                 # (list) DNS search domains
+# net_dns_stub_resolver: false       # (boolean) Enable systemd-resolved stub resolver (127.0.0.53)
+# net_dns_mdns: false                # (boolean) Enable Multicast DNS
+# net_dns_llmnr: false               # (boolean) Enable Link-Local Multicast Name Resolution
+
+## Role: applications/tailscale
+tailscale_enabled: false           # (boolean) Enable Tailscale VPN
+tailscale_state: latest            # (string) Package state (latest, present, version)
+tailscale_release_stability: stable # (string) Release channel (stable, unstable)
 tailscale_oauth_authkeys: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
+# tailscale_tags: []                 # (list) REQUIRED for OAuth (e.g., ["server", "vps"])
+# tailscale_oauth_ephemeral: false   # (boolean) Mark device as ephemeral
+# tailscale_oauth_preauthorized: false # (boolean) Skip manual authorization
+# tailscale_ip: ""                   # (string) Custom Tailscale IP (e.g., "100.64.0.10")
+# tailscale_hostname: ""             # (string) Tailscale hostname (default: inventory hostname)
+# tailscale_args: ""                 # (string) Additional tailscale up args (e.g., "--accept-routes")
+# tailscale_up_skip: false           # (boolean) Skip tailscale up command
+# tailscale_up_timeout: 120          # (integer) Tailscale up timeout in seconds
+# tailscale_bind_ssh: false          # (boolean) Bind SSH to Tailscale IP (locks out non-TS access)
+# tailscale_device_registration_delay: 5 # (integer) Seconds to wait for device registration
+# tailscale_device_registration_retries: 6 # (integer) Max retries for device registration
+# tailscale_api_timeout: 30          # (integer) API request timeout in seconds
+# tailscale_verbose: false           # (boolean) Verbose output from tailscale role
+# tailscale_insecurely_log_authkey: false # (boolean) Log authkey (INSECURE, debug only)
+
+## Role: applications/docker
+# docker_enabled: false              # (boolean) Enable Docker installation
+# docker_data_root: /var/lib/docker  # (string) Docker root data directory
+# docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
+# docker_mtu: 0                      # (integer) Default MTU (0 = auto, 1230 for Tailscale+VXLAN)
+# docker_bridge_ip: ""               # (string) Custom docker0 bridge IP in CIDR
+# docker_default_address_pools: []   # (list) Bridge network pools [{"base": "x/16", "size": 24}]
+# docker_dns_servers: []             # (list) Container DNS servers
+# docker_dns_search: []              # (list) Container DNS search domains
+# docker_dns_options: []             # (list) Container DNS options
+# docker_iptables_enabled: true      # (boolean) Enable iptables rules
+# docker_ip_forward: true            # (boolean) Enable IP forwarding
+# docker_ipv6_enabled: false         # (boolean) Enable IPv6 networking
+# docker_fixed_cidr_v6: ""           # (string) IPv6 subnet for containers
+# docker_log_driver: json-file       # (string) Logging driver (json-file, journald, syslog)
+# docker_log_max_size: "50m"         # (string) Max log file size before rotation
+# docker_log_max_file: "3"           # (string) Max log files to retain
+# docker_log_compress: false         # (boolean) Compress rotated logs
+# docker_live_restore: true          # (boolean) Keep containers running during daemon downtime
+# docker_userland_proxy: true        # (boolean) Use userland proxy for loopback traffic
+# docker_default_ulimits: {}         # (dict) Default ulimits for containers
+# docker_registry_mirrors: []        # (list) Registry mirrors
+# docker_insecure_registries: []     # (list) Insecure registries
+# docker_metrics_enabled: false      # (boolean) Enable Prometheus metrics endpoint
+# docker_metrics_addr: "127.0.0.1:9323" # (string) Metrics endpoint address
+# docker_experimental: false         # (boolean) Enable experimental features
+# docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
+# docker_gpu_enabled: false          # (boolean) Deploy DRM udev rules + auto-register gpu=1
+
+## Role: applications/docker (Swarm)
+# docker_swarm_enabled: false        # (boolean) Enable Swarm mode
+# docker_swarm_role: worker          # (string) Node role: manager | worker
+# docker_swarm_init: false           # (boolean) Initialize new swarm (one node only)
+# docker_swarm_advertise_addr: ""    # (string) Advertise address (Tailscale IP for WAN clusters)
+# docker_swarm_data_path_addr: ""    # (string) Address for overlay data traffic
+# docker_swarm_data_path_port: 4789  # (integer) UDP port for VXLAN overlay
+# docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
+# docker_swarm_subnet_size: 24       # (integer) Default overlay subnet size
+# docker_swarm_autolock: false       # (boolean) Encrypt Raft logs at rest
+# docker_swarm_election_tick: 10     # (integer) Raft election timeout in ticks (swarm group: 30)
+# docker_swarm_heartbeat_tick: 1     # (integer) Raft heartbeat in ticks (swarm group: 3)
+# docker_swarm_cert_expiry: ""       # (string) Node cert expiry (e.g., "2160h")
+# docker_swarm_timeout: 120          # (integer) Docker API timeout in seconds
+# docker_swarm_vxlan_interface: ""   # (string) Restrict VXLAN to interface (e.g., "tailscale0")
+# docker_swarm_labels: {}            # (dict) Node labels for placement constraints
+# docker_swarm_availability: active  # (string) Node availability: active | pause | drain
+# docker_swarm_manager_token: ""     # (string) Manager join token
+# docker_swarm_worker_token: ""      # (string) Worker join token
+# docker_swarm_manager_addrs: []     # (list) Manager addresses ["ip:2377"]
+
+## Role: applications/samba
+# samba_enabled: false               # (boolean) Enable Samba fileserver
+# samba_existing_user: ""            # (string) Reference to user from users_list (REQUIRED if enabled)
+# samba_password: ""                 # (string) Samba user password (REQUIRED if enabled)
+# smb_conf_file: ""                  # (string) Path to smb.conf source file (REQUIRED if enabled)

@@ -21,6 +21,17 @@
     success_msg: "Samba user reference validated: {{ samba_existing_user }}"
   tags: [samba, validation]
 
+- name: Validate smb_conf_file is defined
+  ansible.builtin.assert:
+    that:
+      - smb_conf_file is defined
+      - smb_conf_file | length > 0
+    fail_msg: >-
+      smb_conf_file is missing or empty. Define it in
+      host_vars/{{ inventory_hostname }}.yml with the path to your smb.conf.
+    success_msg: "SMB config path validated: {{ smb_conf_file }}"
+  tags: [samba, validation]
+
 - name: Verify Samba user exists on system
   ansible.builtin.command: id {{ samba_user }}
   register: __user_exists
@@ -95,9 +106,9 @@
   changed_when: false
   tags: [samba, users]
 
-- name: Deploy SMB configuration from project files
+- name: Deploy SMB configuration
   ansible.builtin.copy:
-    src: "{{ playbook_dir | dirname }}/files/smb.conf"
+    src: "{{ smb_conf_file }}"
     dest: /etc/samba/smb.conf
     owner: root
     group: root

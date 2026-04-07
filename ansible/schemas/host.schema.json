@@ -273,6 +273,7 @@
     "samba_enabled": { "type": "boolean", "description": "Install and configure Samba" },
     "samba_existing_user": { "type": "string", "description": "Existing system user for Samba" },
     "samba_password": { "type": "string", "description": "Samba user password" },
+    "smb_conf_file": { "type": "string", "description": "Path to smb.conf source file" },
     "samba_services": {
       "type": "array",
       "items": { "type": "string" },
@@ -319,7 +320,7 @@
         "required": ["samba_enabled"]
       },
       "then": {
-        "required": ["samba_existing_user", "samba_password"]
+        "required": ["samba_existing_user", "samba_password", "smb_conf_file"]
       }
     }
   ],
