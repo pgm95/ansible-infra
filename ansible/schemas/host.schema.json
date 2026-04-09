@@ -87,6 +87,11 @@
       "items": { "type": "string" },
       "description": "Network packages to install"
     },
+    "packages_extra_list": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional per-host packages to install"
+    },
 
     "dotfiles_enabled": { "type": "boolean", "description": "Deploy dotfiles" },
     "dotfiles_repo_url": { "type": "string", "description": "Git repo URL (without https://)" },

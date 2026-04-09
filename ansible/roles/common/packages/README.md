@@ -4,30 +4,31 @@ System package installation with feature flags and lock management for unattende
 
 ## Purpose
 
-Installs base system packages and optional tool categories with automatic system upgrades and APT lock handling.
+Installs optional package categories and ad-hoc extras with automatic system upgrades and APT lock handling. All features are off by default -- enable in group_vars or host_vars.
 
 ## Features
 
 - Feature-based package categories (base, shell, network)
+- Per-host extra packages list
 - Full system upgrade with autoremove/autoclean
 - Unattended-upgrades lock management
 - APT lock detection and waiting
-- Idempotent operations
 
 ## Variables
 
-**Feature Flags**:
+**Feature Flags** (all default to `false`):
 
-- `packages_fullupgrade` (boolean, default: `true`) - Full system upgrade
-- `packages_install_base` (boolean, default: `true`) - Base packages (curl, wget, git, rsync, gnupg)
-- `packages_install_shell` (boolean, default: `false`) - Shell tools (ripgrep, fzf, bat, lsd, jq, tree)
-- `packages_install_network` (boolean, default: `false`) - Network tools (nmap, traceroute, bind9-dnsutils, whois)
+- `packages_fullupgrade` - Full system upgrade
+- `packages_install_base` - Base packages (curl, wget, git, rsync, gnupg)
+- `packages_install_shell` - Shell tools (ripgrep, fzf, bat, lsd, jq, tree)
+- `packages_install_network` - Network tools (nmap, traceroute, bind9-dnsutils, whois)
 
-**Package Lists**:
+**Package Lists** (overridable):
 
-- `packages_base_list` - Essential system tools (11 packages)
+- `packages_base_list` - Essential system tools (9 packages)
 - `packages_shell_list` - Enhanced CLI experience (12 packages)
 - `packages_network_list` - Network diagnostics (6 packages)
+- `packages_extra_list` - Ad-hoc per-host packages (default: `[]`)
 
 ## Workflow
 
@@ -46,28 +47,25 @@ Installs base system packages and optional tool categories with automatic system
 3. Install base packages (if enabled)
 4. Install shell packages (if enabled)
 5. Install network packages (if enabled)
-6. Clean cache and autoremove
+6. Install extra packages (if list is non-empty)
+7. Clean cache and autoremove
 
 ## Configuration Examples
 
-### Base System Only (Default)
+### Enable Base + Shell (group_vars)
 
 ```yaml
-# No configuration needed - defaults install base packages only
-```
-
-### Development Environment
-
-```yaml
-packages_install_shell: true
-packages_install_network: true
-```
-
-### Minimal System
-
-```yaml
-packages_fullupgrade: false
+packages_fullupgrade: true
 packages_install_base: true
+packages_install_shell: true
+```
+
+### Ad-Hoc Packages (host_vars)
+
+```yaml
+packages_extra_list:
+  - htop
+  - strace
 ```
 
 ## Lock Handling
@@ -86,18 +84,14 @@ The role handles APT locks automatically:
 - Fails if locks not released after timeout
 - Unattended-upgrades always re-enabled in cleanup
 
-## Tags
-
-- No specific tags (runs with common/default tags)
-
 ## Dependencies
 
 None
 
 ## Notes
 
+- All features off by default -- enable via group_vars or host_vars
 - Skips package installation in check mode
-- Cache valid for 3600 seconds (1 hour)
 - Package lists can be overridden in host_vars
 - Full upgrade includes autoremove/autoclean
-- Block/rescue pattern ensures unattended-upgrades always restarted
+- Block/always pattern ensures unattended-upgrades always restarted

@@ -77,6 +77,14 @@
         - packages_install_network | bool
         - not ansible_check_mode
 
+    - name: Install extra packages
+      ansible.builtin.apt:
+        name: "{{ packages_extra_list }}"
+        state: present
+      when:
+        - packages_extra_list | length > 0
+        - not ansible_check_mode
+
     - name: Clean cache and unneeded packages after installs
       ansible.builtin.apt:
         autoremove: true

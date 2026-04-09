@@ -42,22 +42,21 @@ argument_specs:
         default: false
 
       # ========================================================================
+      # Extra Packages (Per-Host Ad-Hoc)
+      # ========================================================================
+      packages_extra_list:
+        description: Additional packages defined in host_vars for per-host needs
+        type: list
+        elements: str
+        default: []
+
+      # ========================================================================
       # Base Packages (Essential System Tools)
       # ========================================================================
       packages_base_list:
         description: Core packages installed when packages_install_base is true
         type: list
         elements: str
-        default:
-          - apt-transport-https
-          - ca-certificates
-          - xz-utils
-          - gnupg
-          - rsync
-          - curl
-          - wget
-          - bash
-          - git
 
       # ========================================================================
       # Shell Enhancement Packages (Developer Tools)
@@ -66,19 +65,6 @@ argument_specs:
         description: Shell tools installed when packages_install_shell is true
         type: list
         elements: str
-        default:
-          - bash-completion
-          - ripgrep
-          - screen
-          - sudo
-          - less
-          - tree
-          - gawk
-          - nano
-          - bat
-          - fzf
-          - lsd
-          - jq
 
       # ========================================================================
       # Network Diagnostic Packages (Troubleshooting Tools)
@@ -87,10 +73,3 @@ argument_specs:
         description: Network tools installed when packages_install_network is true
         type: list
         elements: str
-        default:
-          - bind9-dnsutils
-          - traceroute
-          - net-tools
-          - ethtool
-          - whois
-          - nmap

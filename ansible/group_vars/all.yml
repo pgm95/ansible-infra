@@ -46,10 +46,11 @@ ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords
 # ssh_client_alive_count_max: 2      # (integer) Missed keepalives before disconnect
 
 ## Role: common/packages
-packages_fullupgrade: true         # (boolean) Perform full system upgrade
-packages_install_base: true        # (boolean) Install base packages
-packages_install_shell: false        # (boolean) Install shell utilities (ripgrep, fzf, bat, etc.)
-packages_install_network: false      # (boolean) Install network tools (nmap, traceroute, etc.)
+packages_fullupgrade: true # (boolean) Perform full system upgrade
+packages_install_base: true # (boolean) Install base packages
+packages_install_shell: false # (boolean) Install shell utilities (ripgrep, fzf, bat, etc.)
+packages_install_network: false # (boolean) Install network tools (nmap, traceroute, etc.)
+packages_extra_list: [] # (list) Additional packages defined in host_vars
 
 ## Role: common/swap
 swap_disable: true                   # (boolean) Disable swap
