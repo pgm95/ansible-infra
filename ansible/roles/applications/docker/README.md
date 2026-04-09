@@ -142,7 +142,7 @@ For Docker Swarm nodes with GPU passthrough, set `docker_gpu_enabled: true`. Thi
 
 Do not add `"gpu=1"` to `docker_node_generic_resources` directly - use `docker_gpu_enabled` instead.
 
-For LXC containers, ensure GPU device passthrough is also enabled (`lxc_device_vaapi`, `lxc_device_kfd`).
+For LXC containers, ensure GPU device passthrough is configured in `terraform/locals.tf` (e.g., `/dev/dri/renderD128`, `/dev/kfd`).
 
 ## Dependencies
 
