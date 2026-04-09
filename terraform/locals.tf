@@ -14,7 +14,7 @@ locals {
       os_version    = "12"
       cores         = 4
       memory        = 8192
-      swap          = 4096
+      swap          = 0
       start_on_boot = true
       startup_order = 11
       storage       = "local-btrfs"
@@ -41,6 +41,43 @@ locals {
         { path = "/dev/kfd", gid = 1000 },
         { path = "/dev/net/tun" },
       ]
+      bind_mounts = [
+        { source = "/mnt/test_mounts/personal", target = "/mnt/personal" },
+        { source = "/mnt/test_mounts/photos", target = "/mnt/photos" },
+        { source = "/mnt/test_mounts/media", target = "/mnt/media" },
+        { source = "/mnt/test_mounts/apple", target = "/mnt/apple" },
+      ]
+    }
+
+    fileserver-dev = {
+      vmid          = 401
+      env_scope     = "dev"
+      description   = "Samba LXC test"
+      tags          = ["terraform"]
+      os_version    = "12"
+      cores         = 2
+      memory        = 2048
+      swap          = 0
+      start_on_boot = true
+      startup_order = 1
+      storage       = "local-btrfs"
+      idmap_uid     = 1000
+      idmap_gid     = 1000
+      root_password = var.universal_pass
+      disks = [
+        { size = 8 },
+      ]
+      network = {
+        bridge  = "vmbr3"
+        vlan_id = 50
+        ip      = "dhcp"
+      }
+      features = {
+        fuse    = true
+        nesting = true
+        keyctl  = true
+      }
+      devices = []
       bind_mounts = [
         { source = "/mnt/test_mounts/personal", target = "/mnt/personal" },
         { source = "/mnt/test_mounts/photos", target = "/mnt/photos" },
