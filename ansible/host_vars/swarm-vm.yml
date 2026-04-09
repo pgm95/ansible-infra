@@ -20,6 +20,8 @@ users_list:
 # Packages
 packages_install_shell: true
 packages_install_network: true
+packages_extra_list:
+  - "cifs-utils"
 
 # Dotfiles
 dotfiles_enabled: true
