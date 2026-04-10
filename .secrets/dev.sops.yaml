@@ -1,5 +1,5 @@
-TS_TAILNET: ENC[AES256_GCM,data:DUV1jVithTszQ9WP5d8bMz4=,iv:hXw0wsVc2ugUD+asGE5cqhFR0otrcVO6/K6DU56u2S4=,tag:tHglgsz4LiT5kVkOpqou1A==,type:str]
-TS_OAUTH_KEY: ENC[AES256_GCM,data:LNfF8tIWmrQEc5cPtAUzx1+tVDcMRee/SrYCdslqioSiynINNi4UMnMS0bxf4VucI1j3cyHK/heYVWxaMNyYvA==,iv:80YdrJunY6eO2sVrqgdEHL7aelCehV836M5BC4QFXEs=,tag:kOo11K7aZH2g+8yvntyJRg==,type:str]
+TS_TAILNET: ENC[AES256_GCM,data:1dFNTEF+5EnAtKG8Gp0hQqo=,iv:s1VTZzUxVt8pTAtlf/FMmKaMKBrKuPkVr7UVUdjlPlk=,tag:Ebmvdg4MfFu7qs0YHCEHkQ==,type:str]
+TS_OAUTH_KEY: ENC[AES256_GCM,data:1tehLXj316JVNm2w4rysCBr8kb6cUMcPQfQHou3IwV3KG7b7RtKuW7RyRfO1obJJ929970JCBW9o3EIbKGRh,iv:lFrJyvYouaSzSYpJHyYah/KLBFeIjrcEQcv3svkTh2c=,tag:9LeWVTO+ySjooUdn2Rt+bA==,type:str]
 PROXMOX_TOKEN_SECRET: ENC[AES256_GCM,data:HN47qwcH6w2IcrjhKdnFHvbg98xRcM4UrwSOmP0KH/cdLqio,iv:mN2kxrm1f8a9wR6mZg07SeoBcA3euwdXNdmXxytR/gM=,tag:deboidXgnE2czBZQm2LKBw==,type:str]
 NERD1_PUBLIC_IP: ENC[AES256_GCM,data:8FRjg0h0gpyXXTAPww==,iv:ePajo7X6Ls+MPOJtowt5pWTCb5bI1ATQ4HgXdhPkhP0=,tag:WMleNMQvlFN8IOrU+2fFbg==,type:str]
 DOMAIN_PUBLIC: ENC[AES256_GCM,data:8/n2m+qHANvzAw==,iv:oiQaAGf3ErMh0thMgwYZJslY4cQ5Bynl8Hng4gGg734=,tag:rpYUqrpf5iMBtypVOfyLow==,type:str]
@@ -15,7 +15,7 @@ sops:
             dFFZZGF1amNEeDZoUVByaElwQnRCNzQK38l6u6nShxVzomNZ5M4bBt+OVcHeE+7s
             jnmDcLbhnmeRtoO0Beu68mn18Bhl5e1+S6CU+242WJU3l5rtY+0fzg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-07T02:00:19Z"
-    mac: ENC[AES256_GCM,data:74AWRFH9YWfAV8UnmZRO9wz0djYLfxN4FYrqWEONZOUMFOHVNjRgAStqTQF4twixclMK6NAnCJsU7Fk/HczNCwo8eisl1Vrept7fEipVYAl3mOz2wibGkmI6uCw3Ax5HVhpbKvnkdyR5WQDcE2Pf0u/cGkNOppFtYEUwTZnm/F0=,iv:PlfbHAD+x//mDqfGopM/8bkS3nM/hQ6S0MEJi9lSSp0=,tag:tXPyq7EQcqyeMnfa8pNbGw==,type:str]
+    lastmodified: "2026-04-10T20:27:06Z"
+    mac: ENC[AES256_GCM,data:SAnAr7lLD9Bk6EGBS5909u4gLEx4cTBuvNAzljxNZBLsD/I+el8OIG0ff/8gAwDF1MxISK72EJ23m5ciZUSP53pbb23LEaFvucjWdMTZpEa1df9zF9gDt04uROjGg17+s9tN/IXs3caR/Uw1+bPs8oNzfuH7Q78NSjjPyFet9Nk=,iv:Y7Scdp0INod/df1DXPkZpFm9CxE85mXv4fisw6q9C7w=,tag:SXxT5+v2DajuchoNBm7/oA==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.12.2

@@ -1,12 +1,6 @@
 ---
 # yaml-language-server: $schema=../schemas/host.schema.json
 
-# Network
-net_ntp_configure: true
-net_ntp_servers:
-  - "10.10.10.1"
-  - "time.cloudflare.com"
-
 # Users
 users_list:
   - name: swarm
@@ -29,7 +23,7 @@ dotfiles_deploy_args: "bash claude nano"
 
 # Tailscale
 tailscale_enabled: true
-tailscale_tags: ["swarm"]
+tailscale_tags: ["ansible", "swarm"]
 tailscale_ip: "100.88.0.2"
 tailscale_bind_ssh: false
 

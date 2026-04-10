@@ -21,7 +21,7 @@ dotfiles_deploy_args: "bash claude nano"
 
 # Tailscale
 tailscale_enabled: true
-tailscale_tags: ["swarm"]
+tailscale_tags: ["ansible", "swarm"]
 tailscale_ip: "100.88.0.3"
 tailscale_bind_ssh: false
 
