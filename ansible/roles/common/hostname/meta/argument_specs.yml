@@ -9,8 +9,7 @@ argument_specs:
   main:
     short_description: Hostname and FQDN configuration with /etc/hosts
     description:
-      - Sets system hostname via hostnamectl
-      - Updates /etc/hostname file
+      - Sets system hostname via ansible.builtin.hostname module
       - Manages /etc/hosts with proper FQDN entries
       - Auto-detects primary IP address
     author:
@@ -25,12 +24,16 @@ argument_specs:
         type: bool
         default: false
 
-      hostname_default:
-        description: Fallback hostname if 'hostname' variable undefined
-        type: str
-        default: "{{ inventory_hostname }}"
-
       hostname_domain_suffix:
         description: Domain suffix for FQDN construction
         type: str
         default: ""
+
+      # ========================================================================
+      # Optional Overrides
+      # ========================================================================
+      hostname:
+        description: >-
+          System hostname to set. Falls back to hostname_default when undefined.
+        type: str
+        required: false

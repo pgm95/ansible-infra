@@ -9,10 +9,9 @@
 #
 # Feature Control
 hostname_configure: false # (boolean) Enable/disable hostname configuration
-hostname_default: "{{ inventory_hostname }}" # (string) Fallback hostname if 'hostname' undefined
 hostname_domain_suffix: "" # (string) Domain suffix for FQDN construction
 
 # Internal Variables (Computed at Runtime)
-# hostname: ""                                      # Resolved hostname (from host_vars or hostname_default)
-# fqdn: ""                                          # Fully Qualified Domain Name: {hostname}.{hostname_domain_suffix}
+# hostname: ""                                      # Resolved hostname (from host_vars or inventory_hostname)
+# _fqdn: ""                                         # FQDN: {hostname}.{hostname_domain_suffix} (only set if suffix is non-empty)
 # _primary_ip: ""                                   # Primary IP address (used in template)

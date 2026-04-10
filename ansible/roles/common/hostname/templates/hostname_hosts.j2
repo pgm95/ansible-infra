@@ -2,10 +2,14 @@
 # Any changes made directly to this file may be overwritten
 
 # IPv4 localhost
-127.0.0.1 localhost
+127.0.0.1 localhost localhost.localdomain
 
 # IPv6 localhost
-::1 localhost ip6-localhost ip6-loopback
+::1 localhost localhost.localdomain ip6-localhost ip6-loopback
 
-# Primary host entry with public IP
-{{ _primary_ip }} {{ fqdn }} {{ hostname }}
+# Primary host entry
+{% if _fqdn is defined %}
+{{ _primary_ip }} {{ _fqdn }} {{ hostname }}
+{% else %}
+{{ _primary_ip }} {{ hostname }}
+{% endif %}

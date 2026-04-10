@@ -1,37 +1,49 @@
 ---
 # Hostname and FQDN configuration with /etc/hosts management
 
-### Ensure hostname and FQDN are defined
-- name: Set default hostname if not defined
+### Resolve hostname and FQDN
+- name: Hostname | Set default hostname if not defined
   ansible.builtin.set_fact:
-    hostname: "{{ hostname_default }}"
+    hostname: "{{ inventory_hostname }}"
   when: hostname is not defined
   tags: ["always"]
 
-- name: Set default FQDN if not defined
+- name: Hostname | Set FQDN from domain suffix
   ansible.builtin.set_fact:
-    fqdn: "{{ hostname }}.{{ hostname_domain_suffix }}"
-  when: fqdn is not defined
+    _fqdn: "{{ hostname }}.{{ hostname_domain_suffix }}"
+  when: hostname_domain_suffix | length > 0
   tags: ["always"]
 
+### Validate
+- name: Hostname | Validate hostname is not empty
+  ansible.builtin.assert:
+    that:
+      - hostname | length > 0
+    fail_msg: >-
+      hostname resolved to an empty string. Set hostname in host_vars
+      or ensure inventory_hostname is valid.
+    quiet: true
+
 ### System Configuration
-- name: Set hostname via hostname command
+- name: Hostname | Set system hostname
   ansible.builtin.hostname:
     name: "{{ hostname }}"
 
-- name: Update /etc/hostname file
-  ansible.builtin.copy:
-    dest: /etc/hostname
-    content: "{{ hostname }}\n"
-    mode: "0644"
-    backup: true
-
-### /etc/hosts Management for VPS with Static IP
-- name: Get primary IP address
+### /etc/hosts Management
+- name: Hostname | Detect primary IP address
   ansible.builtin.set_fact:
-    _primary_ip: "{{ ansible_facts.default_ipv4.address | default(ansible_facts.all_ipv4_addresses[0]) }}"
+    _primary_ip: "{{ ansible_facts.default_ipv4.address | default(ansible_facts.all_ipv4_addresses | default([]) | first | default('')) }}"
 
-- name: Configure /etc/hosts from template
+- name: Hostname | Validate primary IP was detected
+  ansible.builtin.assert:
+    that:
+      - _primary_ip | length > 0
+    fail_msg: >-
+      Could not detect a primary IP address. Ensure gather_facts
+      includes network information.
+    quiet: true
+
+- name: Hostname | Configure /etc/hosts
   ansible.builtin.template:
     src: hostname_hosts.j2
     dest: /etc/hosts
