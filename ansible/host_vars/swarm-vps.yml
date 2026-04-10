@@ -1,9 +1,13 @@
 ---
-hostname: "{{ lookup('env', 'VPS_HOSTNAME') }}"
-hostname_configure: true
+# yaml-language-server: $schema=../schemas/host.schema.json
+
 qemu_agent_enabled: false
 net_dns_configure: true
 net_ntp_configure: true
+
+# Hostname
+hostname_configure: true
+hostname: "swarm-vps"
 
 # Packages
 packages_install_shell: true
@@ -27,7 +31,7 @@ users_list:
 
 # Tailscale
 tailscale_enabled: true
-tailscale_tags: ["swarm"]
+tailscale_tags: ["ansible", "swarm"]
 tailscale_ip: "100.88.0.1"
 tailscale_bind_ssh: true
 

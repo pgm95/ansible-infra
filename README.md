@@ -25,7 +25,7 @@ mise run validate
 
 **Ansible** owns guest provisioning - everything after the guest exists and is reachable via SSH. Playbooks are single-play, connecting directly to hosts and applying roles (SSH hardening, users, packages, Docker, Tailscale, etc.).
 
-LXC and VM deploy tasks chain both tools: `mise run lxc:deploy` runs `tf:apply` first (idempotent, fast when no changes), then `ansible-playbook`.
+`mise run site:deploy` chains all provisioning steps: `tf:apply` (idempotent, fast when no changes), then `lxc:deploy`, `vm:deploy`, `vps:deploy`, and `swarm:deploy`. Individual deploy tasks can also be run standalone.
 
 ### Directory Structure
 
@@ -194,14 +194,14 @@ For role variables, see `ansible/roles/<name>/defaults/main.yml` and `ansible/ro
 1. Add the resource definition to `terraform/locals.tf` (`lxc_definitions` map).
 2. Add the host to `ansible/hosts.yml` under the `lxc` group.
 3. Create `ansible/host_vars/<hostname>.yml` with provisioning variables.
-4. Run `mise run lxc:deploy` (chains `tf:apply` → Ansible provisioning).
+4. Run `mise run lxc:deploy` (or `mise run site:deploy` to chain `tf:apply` first).
 
 ### Virtual Machine
 
 1. Add the resource definition to `terraform/locals.tf` (`vm_definitions` map).
 2. Add the host to `ansible/hosts.yml` under the `vm` group.
 3. Create `ansible/host_vars/<hostname>.yml` with provisioning variables.
-4. Run `mise run vm:deploy` (chains `tf:apply` → Ansible provisioning).
+4. Run `mise run vm:deploy` (or `mise run site:deploy` to chain `tf:apply` first).
 
 ### Swarm Node
 
@@ -227,10 +227,11 @@ mise run validate                      # Lint, schema check, secrets scan
 mise run info                          # Display system facts
 mise run sops:edit                     # Edit shared secrets in editor
 
-mise run vps:first-run [password]      # First-time VPS deploy (password auth)
+mise run site:deploy                   # Full deploy (TF apply + all groups + swarm)
+mise run vps:first-run                 # First-time VPS deploy (password auth)
 mise run vps:deploy [hosts] [tags]     # Provision VPS hosts
-mise run lxc:deploy [hosts] [tags]     # TF apply + LXC provisioning
-mise run vm:deploy [hosts] [tags]      # TF apply + VM provisioning
+mise run lxc:deploy [hosts] [tags]     # LXC provisioning
+mise run vm:deploy [hosts] [tags]      # VM provisioning
 
 mise run swarm:deploy                  # Bootstrap/update Swarm cluster
 mise run swarm:reset                   # Tear down Swarm cluster

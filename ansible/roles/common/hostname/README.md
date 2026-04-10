@@ -61,7 +61,7 @@ Validation fails with an actionable message if neither is available.
 ```yaml
 # host_vars/swarm-vps.yml
 hostname_configure: true
-hostname: "{{ lookup('env', 'VPS_HOSTNAME') }}"
+hostname: "swarm-vps"
 ```
 
 ## Tags

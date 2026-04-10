@@ -1,8 +1,19 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
+["site:deploy"]
+description = " " # "Create and provision all hosts"
+run = [
+  "mise run tf:apply",
+  "mise run lxc:deploy",
+  "mise run vm:deploy",
+  "mise run vps:deploy",
+  "mise run swarm:deploy"
+  ]
+
+# ================================================================================
+
 ["lxc:deploy"]
 description = " " # "Deploy LXC container to specific host(s)"
-depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. test1,test2)"
 arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
@@ -19,7 +30,6 @@ file = ".mise/scripts/deploy.sh"
 
 ["vm:deploy"]
 description = " " # "Deploy VM to specific host(s)"
-depends = ["tf:apply"]
 usage = '''
 arg "[hosts]" help="Hostnames (e.g. vmtest1,vmtest2)"
 arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
@@ -50,17 +60,5 @@ file = ".mise/scripts/deploy.sh"
 
 ["vps:first-run"]
 description = " " # "First-time deployment with password authentication"
-usage = 'arg "[password]" help="Root password (leave empty for prompt)"'
 env = { VPS_ADDR = "{{ env.VPS_PUBLIC_IP }}" }
-run = '''
-#!/usr/bin/env bash
-: "${VPS_ADDR:?VPS_PUBLIC_IP must be set in the active mise profile for first-run}"
-if [ -n "${usage_password:-}" ]; then
-  mkdir -p .tmp
-  echo "$usage_password" > .tmp/vps-firstrun-pass
-  ansible-playbook ansible/playbooks/vps.yml --connection-password-file .tmp/vps-firstrun-pass --user root
-  rm -f .tmp/vps-firstrun-pass
-else
-  ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root
-fi
-'''
+run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root"

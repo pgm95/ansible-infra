@@ -9,7 +9,6 @@ PVE_NODE_NAME = "proxmox"
 
 # VPS
 VPS_ADDR = "100.88.0.1"
-VPS_HOSTNAME = "nerd1"
 VPS_PUBLIC_IP = "{{ env.NERD1_PUBLIC_IP }}"
 
 # Terraform
