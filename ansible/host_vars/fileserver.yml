@@ -4,10 +4,10 @@
 env_scope: prod
 
 # General
-docker_enabled: true
+docker_enabled: false
 tailscale_enabled: false
 packages_install_shell: true
-packages_install_network: true
+packages_install_network: false
 
 # Dotfiles
 dotfiles_enabled: true
