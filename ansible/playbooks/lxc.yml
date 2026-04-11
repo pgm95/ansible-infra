@@ -8,10 +8,8 @@
   hosts: lxc
   gather_facts: true
   pre_tasks:
-    - name: Skip hosts outside current environment
-      ansible.builtin.meta: end_host
-      when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
-      tags: [always]
+    - name: Filter by environment
+      ansible.builtin.import_tasks: tasks/filter_env.yml
   roles:
     - role: common/ssh
       tags: [common, ssh]

@@ -1,0 +1,8 @@
+---
+# Skip hosts that don't match the current MISE_ENV environment.
+# Import this in pre_tasks to filter hosts early.
+
+- name: Skip hosts outside current environment
+  ansible.builtin.meta: end_host
+  when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
+  tags: [always]
