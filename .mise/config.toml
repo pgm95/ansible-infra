@@ -85,12 +85,10 @@ run = "pre-commit run --config $PROJECT_CONFIGS_DIR/pre-commit.yaml --all-files"
 
 [tasks."info"]
 description = " " # Gather and display system facts (includes VMs/LXCs)
-env.ANSIBLE_CALLBACKS_ENABLED = "default"
+env.ANSIBLE_STDOUT_CALLBACK = "json"
+env.ANSIBLE_DISPLAY_SKIPPED_HOSTS = "false"
 run = """
 #!/usr/bin/env bash
-ansible-playbook ansible/playbooks/get-facts.yml 2>&1 | \
-  sed $'s/\\x1b\\[[0-9;]*m//g' | \
-  sed -n '/^        ======/,/^TASK\\|^PLAY/p' | \
-  grep -v '^TASK\\|^PLAY' | \
-  sed 's/^        //' || true
+ansible-playbook ansible/playbooks/get-facts.yml 2>/dev/null | \
+  jq -r '.plays[].tasks[] | select(.task.name == "Display host report") | .hosts[].msg'
 """

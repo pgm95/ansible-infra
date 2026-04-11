@@ -9,10 +9,8 @@
   any_errors_fatal: false
 
   pre_tasks:
-    - name: Skip hosts outside current environment
-      ansible.builtin.meta: end_host
-      when: env_scope is defined and env_scope != lookup('env', 'MISE_ENV')
-      tags: [always]
+    - name: Filter by environment
+      ansible.builtin.import_tasks: tasks/filter_env.yml
 
   tasks:
     - name: Detect public IPv4 from interfaces
@@ -56,16 +54,6 @@
       when: tailscale_check.rc == 0 and tailscale_status_raw.rc == 0
       no_log: true
 
-    # Check service statuses in parallel for efficiency (async pattern)
-    - name: Start async check for sshd service
-      ansible.builtin.systemd:
-        name: sshd
-      async: 10
-      poll: 0
-      register: sshd_async
-      failed_when: false
-      no_log: true
-
     - name: Start async check for tailscaled service
       ansible.builtin.systemd:
         name: tailscaled
@@ -83,16 +71,6 @@
       poll: 0
       register: docker_async
       failed_when: false
-      no_log: true
-
-    # Wait for all async checks to complete
-    - name: Wait for sshd check completion
-      ansible.builtin.async_status:
-        jid: "{{ sshd_async.ansible_job_id }}"
-      register: sshd_status
-      until: sshd_status.finished
-      retries: 3
-      delay: 1
       no_log: true
 
     - name: Wait for tailscaled check completion
@@ -116,8 +94,6 @@
 
     - name: Set service status strings
       ansible.builtin.set_fact:
-        sshd_state: "{{ 'active' if sshd_status.status.ActiveState | default('unknown') == 'active' else 'inactive' }}"
-        sshd_enabled: "{{ 'yes' if sshd_status.status.UnitFileState | default('') == 'enabled' else 'no' }}"
         tailscale_state: >-
           {{ 'active' if tailscaled_status.status.ActiveState | default('unknown') == 'active'
              else 'inactive' if tailscale_check.rc == 0
@@ -129,10 +105,11 @@
         docker_state: "{{ 'active' if docker_status.status.ActiveState | default('unknown') == 'active' else 'inactive' }}"
         docker_enabled: "{{ 'yes' if docker_status.status.UnitFileState | default('') == 'enabled' else 'no' }}"
 
-    - name: Display all host information
+    - name: Display host report
       ansible.builtin.debug:
-        msg: |2
-
+        msg: "{{ __report }}"
+      vars:
+        __report: |
           ================================================================================
           HOST: {{ ansible_facts.hostname | upper }}
           ================================================================================
@@ -176,13 +153,12 @@
           --------------
           Service         State           Enabled
           -----------     -----------     -------
-          sshd            {{ sshd_state }}          {{ sshd_enabled }}
           tailscaled      {{ tailscale_state }}          {{ tailscale_enabled }}
           docker          {{ docker_state }}          {{ docker_enabled }}
 
           STORAGE
           -------
-          Devices: {{ ansible_facts.devices.keys() | list | join(', ') }}
+          Devices: {{ ansible_facts.devices.keys() | reject('match', '^(loop|sr)') | list | join(', ') }}
 
           Mounts:
           {% for mount in ansible_facts.mounts %}
