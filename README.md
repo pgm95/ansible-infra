@@ -124,11 +124,11 @@ Single-play playbooks that connect to guests via SSH and apply provisioning role
 
 Each playbook:
 
-- Filters hosts by `env_scope` via `meta: end_host` in pre_tasks
+- Filters hosts by `env_scope` via shared `filter_env.yml` in pre_tasks
 - Applies roles: SSH, users, packages, Docker, Tailscale, etc.
 - LXC-specific roles include Samba; VM-specific roles include QEMU guest agent, DNS, NTP
 
-The `lxc:deploy` and `vm:deploy` mise tasks chain `tf:apply` before running the playbook, ensuring guests exist before provisioning.
+Individual deploy tasks (`lxc:deploy`, `vm:deploy`) run Ansible only. Use `mise run site:deploy` to chain `tf:apply` before all provisioning.
 
 ### Docker Swarm (`swarm.yml`)
 

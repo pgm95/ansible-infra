@@ -2,7 +2,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
   for_each = local.active_lxc
 
   node_name   = var.pve_node_name
-  vm_id       = each.value.vmid
+  vm_id       = each.value.vm_id
   description = each.value.description
   tags        = each.value.tags
 
@@ -15,12 +15,15 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 
   cpu {
-    cores = each.value.cores
+    architecture = "amd64"
+    cores        = each.value.cores
+    limit        = 0
+    units        = 1024
   }
 
   memory {
-    dedicated = each.value.memory
-    swap      = each.value.swap
+    dedicated = each.value.memory.dedicated
+    swap      = each.value.memory.swap
   }
 
   operating_system {
@@ -30,6 +33,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   # Console
   console {
+    enabled   = true
     type      = "shell"
     tty_count = 0
   }
@@ -43,7 +47,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   # Rootfs disk (first entry)
   disk {
-    datastore_id = each.value.storage != "" ? each.value.storage : null
+    datastore_id = each.value.disk_datastore_id != "" ? each.value.disk_datastore_id : null
     size         = each.value.disks[0].size
   }
 
@@ -54,7 +58,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
       if lookup(d, "mp", "") != ""
     ]
     content {
-      volume = "${each.value.storage}:${mount_point.value.size}"
+      volume = "${each.value.disk_datastore_id}:${mount_point.value.size}"
       path   = mount_point.value.mp
       size   = "${mount_point.value.size}G"
     }
@@ -64,8 +68,8 @@ resource "proxmox_virtual_environment_container" "lxc" {
   dynamic "mount_point" {
     for_each = each.value.bind_mounts
     content {
-      volume = mount_point.value.source
-      path   = mount_point.value.target
+      volume = mount_point.value.volume
+      path   = mount_point.value.path
     }
   }
 
@@ -107,20 +111,27 @@ resource "proxmox_virtual_environment_container" "lxc" {
     bridge      = each.value.network.bridge
     vlan_id     = lookup(each.value.network, "vlan_id", null)
     mac_address = lookup(each.value.network, "mac_address", null)
+    firewall    = false
   }
 
   # Initialization
   initialization {
     hostname = each.key
-
+    dns {
+      domain  = try(each.value.dns.domain, null)
+      servers = try(each.value.dns.servers, "") != "" ? [each.value.dns.servers] : null
+    }
     ip_config {
       ipv4 {
-        address = each.value.network.ip
+        address = each.value.network.address
+      }
+      ipv6 {
+        address = ""
+        gateway = ""
       }
     }
-
     user_account {
-      password = each.value.root_password
+      password = each.value.password
       keys     = local.ssh_keys
     }
   }
@@ -146,7 +157,7 @@ resource "terraform_data" "lxc_idmap_reboot" {
   ]
 
   provisioner "local-exec" {
-    command = "ssh -o StrictHostKeyChecking=no root@${var.pve_host_addr} 'pct reboot ${each.value.vmid}'"
+    command = "ssh -o StrictHostKeyChecking=no root@${var.pve_host_addr} 'pct reboot ${each.value.vm_id}'"
   }
 
   depends_on = [proxmox_virtual_environment_container.lxc]

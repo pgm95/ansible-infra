@@ -8,28 +8,29 @@ locals {
   lxc_definitions = {
 
     fileserver = {
-      vmid          = 101
-      description   = " "
-      env_scope     = "prod"
-      tags          = ["terraform"]
-      os_version    = "13"
-      cores         = 1
-      memory        = 2048
-      swap          = 4096
-      start_on_boot = true
-      startup_order = 1
-      storage       = "zfs-lxc"
-      idmap_uid     = 1000
-      idmap_gid     = 1000
-      root_password = var.universal_pass
+      env_scope   = "prod"
+      vm_id       = 101
+      description = " "
+      tags        = ["terraform"]
+      os_version  = "13"
+      cores       = 1
+      memory = {
+        dedicated = 2048
+        swap      = 4096
+      }
+      start_on_boot     = true
+      startup_order     = 1
+      disk_datastore_id = "zfs-lxc"
+      idmap_uid         = 1000
+      idmap_gid         = 1000
+      password          = var.universal_pass
       disks = [
         { size = 32 },
       ]
       network = {
         bridge      = "vmbr0"
         vlan_id     = 40
-        ip          = "dhcp"
-        firewall    = false
+        address     = "dhcp"
         mac_address = "BC:24:11:AB:27:65"
       }
       features = {
@@ -39,35 +40,37 @@ locals {
       }
       devices = []
       bind_mounts = [
-        { source = "/sata/apple", target = "/mnt/apple" },
-        { source = "/sata/media", target = "/mnt/media" },
-        { source = "/sata/photos", target = "/mnt/photos" },
-        { source = "/sata/personal", target = "/mnt/personal" },
+        { volume = "/sata/apple", path = "/mnt/apple" },
+        { volume = "/sata/media", path = "/mnt/media" },
+        { volume = "/sata/photos", path = "/mnt/photos" },
+        { volume = "/sata/personal", path = "/mnt/personal" },
       ]
     }
 
     fileserver-dev = {
-      vmid          = 401
-      env_scope     = "dev"
-      description   = "Samba LXC test"
-      tags          = ["terraform"]
-      os_version    = "12"
-      cores         = 2
-      memory        = 2048
-      swap          = 0
-      start_on_boot = true
-      startup_order = 1
-      storage       = "local-btrfs"
-      idmap_uid     = 1000
-      idmap_gid     = 1000
-      root_password = var.universal_pass
+      env_scope   = "dev"
+      vm_id       = 401
+      description = "Samba LXC test"
+      tags        = ["terraform"]
+      os_version  = "12"
+      cores       = 2
+      memory = {
+        dedicated = 2048
+        swap      = 0
+      }
+      start_on_boot     = true
+      startup_order     = 1
+      disk_datastore_id = "local-btrfs"
+      idmap_uid         = 1000
+      idmap_gid         = 1000
+      password          = var.universal_pass
       disks = [
         { size = 8 },
       ]
       network = {
         bridge  = "vmbr3"
         vlan_id = 50
-        ip      = "dhcp"
+        address = "dhcp"
       }
       features = {
         fuse    = true
@@ -76,28 +79,30 @@ locals {
       }
       devices = []
       bind_mounts = [
-        { source = "/mnt/test_mounts/personal", target = "/mnt/personal" },
-        { source = "/mnt/test_mounts/photos", target = "/mnt/photos" },
-        { source = "/mnt/test_mounts/media", target = "/mnt/media" },
-        { source = "/mnt/test_mounts/apple", target = "/mnt/apple" },
+        { volume = "/mnt/test_mounts/personal", path = "/mnt/personal" },
+        { volume = "/mnt/test_mounts/photos", path = "/mnt/photos" },
+        { volume = "/mnt/test_mounts/media", path = "/mnt/media" },
+        { volume = "/mnt/test_mounts/apple", path = "/mnt/apple" },
       ]
     }
 
     swarm-lxc = {
-      env_scope     = "prod"
-      vmid          = 103
-      description   = " "
-      tags          = ["terraform", "swarm"]
-      os_version    = "13"
-      cores         = 8
-      memory        = 8192
-      swap          = 0
-      start_on_boot = true
-      startup_order = 22
-      storage       = "zfs-lxc"
-      idmap_uid     = 1000
-      idmap_gid     = 1000
-      root_password = var.universal_pass
+      env_scope   = "prod"
+      vm_id       = 103
+      description = " "
+      tags        = ["terraform", "swarm"]
+      os_version  = "13"
+      cores       = 8
+      memory = {
+        dedicated = 8192
+        swap      = 0
+      }
+      start_on_boot     = true
+      startup_order     = 22
+      disk_datastore_id = "zfs-lxc"
+      idmap_uid         = 1000
+      idmap_gid         = 1000
+      password          = var.universal_pass
       disks = [
         { size = 8 },
         { size = 32, mp = "/data" },
@@ -105,8 +110,7 @@ locals {
       network = {
         bridge      = "vmbr0"
         vlan_id     = 40
-        ip          = "dhcp"
-        firewall    = false
+        address     = "dhcp"
         mac_address = "BC:24:11:38:3A:7C"
       }
       features = {
@@ -121,27 +125,30 @@ locals {
         { path = "/dev/net/tun" },
       ]
       bind_mounts = [
-        { source = "/mnt/test_mounts/personal", target = "/mnt/personal" },
-        { source = "/mnt/test_mounts/photos", target = "/mnt/photos" },
-        { source = "/mnt/test_mounts/media", target = "/mnt/media" },
-        { source = "/mnt/test_mounts/apple", target = "/mnt/apple" },
+        { volume = "/mnt/test_mounts/personal", path = "/mnt/personal" },
+        { volume = "/mnt/test_mounts/photos", path = "/mnt/photos" },
+        { volume = "/mnt/test_mounts/media", path = "/mnt/media" },
+        { volume = "/mnt/test_mounts/apple", path = "/mnt/apple" },
       ]
     }
 
     swarm-lxc-dev = {
-      vmid          = 403
-      description   = "Swarm LXC test"
-      tags          = ["terraform", "swarm"]
-      os_version    = "12"
-      cores         = 4
-      memory        = 8192
-      swap          = 0
-      start_on_boot = true
-      startup_order = 11
-      storage       = "local-btrfs"
-      idmap_uid     = 1000
-      idmap_gid     = 1000
-      root_password = var.universal_pass
+      env_scope   = "dev"
+      vm_id       = 403
+      description = "Swarm LXC test"
+      tags        = ["terraform", "swarm"]
+      os_version  = "12"
+      cores       = 4
+      memory = {
+        dedicated = 8192
+        swap      = 0
+      }
+      start_on_boot     = true
+      startup_order     = 11
+      disk_datastore_id = "local-btrfs"
+      idmap_uid         = 1000
+      idmap_gid         = 1000
+      password          = var.universal_pass
       disks = [
         { size = 32 },
         { size = 32, mp = "/data" },
@@ -149,10 +156,10 @@ locals {
       network = {
         bridge  = "vmbr3"
         vlan_id = 50
-        ip      = "dhcp"
+        address = "dhcp"
       }
       features = {
-        fuse    = false
+        fuse    = true
         nesting = true
         keyctl  = true
       }
@@ -163,10 +170,10 @@ locals {
         { path = "/dev/net/tun" },
       ]
       bind_mounts = [
-        { source = "/mnt/test_mounts/personal", target = "/mnt/personal" },
-        { source = "/mnt/test_mounts/photos", target = "/mnt/photos" },
-        { source = "/mnt/test_mounts/media", target = "/mnt/media" },
-        { source = "/mnt/test_mounts/apple", target = "/mnt/apple" },
+        { volume = "/mnt/test_mounts/personal", path = "/mnt/personal" },
+        { volume = "/mnt/test_mounts/photos", path = "/mnt/photos" },
+        { volume = "/mnt/test_mounts/media", path = "/mnt/media" },
+        { volume = "/mnt/test_mounts/apple", path = "/mnt/apple" },
       ]
     }
 
@@ -179,81 +186,81 @@ locals {
   vm_definitions = {
 
     swarm-vm = {
-      env_scope     = "prod"
-      vmid          = 102
-      description   = " "
-      tags          = ["terraform", "swarm"]
-      cores         = 8
-      sockets       = 1
-      cpu_type      = "host"
-      memory        = 20480
-      balloon       = 0
-      start_on_boot = true
-      startup_order = 11
-      machine       = "q35"
-      bios          = "seabios"
-      scsi_hardware = "virtio-scsi-single"
-      storage       = "zfs-vm"
+      env_scope   = "prod"
+      vm_id       = 102
+      description = " "
+      tags        = ["terraform", "swarm"]
+      cores       = 8
+      sockets     = 1
+      cpu_type    = "host"
+      memory = {
+        dedicated = 20480
+        floating  = 0
+      }
+      on_boot           = true
+      startup_order     = 11
+      machine           = "q35"
+      bios              = "seabios"
+      scsi_hardware     = "virtio-scsi-single"
+      disk_datastore_id = "zfs-vm"
       disks = [
         { size = 16, cache = "none", ssd = true, discard = "on", iothread = true },
         { size = 64, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data" },
       ]
       network = {
-        bridge   = "vmbr0"
-        vlan_id  = 40
-        model    = "virtio"
-        firewall = false
+        bridge  = "vmbr0"
+        vlan_id = 40
+        model   = "virtio"
       }
       cloudinit = {
-        user       = "root"
-        password   = var.universal_pass
-        ip         = "dhcp"
-        nameserver = "1.1.1.1"
-        domain     = "home.arpa"
-        datastore  = "local-btrfs"
+        username     = "root"
+        password     = var.universal_pass
+        address      = "dhcp"
+        servers      = "1.1.1.1"
+        domain       = "home.arpa"
+        datastore_id = "local-btrfs"
       }
       vendor_data_enabled = true
-      vendor_data_storage = "local"
-      vga                 = "serial0"
+      vendor_datastore_id = "local"
     }
 
     swarm-vm-dev = {
-      env_scope     = "dev"
-      vmid          = 402
-      description   = "Test Swarm VM"
-      tags          = ["terraform", "swarm"]
-      cores         = 4
-      sockets       = 1
-      cpu_type      = "host"
-      memory        = 8192
-      balloon       = 4096
-      start_on_boot = true
-      startup_order = 22
-      machine       = "q35"
-      bios          = "seabios"
-      scsi_hardware = "virtio-scsi-single"
-      storage       = "local-btrfs"
+      env_scope   = "dev"
+      vm_id       = 402
+      description = "Test Swarm VM"
+      tags        = ["terraform", "swarm"]
+      cores       = 4
+      sockets     = 1
+      cpu_type    = "host"
+      memory = {
+        dedicated = 8192
+        floating  = 4096
+      }
+      on_boot           = true
+      startup_order     = 22
+      machine           = "q35"
+      bios              = "seabios"
+      scsi_hardware     = "virtio-scsi-single"
+      disk_datastore_id = "local-btrfs"
       disks = [
-        { size = 32, cache = "none", ssd = true, discard = "on", iothread = true },
-        { size = 32, cache = "none", ssd = false, discard = "ignore", iothread = true, mp = "/data" },
+        { size = 16, cache = "none", ssd = true, discard = "on", iothread = true },
+        { size = 64, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data" },
       ]
       network = {
-        bridge   = "vmbr3"
-        vlan_id  = 50
-        model    = "virtio"
-        firewall = true
+        bridge  = "vmbr3"
+        vlan_id = 50
+        model   = "virtio"
       }
       cloudinit = {
-        user       = "root"
-        password   = var.universal_pass
-        ip         = "dhcp"
-        nameserver = "1.1.1.1"
-        domain     = "home.arpa"
-        datastore  = "local-btrfs"
+        username     = "root"
+        password     = var.universal_pass
+        address      = "dhcp"
+        servers      = "1.1.1.1"
+        domain       = "home.arpa"
+        datastore_id = "local-btrfs"
       }
       vendor_data_enabled = true
-      vendor_data_storage = "local-btrfs"
-      vga                 = "serial0"
+      vendor_datastore_id = "local-btrfs"
     }
   }
 
