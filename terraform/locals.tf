@@ -25,7 +25,7 @@ locals {
       idmap_gid         = 1000
       password          = var.universal_pass
       disks = [
-        { size = 32 },
+        { size = 16 },
       ]
       network = {
         bridge      = "vmbr0"
@@ -88,7 +88,7 @@ locals {
 
     swarm-lxc = {
       env_scope   = "prod"
-      vm_id       = 103
+      vm_id       = 105
       description = " "
       tags        = ["terraform", "swarm"]
       os_version  = "13"
@@ -105,7 +105,7 @@ locals {
       password          = var.universal_pass
       disks = [
         { size = 8 },
-        { size = 32, mp = "/data" },
+        { size = 64, mp = "/data" },
       ]
       network = {
         bridge      = "vmbr0"
@@ -125,10 +125,10 @@ locals {
         { path = "/dev/net/tun" },
       ]
       bind_mounts = [
-        { volume = "/mnt/test_mounts/personal", path = "/mnt/personal" },
-        { volume = "/mnt/test_mounts/photos", path = "/mnt/photos" },
-        { volume = "/mnt/test_mounts/media", path = "/mnt/media" },
-        { volume = "/mnt/test_mounts/apple", path = "/mnt/apple" },
+        { volume = "/sata/apple", path = "/mnt/apple" },
+        { volume = "/sata/media", path = "/mnt/media" },
+        { volume = "/sata/photos", path = "/mnt/photos" },
+        { volume = "/sata/personal", path = "/mnt/personal" },
       ]
     }
 
@@ -191,8 +191,6 @@ locals {
       description = " "
       tags        = ["terraform", "swarm"]
       cores       = 8
-      sockets     = 1
-      cpu_type    = "host"
       memory = {
         dedicated = 20480
         floating  = 0
@@ -208,9 +206,10 @@ locals {
         { size = 64, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data" },
       ]
       network = {
-        bridge  = "vmbr0"
-        vlan_id = 40
-        model   = "virtio"
+        bridge      = "vmbr0"
+        vlan_id     = 40
+        model       = "virtio"
+        mac_address = "BC:24:11:06:72:8C"
       }
       cloudinit = {
         username     = "root"
@@ -218,10 +217,10 @@ locals {
         address      = "dhcp"
         servers      = "1.1.1.1"
         domain       = "home.arpa"
-        datastore_id = "local-btrfs"
+        datastore_id = "zfs-vm"
       }
       vendor_data_enabled = true
-      vendor_datastore_id = "local"
+      vendor_datastore_id = "zfs-cold"
     }
 
     swarm-vm-dev = {
@@ -230,8 +229,6 @@ locals {
       description = "Test Swarm VM"
       tags        = ["terraform", "swarm"]
       cores       = 4
-      sockets     = 1
-      cpu_type    = "host"
       memory = {
         dedicated = 8192
         floating  = 4096
@@ -243,8 +240,8 @@ locals {
       scsi_hardware     = "virtio-scsi-single"
       disk_datastore_id = "local-btrfs"
       disks = [
-        { size = 16, cache = "none", ssd = true, discard = "on", iothread = true },
-        { size = 64, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data" },
+        { size = 32, cache = "none", ssd = true, discard = "on", iothread = true },
+        { size = 32, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data" },
       ]
       network = {
         bridge  = "vmbr3"

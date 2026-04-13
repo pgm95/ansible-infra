@@ -125,10 +125,11 @@ resource "proxmox_virtual_environment_container" "lxc" {
       ipv4 {
         address = each.value.network.address
       }
-      ipv6 {
-        address = ""
-        gateway = ""
-      }
+      # ipv6 omitted: empty values cause perpetual diff (API does not persist)
+      # ipv6 {
+      #   address = ""
+      #   gateway = ""
+      # }
     }
     user_account {
       password = each.value.password

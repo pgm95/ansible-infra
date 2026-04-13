@@ -86,10 +86,11 @@ resource "proxmox_virtual_environment_vm" "vm" {
   }
 
   network_device {
-    bridge   = each.value.network.bridge
-    model    = lookup(each.value.network, "model", "virtio")
-    vlan_id  = lookup(each.value.network, "vlan_id", null)
-    firewall = false
+    bridge      = each.value.network.bridge
+    model       = lookup(each.value.network, "model", "virtio")
+    vlan_id     = lookup(each.value.network, "vlan_id", null)
+    mac_address = lookup(each.value.network, "mac_address", null)
+    firewall    = false
   }
 
   initialization {
