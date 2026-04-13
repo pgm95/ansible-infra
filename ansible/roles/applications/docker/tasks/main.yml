@@ -38,25 +38,6 @@
       ansible.builtin.set_fact:
         __docker_distribution: "{{ ansible_facts['distribution'] | lower }}"
 
-    - name: Create keyrings directory
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: "0755"
-
-    - name: Check if Docker GPG key exists
-      ansible.builtin.stat:
-        path: /etc/apt/keyrings/docker.asc
-      register: __gpg_key_stat
-
-    - name: Add Docker GPG key
-      ansible.builtin.get_url:
-        url: https://download.docker.com/linux/{{ __docker_distribution }}/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: "0644"
-      register: __gpg_key_result
-      when: not __gpg_key_stat.stat.exists
-
     - name: Determine Docker architecture
       ansible.builtin.set_fact:
         __docker_arch: >-
@@ -64,15 +45,16 @@
              else 'arm64' if ansible_facts['architecture'] == 'aarch64'
              else ansible_facts['architecture'] }}
 
-    - name: Add Docker repository
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [arch={{ __docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
-          https://download.docker.com/linux/{{ __docker_distribution }}
-          {{ ansible_facts['distribution_release'] }} stable
+    - name: Add Docker repository and GPG key
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: [deb]
+        uris: "https://download.docker.com/linux/{{ __docker_distribution }}"
+        suites: "{{ ansible_facts['distribution_release'] }}"
+        components: [stable]
+        architectures: "{{ __docker_arch }}"
+        signed_by: "https://download.docker.com/linux/{{ __docker_distribution }}/gpg"
         state: present
-        filename: docker
-        update_cache: true
       register: __repo_result
 
     - name: Install Docker packages
@@ -88,23 +70,12 @@
           - "Docker installation failed"
           - "Distribution: {{ __docker_distribution | default('unknown') }}"
           - "Architecture: {{ __docker_arch | default('unknown') }}"
-          - "GPG key status: {{ 'downloaded' if __gpg_key_result is defined and __gpg_key_result is succeeded else 'failed' }}"
           - "Repository status: {{ 'added' if __repo_result is defined and __repo_result is succeeded else 'failed' }}"
 
-    - name: Cleanup on failure - Remove broken GPG key
-      ansible.builtin.file:
-        path: /etc/apt/keyrings/docker.asc
-        state: absent
-      when: __gpg_key_result is defined and __gpg_key_result is failed
-
     - name: Cleanup on failure - Remove broken repository
-      ansible.builtin.apt_repository:
-        repo: >-
-          deb [arch={{ __docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
-          https://download.docker.com/linux/{{ __docker_distribution }}
-          {{ ansible_facts['distribution_release'] }} stable
+      ansible.builtin.deb822_repository:
+        name: docker
         state: absent
-        filename: docker
       when: __repo_result is defined and __repo_result is failed
       failed_when: false
 
