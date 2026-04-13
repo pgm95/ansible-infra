@@ -48,6 +48,32 @@
   when: ssh_password_authentication | bool
 
 # ============================================================================
+# Socket Activation Handling (Debian 13+)
+# ============================================================================
+# Debian 13 defaults to ssh.socket (systemd socket activation) which
+# conflicts with direct service management via reload. Disable it in
+# favor of ssh.service for consistent behavior across Debian versions.
+
+- name: Check if ssh.socket unit exists
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/system/ssh.socket
+  register: __ssh_socket_unit
+
+- name: Disable SSH socket activation
+  when: __ssh_socket_unit.stat.exists
+  block:
+    - name: Ensure ssh.service is enabled for direct startup
+      ansible.builtin.systemd:
+        name: ssh
+        enabled: true
+
+    - name: Stop and disable ssh.socket
+      ansible.builtin.systemd:
+        name: ssh.socket
+        state: stopped
+        enabled: false
+
+# ============================================================================
 # SSH Configuration Deployment
 # ============================================================================
 
