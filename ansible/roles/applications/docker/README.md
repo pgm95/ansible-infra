@@ -33,6 +33,7 @@ docker_enabled: true
 | ---------- | --------- | ------------- |
 | `docker_enabled` | `false` | Enable Docker installation |
 | `docker_data_root` | `/var/lib/docker` | Docker data directory |
+| `docker_containerd_root` | `""` | Containerd root directory (empty = default). Set when `docker_data_root` is on a separate disk. |
 | `docker_storage_driver` | `""` | Storage driver (empty = auto) |
 
 ### Networking
@@ -81,7 +82,7 @@ docker_enabled: true
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
-| `docker_gpu_enabled` | `false` | Deploy DRM udev rules + auto-register `gpu=1` generic resource |
+| `docker_gpu_enabled` | `false` | Auto-register `gpu=1` generic resource for Swarm scheduling |
 
 ### Swarm Mode
 
@@ -135,14 +136,11 @@ docker_swarm_advertise_addr: "100.64.0.1"  # Tailscale IP
 
 ## GPU Support
 
-For Docker Swarm nodes with GPU passthrough, set `docker_gpu_enabled: true`. This handles both:
-
-- **Udev rules**: Deploys `/etc/udev/rules.d/99-dri.rules` to set permissive DRM device permissions (`MODE="0666"`)
-- **Swarm scheduling**: Auto-appends `gpu=1` to `node-generic-resources` in daemon.json
+For Docker Swarm nodes with GPU passthrough, set `docker_gpu_enabled: true`. This auto-appends `gpu=1` to `node-generic-resources` in daemon.json for Swarm scheduling.
 
 Do not add `"gpu=1"` to `docker_node_generic_resources` directly - use `docker_gpu_enabled` instead.
 
-For LXC containers, ensure GPU device passthrough is configured in `terraform/locals.tf` (e.g., `/dev/dri/renderD128`, `/dev/kfd`).
+For LXC containers, GPU device permissions are controlled by Terraform's device passthrough `gid` in `locals.tf`, not by udev rules (udev does not run inside LXC).
 
 ## Dependencies
 

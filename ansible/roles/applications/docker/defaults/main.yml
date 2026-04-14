@@ -36,6 +36,7 @@ docker_enabled: false # (boolean) Enable Docker installation and configuration
 # ==================================================================================
 
 docker_data_root: /var/lib/docker # (string) Docker root data directory (data-root)
+docker_containerd_root: "" # (string) Containerd root directory (empty = default /var/lib/containerd)
 docker_storage_driver: "" # (string) Storage driver: overlay2, btrfs, zfs, etc (empty = auto)
 
 # ==================================================================================

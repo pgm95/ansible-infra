@@ -107,9 +107,12 @@
     path: /usr/bin/dockerd
   register: __docker_installed
 
-- name: Configure GPU support
-  ansible.builtin.include_tasks: gpu.yml
-  when: docker_gpu_enabled
+- name: Register GPU as generic resource
+  ansible.builtin.set_fact:
+    docker_node_generic_resources: "{{ docker_node_generic_resources + ['gpu=1'] }}"
+  when:
+    - docker_gpu_enabled
+    - "'gpu=1' not in docker_node_generic_resources"
 
 - name: Configure Docker daemon
   ansible.builtin.copy:
@@ -119,6 +122,18 @@
     backup: true
   notify: Docker | Restart docker
   when: not ansible_check_mode or __docker_installed.stat.exists
+
+- name: Set containerd root directory
+  ansible.builtin.lineinfile:
+    path: /etc/containerd/config.toml
+    regexp: '^#?root\s*='
+    line: 'root = "{{ docker_containerd_root }}"'
+    insertafter: '^disabled_plugins'
+    backup: true
+  notify: Docker | Restart docker
+  when:
+    - docker_containerd_root | default('') | length > 0
+    - not ansible_check_mode or __docker_installed.stat.exists
 
 - name: Start and enable Docker service
   ansible.builtin.systemd:

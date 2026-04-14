@@ -32,6 +32,11 @@ argument_specs:
         type: str
         default: /var/lib/docker
 
+      docker_containerd_root:
+        description: Containerd root directory (empty = default /var/lib/containerd)
+        type: str
+        default: ""
+
       docker_storage_driver:
         description: "Storage driver: overlay2, btrfs, zfs, etc (empty = auto)"
         type: str

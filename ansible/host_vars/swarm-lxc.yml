@@ -28,6 +28,7 @@ tailscale_bind_ssh: false
 # Docker
 docker_enabled: true
 docker_data_root: "/data/docker-data"
+docker_containerd_root: "/data/containerd"
 docker_mtu: 1230
 docker_dns_servers: []
 docker_dns_search: []

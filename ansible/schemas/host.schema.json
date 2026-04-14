@@ -176,6 +176,7 @@
 
     "docker_enabled": { "type": "boolean", "description": "Install and configure Docker" },
     "docker_data_root": { "type": "string", "description": "Docker data root path" },
+    "docker_containerd_root": { "type": "string", "description": "Containerd root directory (empty = default /var/lib/containerd)" },
     "docker_storage_driver": {
       "type": "string",
       "enum": ["", "overlay2", "btrfs", "zfs"],

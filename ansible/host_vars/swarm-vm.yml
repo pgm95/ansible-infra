@@ -36,6 +36,7 @@ docker_swarm_enabled: true
 docker_swarm_init: true
 docker_swarm_role: manager
 docker_data_root: "/data/docker-data"
+docker_containerd_root: "/data/containerd"
 docker_swarm_advertise_addr: 100.88.0.2
 docker_swarm_listen_addr: 100.88.0.2:2377
 docker_swarm_data_path_port: 4789
