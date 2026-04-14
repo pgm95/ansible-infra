@@ -119,7 +119,7 @@ locals {
         keyctl  = true
       }
       devices = [
-        { path = "/dev/dri/card0" },
+        { path = "/dev/dri/card0", gid = 1000 },
         { path = "/dev/dri/renderD128", gid = 1000 },
         { path = "/dev/kfd", gid = 1000 },
         { path = "/dev/net/tun" },

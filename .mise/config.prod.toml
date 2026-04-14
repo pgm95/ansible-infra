@@ -8,7 +8,7 @@ PVE_HOST_ADDR = "nas.home.arpa"
 PVE_NODE_NAME = "nas"
 
 # VPS
-VPS_ADDR = "100.88.0.2"
+VPS_ADDR = "100.88.0.1"
 VPS_PUBLIC_IP = "{{ env.NERD2_PUBLIC_IP }}"
 
 # Terraform
