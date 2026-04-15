@@ -15,7 +15,7 @@ Simplified Samba file sharing role using static configuration. Deploys a pre-con
 
 - Debian/Ubuntu based system
 - Pre-existing system user (created by users role)
-- SMB configuration file at `files/smb.conf`
+- SMB configuration file for smb_conf_file in host_vars
 - Samba password provided via host_vars
 
 ## Packages Installed
@@ -51,9 +51,7 @@ Services to manage:
 
 ## Configuration File
 
-The role deploys `files/smb.conf` to `/etc/samba/smb.conf`. This file must exist in your project structure and contain your complete Samba share configuration.
-
-Location: `files/smb.conf` (relative to playbook root)
+The role deploys the file specified by `smb_conf_file` to `/etc/samba/smb.conf`. Per-environment configs use `files/smb-{env}.conf` (e.g. `smb-dev.conf`, `smb-prod.conf`), selected via `MISE_ENV` in host_vars.
 
 ## Workflow
 
@@ -116,7 +114,7 @@ All configuration changes are validated with `testparm` before service restart. 
 This role requires:
 
 - `users` role: For system user creation
-- `files/smb.conf`: Static SMB configuration file
+- `files/smb-{env}.conf`: Per-environment SMB configuration file
 - `samba_password`: Must be provided via host_vars
 
 ## Notes

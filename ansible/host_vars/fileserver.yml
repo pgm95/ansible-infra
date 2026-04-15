@@ -25,4 +25,4 @@ users_list:
 samba_enabled: true
 samba_existing_user: pggm95
 samba_password: "{{ lookup('env', 'UNIVERSAL_PASS') }}"
-smb_conf_file: ../files/smb.conf
+smb_conf_file: "../files/smb-{{ lookup('env', 'MISE_ENV') }}.conf"
