@@ -55,7 +55,6 @@ mise run validate
     ├── config.toml      # Tool versions, env vars, inline tasks
     ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, secrets)
     ├── config.prod.toml # Prod-specific env vars
-    ├── scripts/         # Shared deploy script
     └── tasks/           # TOML task definitions
 ```
 

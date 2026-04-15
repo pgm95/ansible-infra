@@ -13,50 +13,32 @@ run = [
 # ================================================================================
 
 ["lxc:deploy"]
-description = " " # "Deploy LXC container to specific host(s)"
-usage = '''
-arg "[hosts]" help="Hostnames (e.g. test1,test2)"
-arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
-'''
-env = { DEPLOY_GROUP = "lxc" }
-file = ".mise/scripts/deploy.sh"
+description = " " # "Deploy LXC containers"
+run = "ansible-playbook ansible/playbooks/lxc.yml"
 
 ["lxc:check"]
 description = " " # "Dry-run LXC provisioning"
-env = { DEPLOY_GROUP = "lxc", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
-file = ".mise/scripts/deploy.sh"
+run = "ansible-playbook ansible/playbooks/lxc.yml --check --diff"
 
 # ================================================================================
 
 ["vm:deploy"]
-description = " " # "Deploy VM to specific host(s)"
-usage = '''
-arg "[hosts]" help="Hostnames (e.g. vmtest1,vmtest2)"
-arg "[tags]" help="Ansible tags (e.g. common,ssh,docker)"
-'''
-env = { DEPLOY_GROUP = "vm" }
-file = ".mise/scripts/deploy.sh"
+description = " " # "Deploy VMs"
+run = "ansible-playbook ansible/playbooks/vm.yml"
 
 ["vm:check"]
-description = " " # "Dry run VM provisioning (check mode)"
-env = { DEPLOY_GROUP = "vm", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
-file = ".mise/scripts/deploy.sh"
+description = " " # "Dry-run VM provisioning"
+run = "ansible-playbook ansible/playbooks/vm.yml --check --diff"
 
 # ================================================================================
 
 ["vps:deploy"]
-description = " " # "Deploy VPS to specific host(s)"
-usage = '''
-arg "[hosts]" help="Hostnames (e.g. host1,host2)"
-arg "[tags]" help="Ansible tags (e.g. common,network)"
-'''
-env = { DEPLOY_GROUP = "vps" }
-file = ".mise/scripts/deploy.sh"
+description = " " # "Deploy VPS hosts"
+run = "ansible-playbook ansible/playbooks/vps.yml"
 
 ["vps:check"]
 description = " " # "Dry-run VPS deployment"
-env = { DEPLOY_GROUP = "vps", DEPLOY_INTERACTIVE = "false", DEPLOY_CHECK_MODE = "true" }
-file = ".mise/scripts/deploy.sh"
+run = "ansible-playbook ansible/playbooks/vps.yml --check --diff"
 
 ["vps:first-run"]
 description = " " # "First-time deployment with password authentication"
