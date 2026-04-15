@@ -34,7 +34,6 @@
         'interface' in ansible_run_tags or
         'hostname' in ansible_run_tags or
         'tailscale' in ansible_run_tags or
-        'qemu' in ansible_run_tags or
         'all' in ansible_run_tags
       tags: ["always"]
 
@@ -85,10 +84,6 @@
     - role: common/dotfiles
       tags: [common, dotfiles]
       when: dotfiles_enabled
-
-    - role: common/qemu_agent
-      tags: [common, qemu]
-      when: qemu_agent_enabled
 
     - role: network/dns
       tags: [network, dns]

@@ -109,8 +109,6 @@
 
     "swap_disable": { "type": "boolean", "description": "Disable swap" },
 
-    "qemu_agent_enabled": { "type": "boolean", "description": "Enable QEMU guest agent" },
-
     "net_dns_configure": { "type": "boolean", "description": "Configure DNS servers" },
     "net_dns_servers": {
       "type": "array",

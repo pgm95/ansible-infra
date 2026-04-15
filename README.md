@@ -46,7 +46,7 @@ mise run validate
 │   ├── group_vars/      # Group defaults (auto-loaded by Ansible)
 │   ├── playbooks/       # Playbooks
 │   ├── roles/
-│   │   ├── common/      # Base system (packages, users, ssh, dotfiles, hostname, qemu_agent, swap)
+│   │   ├── common/      # Base system (packages, users, ssh, dotfiles, hostname, swap)
 │   │   ├── network/     # Network config (dns, ntp, interface)
 │   │   └── applications/ # Services (docker, tailscale, samba)
 │   └── schemas/         # JSON schema for host_vars validation (host.schema.json)
@@ -126,7 +126,7 @@ Each playbook:
 
 - Filters hosts by `env_scope` via shared `filter_env.yml` in pre_tasks
 - Applies roles: SSH, users, packages, Docker, Tailscale, etc.
-- LXC-specific roles include Samba; VM-specific roles include QEMU guest agent, DNS, NTP
+- LXC-specific roles include Samba; VM-specific roles include DNS, NTP
 
 Individual deploy tasks (`lxc:deploy`, `vm:deploy`) run Ansible only. Use `mise run site:deploy` to chain `tf:apply` before all provisioning.
 
@@ -169,7 +169,6 @@ tailscale0 (MTU 1280) - VXLAN overhead (50) = Docker MTU 1230
 | Common | `ssh` | SSH server hardening |
 | Common | `dotfiles` | Dotfiles deployment from a Git repository |
 | Common | `hostname` | Hostname and FQDN configuration |
-| Common | `qemu_agent` | QEMU guest agent (VMs only) |
 | Common | `swap` | Swap management |
 | Network | `dns` | DNS resolver configuration (systemd-resolved, resolvconf, resolv.conf) |
 | Network | `ntp` | NTP time synchronization via systemd-timesyncd |

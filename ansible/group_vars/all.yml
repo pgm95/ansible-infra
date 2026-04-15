@@ -55,9 +55,6 @@ packages_extra_list: [] # (list) Additional packages defined in host_vars
 ## Role: common/swap
 swap_disable: true                   # (boolean) Disable swap
 
-## Role: common/qemu_agent
-qemu_agent_enabled: false            # (boolean) Enable QEMU guest agent (auto-detects VM environment)
-
 ## Role: common/dotfiles
 dotfiles_enabled: false              # (boolean) Enable dotfiles deployment
 dotfiles_repo_url: "{{ lookup('env', 'GITHUB_DOTFILES_URL') }}"
