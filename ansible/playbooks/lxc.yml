@@ -6,10 +6,14 @@
 
 - name: Provision LXC Containers
   hosts: lxc
-  gather_facts: true
+  gather_facts: false
   pre_tasks:
     - name: Filter by environment
       ansible.builtin.import_tasks: tasks/filter_env.yml
+
+    - name: Gather facts after environment filter
+      ansible.builtin.setup:
+      tags: [always]
   roles:
     - role: common/ssh
       tags: [common, ssh]
