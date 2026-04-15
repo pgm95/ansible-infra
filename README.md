@@ -227,9 +227,9 @@ mise run sops:edit                     # Edit shared secrets in editor
 
 mise run site:deploy                   # Full deploy (TF apply + all groups + swarm)
 mise run vps:first-run                 # First-time VPS deploy (password auth)
-mise run vps:deploy [hosts] [tags]     # Provision VPS hosts
-mise run lxc:deploy [hosts] [tags]     # LXC provisioning
-mise run vm:deploy [hosts] [tags]      # VM provisioning
+mise run vps:deploy                    # Provision VPS hosts
+mise run lxc:deploy                    # LXC provisioning
+mise run vm:deploy                     # VM provisioning
 
 mise run swarm:deploy                  # Bootstrap/update Swarm cluster
 mise run swarm:reset                   # Tear down Swarm cluster
@@ -239,4 +239,4 @@ mise run tf:apply                      # Apply Terraform changes
 mise run tf:destroy                    # Destroy all TF-managed resources
 ```
 
-Deploy commands are interactive when `[hosts]` and `[tags]` are omitted, prompting for selection. All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
+Pass ansible-playbook args after `--` (e.g., `mise run lxc:deploy -- --limit host1 --tags docker`). All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
