@@ -1,5 +1,6 @@
 ---
 # yaml-language-server: $schema=../schemas/host.schema.json
+ansible_host: "{{ lookup('env', 'VPS_ADDR') }}"
 
 qemu_agent_enabled: false
 net_dns_configure: true
@@ -7,7 +8,6 @@ net_ntp_configure: true
 
 # Hostname
 hostname_configure: true
-hostname: "swarm-vps"
 
 # Packages
 packages_install_shell: true

@@ -6,6 +6,8 @@
   "type": "object",
 
   "properties": {
+    "ansible_host": { "type": "string", "description": "Ansible connection address (IP, hostname, or dynamic lookup)" },
+
     "env_scope": {
       "type": "string",
       "enum": ["dev", "prod"],
