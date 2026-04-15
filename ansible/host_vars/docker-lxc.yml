@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+# Users
+users_list:
+  - name: pggm95
+    group: pggm95
+    uid: 1000
+    gid: 1000
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+
+# Packages
+packages_install_shell: true
+packages_install_network: true
+
+# Dotfiles
+dotfiles_enabled: true
+dotfiles_deploy_args: "bash claude nano"
+
+# Tailscale
+tailscale_enabled: false
+
+# Docker
+docker_enabled: true
+docker_data_root: "/data/docker-data"
+docker_containerd_root: "/data/containerd"
+docker_gpu_enabled: false
+docker_swarm_enabled: false

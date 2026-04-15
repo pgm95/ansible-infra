@@ -7,10 +7,50 @@ locals {
 
   lxc_definitions = {
 
+    docker-lxc = {
+      env_scope   = "prod"
+      vm_id       = 103
+      description = ""
+      tags        = ["terraform", "docker"]
+      os_version  = "13"
+      cores       = 2
+      memory = {
+        dedicated = 2048
+        swap      = 2048
+      }
+      start_on_boot     = true
+      startup_order     = 5
+      disk_datastore_id = "zfs-lxc"
+      idmap_uid         = 1000
+      idmap_gid         = 1000
+      password          = var.universal_pass
+      disks = [
+        { size = 8 },
+        { size = 16, mp = "/data" },
+      ]
+      network = {
+        bridge      = "vmbr0"
+        vlan_id     = 40
+        address     = "dhcp"
+        mac_address = "BC:24:11:74:D4:08"
+      }
+      features = {
+        fuse    = true
+        nesting = true
+        keyctl  = true
+      }
+      devices = [
+        { path = "/dev/net/tun" },
+      ]
+      bind_mounts = [
+        { volume = "/sata/media", path = "/mnt/media" },
+      ]
+    }
+
     fileserver = {
       env_scope   = "prod"
       vm_id       = 101
-      description = " "
+      description = ""
       tags        = ["terraform"]
       os_version  = "13"
       cores       = 1
@@ -89,7 +129,7 @@ locals {
     swarm-lxc = {
       env_scope   = "prod"
       vm_id       = 105
-      description = " "
+      description = ""
       tags        = ["terraform", "swarm"]
       os_version  = "13"
       cores       = 8
@@ -188,7 +228,7 @@ locals {
     swarm-vm = {
       env_scope   = "prod"
       vm_id       = 102
-      description = " "
+      description = ""
       tags        = ["terraform", "swarm"]
       cores       = 8
       memory = {
