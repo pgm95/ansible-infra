@@ -60,5 +60,4 @@ file = ".mise/scripts/deploy.sh"
 
 ["vps:first-run"]
 description = " " # "First-time deployment with password authentication"
-env = { VPS_ADDR = "{{ env.VPS_PUBLIC_IP }}" }
-run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root"
+run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root --extra-vars \"ansible_host={{ env.VPS_PUBLIC_IP }}\""

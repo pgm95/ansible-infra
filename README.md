@@ -53,7 +53,7 @@ mise run validate
 ├── .secrets/            # SOPS-encrypted secrets (committed), age key (gitignored)
 └── .mise/
     ├── config.toml      # Tool versions, env vars, inline tasks
-    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, VPS addr, secrets)
+    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, secrets)
     ├── config.prod.toml # Prod-specific env vars
     ├── scripts/         # Shared deploy script
     └── tasks/           # TOML task definitions
@@ -67,9 +67,9 @@ mise run validate
 MISE_ENV=prod mise run lxc:deploy    # Inline override
 ```
 
-Ansible is fully environment-agnostic. All env-specific values (Proxmox address, VPS address, secrets) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). Terraform uses workspaces (`TF_WORKSPACE`) aligned to `MISE_ENV` for state isolation. A single unified inventory serves both environments.
+Ansible is fully environment-agnostic. All env-specific values (Proxmox address, secrets) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). Terraform uses workspaces (`TF_WORKSPACE`) aligned to `MISE_ENV` for state isolation. A single unified inventory serves both environments.
 
-- **Inventory** (`ansible/hosts.yml`): static host definitions with `lookup('env', ...)` for env-specific values
+- **Inventory** (`ansible/hosts.yml`): static host definitions with `env_scope` and connection details per host
 - **Host vars** (`ansible/host_vars/`): single file per host, shared across environments
 - **Secrets** (`.secrets/*.sops.yaml`): SOPS-encrypted with age, auto-decrypted by mise into env vars
 
@@ -116,7 +116,7 @@ Secrets are managed with SOPS + age and loaded as environment variables by mise'
 
 Single-play playbook that connects to VPS hosts via SSH and applies system, network, and application roles. Uses a hybrid `tasks:` + `roles:` execution pattern. SSH hardening runs in `tasks:` with an immediate handler flush (to avoid locking yourself out mid-play), while remaining roles run in the standard `roles:` section.
 
-First-time provisioning uses password auth (`mise run vps:first-run`), which automatically connects via the public IP (`VPS_PUBLIC_IP` from the active mise profile). Subsequent runs use key-based auth over Tailscale (`VPS_ADDR`).
+First-time provisioning uses password auth (`mise run vps:first-run`), which overrides `ansible_host` with the public IP (`VPS_PUBLIC_IP` from SOPS secrets) via `--extra-vars`. Subsequent runs use key-based auth over Tailscale MagicDNS hostnames.
 
 ### LXC and VM Provisioning (`lxc.yml`, `vm.yml`)
 
@@ -186,7 +186,7 @@ For role variables, see `ansible/roles/<name>/defaults/main.yml` and `ansible/ro
 
 1. Add the host to `ansible/hosts.yml` under the `vps` group.
 2. Create `ansible/host_vars/<hostname>.yml`.
-3. Set `VPS_PUBLIC_IP` in the active mise profile (`.mise/config.{dev,prod}.toml`).
+3. Ensure `VPS_PUBLIC_IP` is set in the environment's SOPS secrets (`.secrets/{dev,prod}.sops.yaml`).
 4. Run `mise run vps:first-run` for initial password-based provisioning (connects via public IP automatically).
 
 ### LXC Container

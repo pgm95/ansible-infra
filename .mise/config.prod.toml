@@ -7,10 +7,6 @@ _.file = { path = "{{config_root}}/.secrets/prod.sops.yaml", redact = true }
 PVE_HOST_ADDR = "nas.home.arpa"
 PVE_NODE_NAME = "nas"
 
-# VPS
-VPS_ADDR = "100.88.0.1"
-VPS_PUBLIC_IP = "{{ env.NERD2_PUBLIC_IP }}"
-
 # Terraform
 TF_VAR_pve_download_storage = "zfs-cold"
 TF_VAR_pve_node_name = "{{ env.PVE_NODE_NAME }}"

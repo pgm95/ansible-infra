@@ -61,7 +61,7 @@ Validation fails with an actionable message if neither is available.
 ```yaml
 # host_vars/swarm-vps.yml
 hostname_configure: true
-hostname: "swarm-vps"
+hostname: "{{ ansible_host }}"
 ```
 
 ## Tags

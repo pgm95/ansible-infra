@@ -1,7 +1,7 @@
 TS_TAILNET: ENC[AES256_GCM,data:1dFNTEF+5EnAtKG8Gp0hQqo=,iv:s1VTZzUxVt8pTAtlf/FMmKaMKBrKuPkVr7UVUdjlPlk=,tag:Ebmvdg4MfFu7qs0YHCEHkQ==,type:str]
 TS_OAUTH_KEY: ENC[AES256_GCM,data:1tehLXj316JVNm2w4rysCBr8kb6cUMcPQfQHou3IwV3KG7b7RtKuW7RyRfO1obJJ929970JCBW9o3EIbKGRh,iv:lFrJyvYouaSzSYpJHyYah/KLBFeIjrcEQcv3svkTh2c=,tag:9LeWVTO+ySjooUdn2Rt+bA==,type:str]
 PROXMOX_TOKEN_SECRET: ENC[AES256_GCM,data:HN47qwcH6w2IcrjhKdnFHvbg98xRcM4UrwSOmP0KH/cdLqio,iv:mN2kxrm1f8a9wR6mZg07SeoBcA3euwdXNdmXxytR/gM=,tag:deboidXgnE2czBZQm2LKBw==,type:str]
-NERD1_PUBLIC_IP: ENC[AES256_GCM,data:8FRjg0h0gpyXXTAPww==,iv:ePajo7X6Ls+MPOJtowt5pWTCb5bI1ATQ4HgXdhPkhP0=,tag:WMleNMQvlFN8IOrU+2fFbg==,type:str]
+VPS_PUBLIC_IP: ENC[AES256_GCM,data:eu0W4YgWHVvJIa2hOA==,iv:uXNcs8yni6BZyVLx/Ds2ryfsFWXTh0YTuELjqufQlfs=,tag:k2CsNOXeM4IQp0cBssEX3g==,type:str]
 DOMAIN_PUBLIC: ENC[AES256_GCM,data:8/n2m+qHANvzAw==,iv:oiQaAGf3ErMh0thMgwYZJslY4cQ5Bynl8Hng4gGg734=,tag:rpYUqrpf5iMBtypVOfyLow==,type:str]
 DOMAIN_PRIVATE: ENC[AES256_GCM,data:Fin1zCcm4hvZO+EWyKbylhKO,iv:xLu+nAsEkQ0uzlCAbGN1o6hDVsCWJ4WTgMR4SDEc64g=,tag:Sd4BKMwSSpbXsKa8tTTHPg==,type:str]
 sops:
@@ -15,7 +15,7 @@ sops:
             dFFZZGF1amNEeDZoUVByaElwQnRCNzQK38l6u6nShxVzomNZ5M4bBt+OVcHeE+7s
             jnmDcLbhnmeRtoO0Beu68mn18Bhl5e1+S6CU+242WJU3l5rtY+0fzg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-10T20:27:06Z"
-    mac: ENC[AES256_GCM,data:SAnAr7lLD9Bk6EGBS5909u4gLEx4cTBuvNAzljxNZBLsD/I+el8OIG0ff/8gAwDF1MxISK72EJ23m5ciZUSP53pbb23LEaFvucjWdMTZpEa1df9zF9gDt04uROjGg17+s9tN/IXs3caR/Uw1+bPs8oNzfuH7Q78NSjjPyFet9Nk=,iv:Y7Scdp0INod/df1DXPkZpFm9CxE85mXv4fisw6q9C7w=,tag:SXxT5+v2DajuchoNBm7/oA==,type:str]
+    lastmodified: "2026-04-15T21:09:38Z"
+    mac: ENC[AES256_GCM,data:r7t1Q+1RQgPFDL9g+hlLbjo3Q5IYI3Xw4p/p/TFSzXwj+ZCgQvsArgGP7s1LfHeGTNXVuMKUbDI9ExZ0w8aDU01aEJaw2td8Z2PLUuWuOWgpEZnR7w9WvOpwUPzrVY7sUHDDjzIrGfnDqrhZtAKDt9jfN61DBgZnf+oZPMy7XhU=,iv:A5VuF/+2/85kNCDCAR6ctIU5antM6Nw0PDz6Y50y8Xo=,tag:QEu9fA9i72TKgh7/XMJrcg==,type:str]
     unencrypted_suffix: _unencrypted
     version: 3.12.2
