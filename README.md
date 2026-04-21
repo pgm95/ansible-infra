@@ -145,13 +145,9 @@ Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemo
 
 **Serial execution is mandatory.** All bootstrap operations run `serial: 1`. Parallel joins cause split-brain during Raft elections.
 
-**MTU matters.** When running Swarm over Tailscale, the MTU stack is:
+**MTU matters.** When running Swarm over Tailscale, set `docker_mtu` to the Tailscale interface MTU (`1280`), not the overlay MTU. Docker subtracts the VXLAN 50-byte overhead itself, so a value of `1280` yields a `1230` overlay MTU. Setting `docker_mtu: 1230` double-counts the subtraction and produces a broken `1180` overlay.
 
-```text
-tailscale0 (MTU 1280) - VXLAN overhead (50) = Docker MTU 1230
-```
-
-`docker_mtu: 1230` must be set in each swarm node's host_vars (applied during provisioning via `lxc:deploy`/`vm:deploy`/`vps:deploy`). Do not set it in `playbooks/group_vars/swarm.yml` - the swarm playbook does not write daemon.json, so daemon config variables there have no effect.
+Set `docker_mtu` in each swarm node's host_vars (applied during provisioning via `lxc:deploy`/`vm:deploy`/`vps:deploy`). The swarm playbook does not write daemon.json, so daemon config variables in swarm group_vars have no effect.
 
 **VXLAN on public IPs.** Docker Swarm binds VXLAN (port 4789/UDP) to `0.0.0.0` regardless of `--data-path-addr`. On nodes with public IPs, set `docker_swarm_vxlan_interface: tailscale0` to restrict overlay traffic to the VPN interface via iptables.
 

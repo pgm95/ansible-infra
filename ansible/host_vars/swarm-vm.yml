@@ -29,7 +29,7 @@ tailscale_bind_ssh: false
 
 # Docker
 docker_enabled: true
-docker_mtu: 1230
+docker_mtu: 1280
 docker_dns_servers: []
 docker_dns_search: []
 docker_swarm_enabled: true
@@ -37,8 +37,8 @@ docker_swarm_init: true
 docker_swarm_role: manager
 docker_data_root: "/data/docker-data"
 docker_containerd_root: "/data/containerd"
-docker_swarm_advertise_addr: 100.88.0.2
-docker_swarm_listen_addr: 100.88.0.2:2377
+docker_swarm_advertise_addr: "{{ tailscale_ip }}"
+docker_swarm_listen_addr: "{{ tailscale_ip }}:2377"
 docker_swarm_data_path_port: 4789
 docker_swarm_labels: { type: "vm", location: "onprem", ip: "private" }
 docker_swarm_availability: active
