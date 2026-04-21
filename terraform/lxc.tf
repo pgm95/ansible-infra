@@ -66,7 +66,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   # Bind mounts
   dynamic "mount_point" {
-    for_each = each.value.bind_mounts
+    for_each = try(each.value.bind_mounts, [])
     content {
       volume = mount_point.value.volume
       path   = mount_point.value.path
