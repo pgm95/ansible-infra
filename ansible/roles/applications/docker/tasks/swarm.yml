@@ -34,6 +34,9 @@
       Could not query docker: {{ _swarm_info.msg | default('unknown error') }}.
       Verify dockerd is running and the Docker SDK for Python is installed.
     quiet: true
+  # Reset plays set ignore_unreachable to tolerate destroyed hosts. Skip the
+  # assert when the host is unreachable so the play-level flag can do its job.
+  when: _swarm_info is not unreachable
   tags: [always]
 
 - name: Swarm | Set state facts
