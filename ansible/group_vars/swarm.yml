@@ -20,16 +20,19 @@ ansible_user: root
 # ============================================================================
 # Swarm Network Configuration
 # ============================================================================
-# NOTE: These variables are intentionally NOT set here as defaults.
-# They are host-specific and must be set in host_vars/{type}/{hostname}.yml
-# or passed via add_host in the discovery task.
+# docker_swarm_advertise_addr and docker_swarm_data_path_addr are host-specific
+# and must be set in host_vars (typically the node's Tailscale IP).
 #
-# Host-specific variables (set in host_vars):
-#   - docker_swarm_advertise_addr: Tailscale IP for cross-network communication
-#   - docker_swarm_listen_addr: Listen address for management traffic
-#   - docker_swarm_data_path_addr: Address for overlay data traffic
-#
-# Default for data path port (can be overridden in host_vars):
+# docker_swarm_listen_addr is derived: narrow management traffic to the
+# advertise address so Swarm's control plane (2377/TCP) is not bound to
+# 0.0.0.0 on nodes with public IPs. Docker's native default is 0.0.0.0:2377
+# The empty-string fallback below lets the role omit the flag so Docker
+# uses that default when no advertise address is configured.
+docker_swarm_listen_addr: >-
+  {{ (docker_swarm_advertise_addr ~ ':2377')
+     if docker_swarm_advertise_addr | default('')
+     else '' }}
+
 docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
 
 # ============================================================================

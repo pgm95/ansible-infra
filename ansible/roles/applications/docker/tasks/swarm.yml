@@ -24,7 +24,16 @@
 - name: Swarm | Get current swarm status
   community.docker.docker_swarm_info:
   register: _swarm_info
-  failed_when: false
+  ignore_errors: true
+  tags: [always]
+
+- name: Swarm | Assert docker daemon responded
+  ansible.builtin.assert:
+    that: _swarm_info.can_talk_to_docker | default(false)
+    fail_msg: >-
+      Could not query docker: {{ _swarm_info.msg | default('unknown error') }}.
+      Verify dockerd is running and the Docker SDK for Python is installed.
+    quiet: true
   tags: [always]
 
 - name: Swarm | Set state facts

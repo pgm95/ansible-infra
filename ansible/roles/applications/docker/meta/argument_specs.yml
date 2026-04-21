@@ -38,9 +38,14 @@ argument_specs:
         default: ""
 
       docker_storage_driver:
-        description: "Storage driver: overlay2, btrfs, zfs, etc (empty = auto)"
+        description: "Storage driver (empty = auto)"
         type: str
         default: ""
+        choices:
+          - ""
+          - overlay2
+          - btrfs
+          - zfs
 
       # ========================================================================
       # Network Configuration
@@ -161,7 +166,9 @@ argument_specs:
       # Metrics Configuration
       # ========================================================================
       docker_metrics_enabled:
-        description: Enable Prometheus metrics endpoint
+        description: >-
+          Enable Prometheus metrics endpoint. Automatically forces
+          experimental mode on (required by dockerd for metrics-addr).
         type: bool
         default: false
 
@@ -177,21 +184,40 @@ argument_specs:
 
       docker_node_generic_resources:
         description: >-
-          Non-GPU generic resources for Swarm scheduling. Mapped to
-          node-generic-resources in daemon.json. For GPU resources,
-          use docker_gpu_enabled instead of adding "gpu=1" here.
+          Generic resources for Swarm scheduling. Mapped to
+          node-generic-resources in daemon.json.
         type: list
         elements: str
         default: []
       # ========================================================================
-      # GPU Configuration
+      # Runtime Configuration
+      # ========================================================================
+      docker_runtimes:
+        description: >-
+          Additional OCI runtimes to register in daemon.json. Keyed by runtime
+          name; each value is a dict with path (required) and args (optional list).
+        type: dict
+        default: {}
+
+      docker_default_runtime:
+        description: Default runtime name (empty = docker default = runc)
+        type: str
+        default: ""
+
+      docker_cdi_enabled:
+        description: Enable the Container Device Interface feature in dockerd
+        type: bool
+        default: false
+
+      # ========================================================================
+      # GPU Configuration (AMD)
       # ========================================================================
       docker_gpu_enabled:
         description: >-
-          Enable GPU support for Docker. Deploys udev rules to set
-          permissive DRM device permissions (/etc/udev/rules.d/99-dri.rules)
-          and auto-appends "gpu=1" to node-generic-resources in daemon.json
-          for Swarm GPU scheduling.
+          Install the AMD container toolkit, generate the CDI spec, and
+          register amd-container-runtime as the default runtime. Services opt
+          in by setting AMD_VISIBLE_DEVICES=all plus a placement constraint
+          on a gpu label. No devices, volumes, or group_add needed.
         type: bool
         default: false
       # ========================================================================
@@ -225,8 +251,8 @@ argument_specs:
 
       docker_swarm_listen_addr:
         description: >-
-          Listen address for management traffic. Defaults to
-          advertise_addr:2377 if advertise_addr is set, otherwise 0.0.0.0:2377.
+          Listen address for management traffic. Empty falls back to docker's
+          native default (0.0.0.0:2377).
         type: str
         default: ""
 

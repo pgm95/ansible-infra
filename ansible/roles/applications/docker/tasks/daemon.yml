@@ -1,0 +1,49 @@
+---
+# ============================================================================
+# Docker Role - Build daemon.json
+# ============================================================================
+# Computes _docker_daemon_config from the individual role variables.
+# Runs after gpu.yml (which may set docker_runtimes / docker_default_runtime /
+# docker_cdi_enabled) and before the daemon.json copy task.
+#
+# Empty values are filtered out to keep daemon.json clean.
+
+- name: Docker | Compute log-opts block
+  ansible.builtin.set_fact:
+    __log_opts: >-
+      {{
+        {'max-size': docker_log_max_size, 'max-file': docker_log_max_file}
+        | combine({'compress': 'true'} if docker_log_compress else {})
+      }}
+
+- name: Docker | Build daemon config
+  ansible.builtin.set_fact:
+    _docker_daemon_config: >-
+      {{
+        {}
+        | combine({'data-root': docker_data_root} if docker_data_root != '/var/lib/docker' else {})
+        | combine({'storage-driver': docker_storage_driver} if docker_storage_driver else {})
+        | combine({'mtu': docker_mtu} if docker_mtu > 0 else {})
+        | combine({'bip': docker_bridge_ip} if docker_bridge_ip else {})
+        | combine({'default-address-pools': docker_default_address_pools} if docker_default_address_pools else {})
+        | combine({'dns': docker_dns_servers} if docker_dns_servers else {})
+        | combine({'dns-search': docker_dns_search} if docker_dns_search else {})
+        | combine({'dns-opts': docker_dns_options} if docker_dns_options else {})
+        | combine({'iptables': docker_iptables_enabled} if not docker_iptables_enabled else {})
+        | combine({'ip-forward': docker_ip_forward} if not docker_ip_forward else {})
+        | combine({'ipv6': docker_ipv6_enabled} if docker_ipv6_enabled else {})
+        | combine({'fixed-cidr-v6': docker_fixed_cidr_v6} if docker_fixed_cidr_v6 else {})
+        | combine({'log-driver': docker_log_driver})
+        | combine({'log-opts': __log_opts})
+        | combine({'live-restore': false} if docker_swarm_enabled else {'live-restore': docker_live_restore})
+        | combine({'userland-proxy': docker_userland_proxy} if not docker_userland_proxy else {})
+        | combine({'default-ulimits': docker_default_ulimits} if docker_default_ulimits else {})
+        | combine({'registry-mirrors': docker_registry_mirrors} if docker_registry_mirrors else {})
+        | combine({'insecure-registries': docker_insecure_registries} if docker_insecure_registries else {})
+        | combine({'metrics-addr': docker_metrics_addr, 'experimental': true} if docker_metrics_enabled else {})
+        | combine({'experimental': docker_experimental} if docker_experimental and not docker_metrics_enabled else {})
+        | combine({'node-generic-resources': docker_node_generic_resources} if docker_node_generic_resources else {})
+        | combine({'features': {'cdi': true}} if docker_cdi_enabled else {})
+        | combine({'runtimes': docker_runtimes} if docker_runtimes else {})
+        | combine({'default-runtime': docker_default_runtime} if docker_default_runtime else {})
+      }}

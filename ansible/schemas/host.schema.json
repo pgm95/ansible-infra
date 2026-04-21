@@ -214,7 +214,11 @@
     "docker_ip_forward": { "type": "boolean", "description": "Enable IP forwarding" },
     "docker_ipv6_enabled": { "type": "boolean", "description": "Enable IPv6 in Docker" },
     "docker_fixed_cidr_v6": { "type": "string", "description": "IPv6 subnet for docker0" },
-    "docker_log_driver": { "type": "string", "description": "Logging driver" },
+    "docker_log_driver": {
+      "type": "string",
+      "enum": ["json-file", "journald", "syslog", "gelf", "fluentd", "awslogs", "splunk", "none"],
+      "description": "Logging driver"
+    },
     "docker_log_max_size": { "type": "string", "description": "Max log file size" },
     "docker_log_max_file": { "type": "string", "description": "Max log files to retain" },
     "docker_log_compress": { "type": "boolean", "description": "Compress rotated logs" },
@@ -239,7 +243,13 @@
       "items": { "type": "string" },
       "description": "Generic resources for Swarm scheduling"
     },
-    "docker_gpu_enabled": { "type": "boolean", "description": "Enable GPU support in Docker" },
+    "docker_runtimes": {
+      "type": "object",
+      "description": "Additional OCI runtimes for daemon.json (e.g. amd-container-runtime)"
+    },
+    "docker_default_runtime": { "type": "string", "description": "Default runtime name (empty = runc)" },
+    "docker_cdi_enabled": { "type": "boolean", "description": "Enable Container Device Interface feature" },
+    "docker_gpu_enabled": { "type": "boolean", "description": "Install AMD container runtime and enable CDI" },
     "docker_packages": {
       "type": "array",
       "items": { "type": "string" },

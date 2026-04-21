@@ -81,18 +81,11 @@
 
     - name: Fail with actionable message
       ansible.builtin.fail:
-        msg: |
-          Docker installation failed. Check the error messages above.
-
-          Common issues:
-            - Network connectivity to download.docker.com
-            - Unsupported distribution release
-            - GPG key verification failure
-
-          How to fix:
-            1. Check network connectivity: curl -fsSL https://download.docker.com/linux/{{ __docker_distribution }}/gpg
-            2. Verify distribution release: {{ ansible_facts['distribution_release'] }}
-            3. Re-run the playbook after fixing the underlying issue
+        msg: >-
+          Docker installation failed (distribution={{ __docker_distribution | default('unknown') }},
+          release={{ ansible_facts['distribution_release'] }}). Check network to
+          download.docker.com, verify the distribution release is supported, and
+          re-run after resolving.
 
 # ============================================================================
 # Docker Configuration
@@ -107,41 +100,40 @@
     path: /usr/bin/dockerd
   register: __docker_installed
 
-- name: Register GPU as generic resource
-  ansible.builtin.set_fact:
-    docker_node_generic_resources: "{{ docker_node_generic_resources + ['gpu=1'] }}"
-  when:
-    - docker_gpu_enabled
-    - "'gpu=1' not in docker_node_generic_resources"
+- name: Install GPU runtime
+  ansible.builtin.include_tasks: gpu.yml
+  when: docker_gpu_enabled
 
-- name: Configure Docker daemon
-  ansible.builtin.copy:
-    dest: /etc/docker/daemon.json
-    content: "{{ docker_daemon_config | to_nice_json }}\n"
-    mode: "0644"
-    backup: true
-  notify: Docker | Restart docker
+- name: Configure Docker (requires Docker present outside check mode)
   when: not ansible_check_mode or __docker_installed.stat.exists
+  block:
+    - name: Build daemon config
+      ansible.builtin.include_tasks: daemon.yml
 
-- name: Set containerd root directory
-  ansible.builtin.lineinfile:
-    path: /etc/containerd/config.toml
-    regexp: '^#?root\s*='
-    line: 'root = "{{ docker_containerd_root }}"'
-    insertafter: '^disabled_plugins'
-    backup: true
-  notify: Docker | Restart docker
-  when:
-    - docker_containerd_root | default('') | length > 0
-    - not ansible_check_mode or __docker_installed.stat.exists
+    - name: Configure Docker daemon
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: "{{ _docker_daemon_config | to_nice_json }}\n"
+        mode: "0644"
+        backup: true
+      notify: Docker | Restart docker
 
-- name: Start and enable Docker service
-  ansible.builtin.systemd:
-    name: docker
-    enabled: true
-    state: started
-    daemon_reload: true
-  when: not ansible_check_mode or __docker_installed.stat.exists
+    - name: Set containerd root directory
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^#?root\s*='
+        line: 'root = "{{ docker_containerd_root }}"'
+        insertafter: '^disabled_plugins'
+        backup: true
+      notify: Docker | Restart docker
+      when: docker_containerd_root | default('') | length > 0
+
+    - name: Start and enable Docker service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+        daemon_reload: true
 
 - name: Display Docker configuration summary
   ansible.builtin.debug:

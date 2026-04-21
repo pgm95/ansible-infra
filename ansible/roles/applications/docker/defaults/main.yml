@@ -2,194 +2,34 @@
 # ==================================================================================
 # Docker Role - Default Variables
 # ==================================================================================
-# Variable naming convention:
-#   __var      = Internal (computed/consumed within single task file)
-#   _var       = Interface (passed between tasks/templates/handlers)
-#   role_var   = Role output (computed, used across task files)
-#
-# Installs Docker CE with comprehensive daemon configuration, swarm mode support,
-# and user management.
 #
 # Variable Categories:
 #   - Role Enablement: Enable/disable Docker installation
-#   - Data & Storage: Data directory, storage driver configuration
+#   - Data & Storage: Data directory, storage driver
 #   - Networking: MTU, bridge IP, DNS, address pools
 #   - Logging: Driver, rotation, size limits
+#   - Daemon Runtime Behavior: live-restore, userland-proxy, ulimits
 #   - Registry: Mirrors, insecure registries
-#   - Metrics: Prometheus endpoint configuration
+#   - Metrics: Prometheus endpoint, generic resources
+#   - Runtime Configuration: Additional OCI runtimes (CDI, default-runtime)
+#   - GPU (AMD): amd-container-toolkit install and runtime registration
 #   - Swarm: Cluster configuration, init options, join settings
 #   - Packages: Docker CE packages to install
 #
-# Internal/Computed Variables:
-#   - docker_daemon_config: Built from individual variables above
-#   - docker_arch: Auto-detected architecture (x86_64 -> amd64, aarch64 -> arm64)
-# ==================================================================================
+# Internal/Computed Variables (set by tasks, not defaults):
+#   - _docker_daemon_config: Computed daemon.json (tasks/daemon.yml)
+#   - __log_opts: Computed log-opts sub-block (tasks/daemon.yml)
+#   - __docker_arch: Auto-detected architecture (x86_64 -> amd64, aarch64 -> arm64)
+#   - __docker_distribution: Detected OS distribution (debian/ubuntu)
+#   - __docker_installed: Stat result of /usr/bin/dockerd (guards check-mode logic)
+#   - __repo_result: Result of repository addition
+#   - __amd_toolkit_suite: Computed AMD apt suite from distro/version (tasks/gpu.yml)
 
 # ==================================================================================
-# Role Enablement
+# Docker Installation & Configuration
 # ==================================================================================
 
 docker_enabled: false # (boolean) Enable Docker installation and configuration
-
-# ==================================================================================
-# Data & Storage Configuration
-# ==================================================================================
-
-docker_data_root: /var/lib/docker # (string) Docker root data directory (data-root)
-docker_containerd_root: "" # (string) Containerd root directory (empty = default /var/lib/containerd)
-docker_storage_driver: "" # (string) Storage driver: overlay2, btrfs, zfs, etc (empty = auto)
-
-# ==================================================================================
-# Network Configuration
-# ==================================================================================
-
-docker_mtu: 0 # (integer) Default MTU for networks (0 = auto, e.g., 1400 for tunneled traffic)
-docker_bridge_ip: "" # (string) Custom docker0 bridge IP in CIDR (e.g., "172.17.0.1/16")
-docker_default_address_pools: [] # (list) Default address pools for bridge networks
-# Example: [{"base": "172.80.0.0/16", "size": 24}]
-
-docker_dns_servers: [] # (list) DNS servers for containers (e.g., ["8.8.8.8", "1.1.1.1"])
-docker_dns_search: [] # (list) DNS search domains (e.g., ["home.arpa"])
-docker_dns_options: [] # (list) DNS options (e.g., ["ndots:1"])
-
-docker_iptables_enabled: true # (boolean) Enable iptables rules for container networking
-docker_ip_forward: true # (boolean) Enable IP forwarding (net.ipv4.ip_forward)
-docker_ipv6_enabled: false # (boolean) Enable IPv6 networking
-docker_fixed_cidr_v6: "" # (string) IPv6 subnet for containers (e.g., "2001:db8::/64")
-
-# ==================================================================================
-# Logging Configuration
-# ==================================================================================
-
-docker_log_driver: json-file # (string) Logging driver: json-file, journald, syslog, etc
-docker_log_max_size: "50m" # (string) Maximum log file size before rotation
-docker_log_max_file: "3" # (string) Maximum number of log files to retain
-docker_log_compress: false # (boolean) Compress rotated log files (json-file driver)
-
-# ==================================================================================
-# Runtime Configuration
-# ==================================================================================
-
-docker_live_restore: true # (boolean) Keep containers running during daemon downtime
-docker_userland_proxy: true # (boolean) Use userland proxy for loopback traffic
-docker_default_ulimits: {} # (dict) Default ulimits for containers
-# Example: {"nofile": {"Name": "nofile", "Hard": 65536, "Soft": 65536}}
-
-# ==================================================================================
-# Registry Configuration
-# ==================================================================================
-
-docker_registry_mirrors: [] # (list) Registry mirrors (e.g., ["https://mirror.gcr.io"])
-docker_insecure_registries: [] # (list) Insecure registries (e.g., ["registry.local:5000"])
-
-# ==================================================================================
-# Metrics Configuration
-# ==================================================================================
-
-docker_metrics_enabled: false # (boolean) Enable Prometheus metrics endpoint
-docker_metrics_addr: "127.0.0.1:9323" # (string) Metrics endpoint address
-docker_experimental: false # (boolean) Enable experimental features
-docker_node_generic_resources: [] # (list) Non-GPU generic resources for Swarm scheduling. For GPU, use docker_gpu_enabled
-
-# ==================================================================================
-# GPU Configuration
-# ==================================================================================
-
-docker_gpu_enabled: false # (boolean) Deploy DRM udev rules + auto-register gpu=1 generic resource
-
-# ==================================================================================
-# Daemon Configuration (Computed)
-# ==================================================================================
-# Built from individual variables above. Override entirely in host_vars if needed.
-# Empty values are filtered out to keep daemon.json clean.
-
-docker_daemon_config: >-
-  {{
-    {}
-    | combine({'data-root': docker_data_root} if docker_data_root != '/var/lib/docker' else {})
-    | combine({'storage-driver': docker_storage_driver} if docker_storage_driver else {})
-    | combine({'mtu': docker_mtu} if docker_mtu > 0 else {})
-    | combine({'bip': docker_bridge_ip} if docker_bridge_ip else {})
-    | combine({'default-address-pools': docker_default_address_pools} if docker_default_address_pools else {})
-    | combine({'dns': docker_dns_servers} if docker_dns_servers else {})
-    | combine({'dns-search': docker_dns_search} if docker_dns_search else {})
-    | combine({'dns-opts': docker_dns_options} if docker_dns_options else {})
-    | combine({'iptables': docker_iptables_enabled} if not docker_iptables_enabled else {})
-    | combine({'ip-forward': docker_ip_forward} if not docker_ip_forward else {})
-    | combine({'ipv6': docker_ipv6_enabled} if docker_ipv6_enabled else {})
-    | combine({'fixed-cidr-v6': docker_fixed_cidr_v6} if docker_fixed_cidr_v6 else {})
-    | combine({'log-driver': docker_log_driver})
-    | combine({'log-opts': {'max-size': docker_log_max_size, 'max-file': docker_log_max_file}
-               | combine({'compress': 'true'} if docker_log_compress else {})})
-    | combine({'live-restore': false} if docker_swarm_enabled else {'live-restore': docker_live_restore})
-    | combine({'userland-proxy': docker_userland_proxy} if not docker_userland_proxy else {})
-    | combine({'default-ulimits': docker_default_ulimits} if docker_default_ulimits else {})
-    | combine({'registry-mirrors': docker_registry_mirrors} if docker_registry_mirrors else {})
-    | combine({'insecure-registries': docker_insecure_registries} if docker_insecure_registries else {})
-    | combine({'metrics-addr': docker_metrics_addr, 'experimental': true} if docker_metrics_enabled else {})
-    | combine({'experimental': docker_experimental} if docker_experimental and not docker_metrics_enabled else {})
-    | combine({'node-generic-resources': docker_node_generic_resources} if docker_node_generic_resources else {})
-  }}
-
-# ==================================================================================
-# Docker Swarm Configuration
-# ==================================================================================
-# Swarm mode is orchestrated by playbooks/swarm.yml, not applied during regular
-# Docker installation. These variables define the node's intended Swarm role.
-
-docker_swarm_enabled: false # (boolean) Enable Swarm mode on this host
-docker_swarm_role: worker # (string) Node role: manager or worker
-docker_swarm_init: false # (boolean) Initialize new swarm (true ONLY on first manager)
-
-# ==================================================================================
-# Swarm Network Settings
-# ==================================================================================
-
-docker_swarm_advertise_addr: "" # (string) Advertise address (empty = auto-detect)
-docker_swarm_listen_addr: >- # (string) Listen address for management traffic
-  {{ (docker_swarm_advertise_addr ~ ':2377')
-     if docker_swarm_advertise_addr | default('')
-     else '0.0.0.0:2377' }}
-docker_swarm_data_path_addr: "" # (string) Address/interface for data traffic (empty = auto)
-docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
-
-# ==================================================================================
-# Swarm Overlay Network Defaults
-# ==================================================================================
-
-docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
-docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
-
-# ==================================================================================
-# Swarm Security & Raft Configuration
-# ==================================================================================
-
-docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest (requires unlock on restart)
-docker_swarm_election_tick: 10 # (integer) Raft election timeout in ticks
-docker_swarm_heartbeat_tick: 1 # (integer) Raft heartbeat interval in ticks
-docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h" for 90 days)
-docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for WAN/Tailscale)
-docker_swarm_vxlan_interface: "" # (string) Restrict VXLAN to this interface (e.g., "tailscale0")
-
-# ==================================================================================
-# Swarm Node Configuration
-# ==================================================================================
-
-docker_swarm_labels: {} # (dict) Node labels for placement constraints
-docker_swarm_availability: active # (string) Node availability: active, pause, drain
-
-# ==================================================================================
-# Swarm Join Configuration
-# ==================================================================================
-# Set dynamically during orchestration or via vault for existing clusters
-
-docker_swarm_manager_token: "" # (string) Manager join token
-docker_swarm_worker_token: "" # (string) Worker join token
-docker_swarm_manager_addrs: [] # (list) Manager addresses for joining ["ip:2377"]
-
-# ==================================================================================
-# Package Installation
-# ==================================================================================
 
 docker_packages: # (list) Docker packages to install
   - docker-ce
@@ -198,11 +38,80 @@ docker_packages: # (list) Docker packages to install
   - docker-buildx-plugin
   - docker-compose-plugin
 
+# Data & Storage
+docker_data_root: /var/lib/docker # (string) Docker root data directory (data-root)
+docker_containerd_root: "" # (string) Containerd root directory (empty = default /var/lib/containerd)
+docker_storage_driver: "" # (string) Storage driver: overlay2, btrfs, zfs, etc (empty = auto)
+
+# Networking
+docker_mtu: 0 # (integer) Default MTU for networks (0 = auto, e.g., 1400 for tunneled traffic)
+docker_bridge_ip: "" # (string) Custom docker0 bridge IP in CIDR (e.g., "172.17.0.1/16")
+docker_default_address_pools: [] # (list) Default address pools for bridge networks
+                                 # Example: [{"base": "172.80.0.0/16", "size": 24}]
+docker_dns_servers: [] # (list) DNS servers for containers (e.g., ["8.8.8.8", "1.1.1.1"])
+docker_dns_search: [] # (list) DNS search domains (e.g., ["home.arpa"])
+docker_dns_options: [] # (list) DNS options (e.g., ["ndots:1"])
+docker_iptables_enabled: true # (boolean) Enable iptables rules for container networking
+docker_ip_forward: true # (boolean) Enable IP forwarding (net.ipv4.ip_forward)
+docker_ipv6_enabled: false # (boolean) Enable IPv6 networking
+docker_fixed_cidr_v6: "" # (string) IPv6 subnet for containers (e.g., "2001:db8::/64")
+
+# Logging
+docker_log_driver: json-file # (string) Logging driver: json-file, journald, syslog, etc
+docker_log_max_size: "50m" # (string) Maximum log file size before rotation
+docker_log_max_file: "3" # (string) Maximum number of log files to retain
+docker_log_compress: false # (boolean) Compress rotated log files (json-file driver)
+
+# Daemon Runtime Behavior
+docker_live_restore: true # (boolean) Keep containers running during daemon downtime
+docker_userland_proxy: true # (boolean) Use userland proxy for loopback traffic
+docker_default_ulimits: {} # (dict) Default ulimits for containers
+# Example: {"nofile": {"Name": "nofile", "Hard": 65536, "Soft": 65536}}
+
+# Registry
+docker_registry_mirrors: [] # (list) Registry mirrors (e.g., ["https://mirror.gcr.io"])
+docker_insecure_registries: [] # (list) Insecure registries (e.g., ["registry.local:5000"])
+
+# Metrics
+docker_metrics_enabled: false # (boolean) Enable Prometheus metrics endpoint (forces experimental: true)
+docker_metrics_addr: "127.0.0.1:9323" # (string) Metrics endpoint address
+docker_experimental: false # (boolean) Enable experimental features
+docker_node_generic_resources: [] # (list) Generic resources for Swarm scheduling (see swarm docs)
+
+# Runtime
+docker_runtimes: {} # (dict) Additional OCI runtimes to register. Example: {amd: {path: amd-container-runtime}}
+docker_default_runtime: "" # (string) Default runtime name (empty = docker default = runc)
+docker_cdi_enabled: false # (boolean) Enable the Container Device Interface feature
+docker_gpu_enabled: false # (boolean) Install AMD container runtime and enable CDI
+
 # ==================================================================================
-# Internal Variables (Auto-Computed)
+# Docker Swarm Configuration
 # ==================================================================================
-# __docker_distribution: Detected OS distribution (debian/ubuntu)
-# __docker_arch: Auto-detected architecture (x86_64 -> amd64, aarch64 -> arm64)
-# __gpg_key_result: Result of GPG key download
-# __repo_result: Result of repository addition
-# ==================================================================================
+
+# Swarm mode is orchestrated by playbooks/swarm.yml, not applied during regular Docker installation.
+docker_swarm_enabled: false # (boolean) Enable Swarm mode on this host
+docker_swarm_role: worker # (string) Node role: manager or worker
+docker_swarm_init: false # (boolean) Initialize new swarm (true ONLY on first manager)
+
+# Swarm Network Settings & Overlay Network Defaults
+docker_swarm_advertise_addr: "" # (string) Advertise address (empty = auto-detect)
+docker_swarm_listen_addr: "" # (string) Listen address (empty = docker default 0.0.0.0:2377)
+docker_swarm_data_path_addr: "" # (string) Address/interface for data traffic (empty = auto)
+docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
+docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
+docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
+
+# Swarm Security & Raft
+docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest (requires unlock on restart)
+docker_swarm_election_tick: 10 # (integer) Raft election timeout in ticks
+docker_swarm_heartbeat_tick: 1 # (integer) Raft heartbeat interval in ticks
+docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h" for 90 days)
+docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for WAN/Tailscale)
+docker_swarm_vxlan_interface: "" # (string) e.g., "tailscale0"
+docker_swarm_labels: {} # (dict) Node labels for placement constraints
+docker_swarm_availability: active # (string) Node availability: active, pause, drain
+
+# Swarm Join
+docker_swarm_manager_token: "" # (string) Manager join token
+docker_swarm_worker_token: "" # (string) Worker join token
+docker_swarm_manager_addrs: [] # (list) Manager addresses for joining ["ip:2377"]

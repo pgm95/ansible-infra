@@ -1,6 +1,6 @@
 # Docker Role
 
-Installs Docker CE with comprehensive daemon configuration, swarm mode support, and user management.
+Installs Docker CE with comprehensive daemon configuration and swarm mode support.
 
 ## Features
 
@@ -11,7 +11,7 @@ Installs Docker CE with comprehensive daemon configuration, swarm mode support, 
 - Prometheus metrics endpoint
 - Registry mirrors and insecure registries
 - Custom MTU, DNS, and network configuration
-- Automatic user group membership
+- AMD GPU runtime (opt-in via `docker_gpu_enabled`)
 
 ## Requirements
 
@@ -40,7 +40,7 @@ docker_enabled: true
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
-| `docker_mtu` | `0` | Network MTU (0 = auto, 1230 for Tailscale) |
+| `docker_mtu` | `0` | Network MTU (0 = auto; reduce for tunneled networks) |
 | `docker_bridge_ip` | `""` | Custom docker0 bridge IP (CIDR) |
 | `docker_dns_servers` | `[]` | Container DNS servers |
 | `docker_dns_search` | `[]` | DNS search domains |
@@ -56,7 +56,7 @@ docker_enabled: true
 | `docker_log_max_file` | `3` | Max log files to retain |
 | `docker_log_compress` | `false` | Compress rotated logs |
 
-### Runtime
+### Daemon Runtime Behavior
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
@@ -76,13 +76,21 @@ docker_enabled: true
 | ---------- | --------- | ------------- |
 | `docker_metrics_enabled` | `false` | Enable Prometheus endpoint |
 | `docker_metrics_addr` | `127.0.0.1:9323` | Metrics listen address |
-| `docker_node_generic_resources` | `[]` | Non-GPU generic resources for Swarm scheduling |
+| `docker_node_generic_resources` | `[]` | Generic resources for Swarm scheduling |
 
-### GPU
+### Runtime
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
-| `docker_gpu_enabled` | `false` | Auto-register `gpu=1` generic resource for Swarm scheduling |
+| `docker_runtimes` | `{}` | Additional OCI runtimes for daemon.json |
+| `docker_default_runtime` | `""` | Default runtime name (empty = runc) |
+| `docker_cdi_enabled` | `false` | Enable Container Device Interface feature |
+
+### GPU (AMD)
+
+| Variable | Default | Description |
+| ---------- | --------- | ------------- |
+| `docker_gpu_enabled` | `false` | Install AMD container runtime and enable CDI |
 
 ### Swarm Mode
 
@@ -100,16 +108,16 @@ See `defaults/main.yml` for complete swarm variable list.
 
 ## Computed daemon.json
 
-The `docker_daemon_config` variable is built from individual settings. Empty/default values are automatically filtered out:
+`daemon.json` is built internally from the individual settings above. Empty/default values are filtered out:
 
 ```yaml
 # Setting these variables:
-docker_mtu: 1230
+docker_mtu: 1280
 docker_log_max_size: "100m"
 
 # Produces daemon.json:
 {
-  "mtu": 1230,
+  "mtu": 1280,
   "log-driver": "json-file",
   "log-opts": {
     "max-size": "100m",
@@ -119,39 +127,43 @@ docker_log_max_size: "100m"
 }
 ```
 
-Override entirely in host_vars if custom structure needed.
-
 ## Swarm + Tailscale
 
-For heterogeneous clusters across NAT boundaries, set daemon config variables in each node's host_vars (not in `playbooks/group_vars/swarm.yml` - the swarm playbook does not write daemon.json):
+`docker_mtu` is the **transport** MTU (the interface the overlay rides on), not the overlay MTU. Docker subtracts the VXLAN 50-byte overhead itself, so `docker_mtu: 1280` (Tailscale's MTU) yields a 1230-byte overlay MTU. Setting `docker_mtu: 1230` double-counts the subtraction and produces a broken 1180 overlay.
+
+Set daemon config in each node's host_vars — the swarm playbook does not write daemon.json, so variables in swarm group_vars have no effect on it:
 
 ```yaml
 # host_vars/swarm-node.yml
 docker_enabled: true
-docker_mtu: 1230  # Tailscale 1280 - VXLAN 50
+docker_mtu: 1280  # Tailscale interface MTU; Docker derives overlay (1230)
 docker_swarm_enabled: true
 docker_swarm_role: manager
 docker_swarm_advertise_addr: "100.64.0.1"  # Tailscale IP
 ```
 
-## GPU Support
+## GPU Support (AMD)
 
-For Docker Swarm nodes with GPU passthrough, set `docker_gpu_enabled: true`. This auto-appends `gpu=1` to `node-generic-resources` in daemon.json for Swarm scheduling.
+Setting `docker_gpu_enabled: true` on a host:
 
-Do not add `"gpu=1"` to `docker_node_generic_resources` directly - use `docker_gpu_enabled` instead.
+- Installs `amd-container-toolkit` from the official AMD repo.
+- Generates `/etc/cdi/amd.json` via `amd-ctk cdi generate`.
+- Registers `amd-container-runtime` as the daemon's default runtime and enables the CDI feature.
 
-For LXC containers, GPU device permissions are controlled by Terraform's device passthrough `gid` in `locals.tf`, not by udev rules (udev does not run inside LXC).
+Services access the GPU by setting `AMD_VISIBLE_DEVICES=all` in their environment and placing on a node with a matching label (e.g. `node.labels.gpu == true`). No device entries, no volume mounts, no `group_add` needed — the runtime handles device injection.
+
+Swarm `generic_resources` are not used for GPU scheduling: on hardware without a GPU UUID the AMD runtime misinterprets the `DOCKER_RESOURCE_*` env var injected by swarm and declines to attach devices. Use a label-based placement constraint instead.
+
+For LXC containers, GPU device passthrough (`/dev/dri/*`, `/dev/kfd`) and the `gid` on those device files are set by Terraform in `locals.tf`.
 
 ## Dependencies
 
-None.
-
-## Tags
-
-- `docker` - All Docker tasks
+- `community.docker` collection (for swarm tasks)
+- `python3-docker` on the target host (auto-installed by the swarm tasks)
 
 ## Notes
 
-- `live-restore` is automatically disabled when `docker_swarm_enabled: true`
-- Root user excluded from group management
-- Data directory created only if non-default path specified
+- `live-restore` is automatically disabled when `docker_swarm_enabled: true`.
+- `docker_metrics_enabled: true` forces `experimental: true` in daemon.json (required by dockerd for the metrics endpoint).
+- The AMD Container Toolkit apt suite is auto-resolved from the host distribution. Supported: Debian 12/13, Ubuntu 22.04/24.04. Debian 12 and Ubuntu 22.04 use the `jammy` suite; Debian 13 and Ubuntu 24.04 use `noble`.
+- The role does not declare its own tag. To target its tasks selectively, wrap the role in a play with `tags: [docker]`.
