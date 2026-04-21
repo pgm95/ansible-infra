@@ -97,7 +97,7 @@ dotfiles_enabled: true
 ```
 
 ```bash
-mise run vps:deploy -- --tags dotfiles
+mise run vps:deploy --tags dotfiles
 ```
 
 ### Selective Components

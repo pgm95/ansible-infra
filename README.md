@@ -235,4 +235,4 @@ mise run tf:apply                      # Apply Terraform changes
 mise run tf:destroy                    # Destroy all TF-managed resources
 ```
 
-Pass ansible-playbook args after `--` (e.g., `mise run lxc:deploy -- --limit host1 --tags docker`). All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
+Ansible-playbook args pass through directly (e.g., `mise run lxc:deploy --limit host1 --tags docker`) via `raw_args` on the deploy tasks. All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.

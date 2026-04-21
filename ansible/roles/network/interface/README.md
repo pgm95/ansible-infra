@@ -63,7 +63,7 @@ net_iface_gateway: 192.168.1.1
 1. Run playbook:
 
 ```bash
-task vps:deploy -- --tags network
+mise run vps:deploy --tags network
 ```
 
 ### DHCP Configuration
@@ -79,7 +79,7 @@ net_iface_name: eth0
 1. Run playbook:
 
 ```bash
-task vps:deploy -- --tags network
+mise run vps:deploy --tags network
 ```
 
 ## Template Behavior

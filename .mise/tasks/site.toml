@@ -3,43 +3,48 @@
 ["site:deploy"]
 description = " " # "Create and provision all hosts"
 run = [
-  "mise run tf:apply",
-  "mise run lxc:deploy",
-  "mise run vm:deploy",
-  "mise run vps:deploy",
-  "mise run swarm:deploy"
+  "mise run --yes tf:apply",
+  { tasks = ["lxc:deploy", "vm:deploy", "vps:deploy"] },
+  { task = "swarm:deploy" }
   ]
 
 # ================================================================================
 
 ["lxc:deploy"]
+raw_args = true
 description = " " # "Deploy LXC containers"
 run = "ansible-playbook ansible/playbooks/lxc.yml"
 
 ["lxc:check"]
+raw_args = true
 description = " " # "Dry-run LXC provisioning"
 run = "ansible-playbook ansible/playbooks/lxc.yml --check --diff"
 
 # ================================================================================
 
 ["vm:deploy"]
+raw_args = true
 description = " " # "Deploy VMs"
 run = "ansible-playbook ansible/playbooks/vm.yml"
 
 ["vm:check"]
+raw_args = true
 description = " " # "Dry-run VM provisioning"
 run = "ansible-playbook ansible/playbooks/vm.yml --check --diff"
 
 # ================================================================================
 
 ["vps:deploy"]
+raw_args = true
 description = " " # "Deploy VPS hosts"
 run = "ansible-playbook ansible/playbooks/vps.yml"
 
 ["vps:check"]
+raw_args = true
 description = " " # "Dry-run VPS deployment"
 run = "ansible-playbook ansible/playbooks/vps.yml --check --diff"
 
 ["vps:first-run"]
+raw_args = true
 description = " " # "First-time deployment with password authentication"
 run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root --extra-vars \"ansible_host={{ env.VPS_PUBLIC_IP }}\""

@@ -75,7 +75,7 @@ The role applies security hardening automatically:
 Run playbook:
 
 ```bash
-task vps:deploy -- --tags ssh,security
+mise run vps:deploy --tags ssh,security
 ```
 
 Result:
@@ -163,7 +163,7 @@ For first-time VPS deployment with password access:
 1. Initial deployment with password:
 
 ```bash
-task vps:first-run
+mise run vps:first-run
 ```
 
 1. SSH keys are deployed by users role

@@ -88,7 +88,7 @@ users_list:
 1. Run playbook:
 
 ```bash
-task vps:deploy -- --tags users
+mise run vps:deploy --tags users
 ```
 
 Result:
