@@ -125,7 +125,7 @@
         line: 'root = "{{ docker_containerd_root }}"'
         insertafter: '^disabled_plugins'
         backup: true
-      notify: Docker | Restart docker
+      notify: Docker | Restart containerd
       when: docker_containerd_root | default('') | length > 0
 
     - name: Start and enable Docker service

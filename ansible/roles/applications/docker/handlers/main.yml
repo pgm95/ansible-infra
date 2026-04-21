@@ -1,6 +1,15 @@
 ---
 # Docker role handlers
 
+# Containerd is a separate systemd service. Order this before the docker
+# restart handler so when both are notified in the same play, containerd
+# reloads its config before docker reconnects.
+- name: Docker | Restart containerd
+  ansible.builtin.systemd:
+    name: containerd
+    state: restarted
+    daemon_reload: true
+
 - name: Docker | Restart docker
   ansible.builtin.systemd:
     name: docker
