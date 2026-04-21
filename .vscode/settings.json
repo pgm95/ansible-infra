@@ -37,7 +37,5 @@
     },
     "editor.trimAutoWhitespace": true,
     "editor.formatOnSave": false
-  },
-  // Search exclusions
-  "search.useIgnoreFiles": true
+  }
 }

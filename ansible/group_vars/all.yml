@@ -110,7 +110,7 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # tailscale_insecurely_log_authkey: false # (boolean) Log authkey (INSECURE, debug only)
 
 ## Role: applications/docker
-# docker_enabled: false              # (boolean) Enable Docker installation
+docker_enabled: false              # (boolean) Enable Docker installation
 # docker_data_root: /var/lib/docker  # (string) Docker root data directory
 # docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
 # docker_mtu: 0                      # (integer) Default MTU (0 = auto, 1230 for Tailscale+VXLAN)
@@ -139,7 +139,7 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # docker_gpu_enabled: false          # (boolean) Deploy DRM udev rules + auto-register gpu=1
 
 ## Role: applications/docker (Swarm)
-# docker_swarm_enabled: false        # (boolean) Enable Swarm mode
+docker_swarm_enabled: false        # (boolean) Enable Swarm mode
 # docker_swarm_role: worker          # (string) Node role: manager | worker
 # docker_swarm_init: false           # (boolean) Initialize new swarm (one node only)
 # docker_swarm_advertise_addr: ""    # (string) Advertise address (Tailscale IP for WAN clusters)
@@ -160,7 +160,7 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # docker_swarm_manager_addrs: []     # (list) Manager addresses ["ip:2377"]
 
 ## Role: applications/samba
-# samba_enabled: false               # (boolean) Enable Samba fileserver
+samba_enabled: false               # (boolean) Enable Samba fileserver
 # samba_existing_user: ""            # (string) Reference to user from users_list (REQUIRED if enabled)
 # samba_password: ""                 # (string) Samba user password (REQUIRED if enabled)
 # smb_conf_file: ""                  # (string) Path to smb.conf source file (REQUIRED if enabled)
