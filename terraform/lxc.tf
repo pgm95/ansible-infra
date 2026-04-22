@@ -142,10 +142,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 }
 
-# Reboot LXC containers after creation when idmap is configured.
-# The bpg/proxmox provider writes idmap entries via SSH after the container
-# starts, so bind mounts show 65534 (nobody) until a reboot.
-# Triggers on first creation and whenever idmap values change.
+# Reboots LXC containers that use idmap. The provider writes idmap entries via
+# SSH after start, so bind mounts show 'nobody' until a reboot. Fires on create,
+# idmap value changes, and container replacement.
 resource "terraform_data" "lxc_idmap_reboot" {
   for_each = {
     for name, cfg in local.active_lxc : name => cfg
@@ -157,9 +156,13 @@ resource "terraform_data" "lxc_idmap_reboot" {
     each.value.idmap_gid,
   ]
 
+  lifecycle {
+    replace_triggered_by = [
+      proxmox_virtual_environment_container.lxc[each.key],
+    ]
+  }
+
   provisioner "local-exec" {
     command = "ssh -o StrictHostKeyChecking=no root@${var.pve_host_addr} 'pct reboot ${each.value.vm_id}'"
   }
-
-  depends_on = [proxmox_virtual_environment_container.lxc]
 }
