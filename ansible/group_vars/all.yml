@@ -137,6 +137,7 @@ docker_enabled: false              # (boolean) Enable Docker installation
 # docker_experimental: false         # (boolean) Enable experimental features
 # docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
 # docker_amd_ctk_enabled: false      # (boolean) Install AMD container toolkit + register amd runtime + enable CDI
+# docker_wait_for_tailscale: false   # (boolean) systemd drop-in: docker.service waits for tailscaled at boot
 
 ## Role: applications/docker (Swarm)
 docker_swarm_enabled: false        # (boolean) Enable Swarm mode

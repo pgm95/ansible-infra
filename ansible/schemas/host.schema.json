@@ -250,6 +250,7 @@
     "docker_default_runtime": { "type": "string", "description": "Default runtime name (empty = runc)" },
     "docker_cdi_enabled": { "type": "boolean", "description": "Enable Container Device Interface feature" },
     "docker_amd_ctk_enabled": { "type": "boolean", "description": "Install AMD container toolkit, register amd runtime, enable CDI" },
+    "docker_wait_for_tailscale": { "type": "boolean", "description": "Drop in After=/Requires=tailscaled.service for boot ordering" },
     "docker_packages": {
       "type": "array",
       "items": { "type": "string" },

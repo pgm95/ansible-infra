@@ -29,6 +29,7 @@ tailscale_bind_ssh: false
 
 # Docker
 docker_enabled: true
+docker_wait_for_tailscale: true
 docker_mtu: 1280
 docker_dns_servers: []
 docker_dns_search: []

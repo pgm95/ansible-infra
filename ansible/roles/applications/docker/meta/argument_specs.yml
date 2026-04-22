@@ -222,6 +222,19 @@ argument_specs:
           group_add needed.
         type: bool
         default: false
+
+      # ========================================================================
+      # Systemd Integration
+      # ========================================================================
+      docker_wait_for_tailscale:
+        description: >-
+          Install /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
+          with After=/Requires=tailscaled.service so docker.service waits for
+          Tailscale at boot. Boot ordering only - daemon-reload and restart
+          are intentionally not performed; the dependency takes effect on the
+          next reboot.
+        type: bool
+        default: false
       # ========================================================================
       # Docker Swarm Configuration
       # ========================================================================

@@ -92,6 +92,12 @@ docker_enabled: true
 | ---------- | --------- | ------------- |
 | `docker_amd_ctk_enabled` | `false` | Install AMD container toolkit, register `amd` runtime, enable CDI |
 
+### Systemd Integration
+
+| Variable | Default | Description |
+| ---------- | --------- | ------------- |
+| `docker_wait_for_tailscale` | `false` | Drop in `After=`/`Requires=tailscaled.service` so docker waits for Tailscale at boot |
+
 ### Swarm Mode
 
 Swarm orchestration is handled by `playbooks/swarm.yml`, not this role directly. These variables define the node's swarm configuration:
@@ -157,6 +163,10 @@ Services access the GPU by setting `AMD_VISIBLE_DEVICES=all` in their environmen
 Swarm `generic_resources` are not used for GPU scheduling: on hardware without a GPU UUID the AMD runtime misinterprets the `DOCKER_RESOURCE_*` env var injected by swarm and declines to attach devices. Use a label-based placement constraint instead.
 
 For LXC containers, GPU device passthrough (`/dev/dri/*`, `/dev/kfd`) and the `gid` on those device files are set by Terraform in `locals.tf`.
+
+## Tailscale Boot Ordering
+
+Setting `docker_wait_for_tailscale: true` drops `/etc/systemd/system/docker.service.d/wait-for-tailscale.conf` with `After=tailscaled.service` and `Requires=tailscaled.service`. The role intentionally does NOT run `daemon-reload` or restart docker after writing the file. The dependency only affects boot ordering (when systemd loads units fresh from disk), so it takes effect on the next reboot. Skipping the reload avoids needlessly dropping running containers.
 
 ## Dependencies
 

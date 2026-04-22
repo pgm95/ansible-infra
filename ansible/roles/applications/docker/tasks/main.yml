@@ -130,6 +130,33 @@
       notify: Docker | Restart containerd
       when: docker_containerd_root | default('') | length > 0
 
+    # Boot ordering only - no daemon-reload or restart. systemd reads the
+    # drop-in fresh at next boot.
+    - name: Make Docker wait for Tailscale at boot
+      when: docker_wait_for_tailscale
+      block:
+        - name: Ensure docker.service.d exists
+          ansible.builtin.file:
+            path: /etc/systemd/system/docker.service.d
+            state: directory
+            mode: "0755"
+
+        - name: Install wait-for-tailscale systemd drop-in
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
+            content: |
+              [Unit]
+              After=tailscaled.service
+              Requires=tailscaled.service
+            mode: "0644"
+            backup: true
+
+    - name: Remove wait-for-tailscale systemd drop-in
+      ansible.builtin.file:
+        path: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
+        state: absent
+      when: not docker_wait_for_tailscale
+
     - name: Start and enable Docker service
       ansible.builtin.systemd:
         name: docker
