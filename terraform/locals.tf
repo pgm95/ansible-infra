@@ -26,7 +26,7 @@ locals {
       password          = var.universal_pass
       disks = [
         { size = 8 },
-        { size = 16, mp = "/data" },
+        { size = 16, mp = "/data", backup = true },
       ]
       network = {
         bridge      = "vmbr0"
@@ -145,7 +145,7 @@ locals {
       password          = var.universal_pass
       disks = [
         { size = 8 },
-        { size = 64, mp = "/data" },
+        { size = 128, mp = "/data", backup = true },
       ]
       network = {
         bridge      = "vmbr0"
@@ -243,7 +243,7 @@ locals {
       disk_datastore_id = "zfs-vm"
       disks = [
         { size = 16, cache = "none", ssd = true, discard = "on", iothread = true, backup = true },
-        { size = 64, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data", backup = true },
+        { size = 128, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data", backup = true },
       ]
       network = {
         bridge      = "vmbr0"
@@ -280,7 +280,7 @@ locals {
       scsi_hardware     = "virtio-scsi-single"
       disk_datastore_id = "local-btrfs"
       disks = [
-        { size = 32, cache = "none", ssd = true, discard = "on", iothread = true, backup = true },
+        { size = 8, cache = "none", ssd = true, discard = "on", iothread = true, backup = true },
         { size = 128, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data", backup = true },
       ]
       network = {
