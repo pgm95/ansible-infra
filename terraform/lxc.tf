@@ -61,6 +61,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
       volume = "${each.value.disk_datastore_id}:${mount_point.value.size}"
       path   = mount_point.value.mp
       size   = "${mount_point.value.size}G"
+      backup = lookup(mount_point.value, "backup", true)
     }
   }
 
