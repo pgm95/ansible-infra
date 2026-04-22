@@ -11,7 +11,7 @@ Installs Docker CE with comprehensive daemon configuration and swarm mode suppor
 - Prometheus metrics endpoint
 - Registry mirrors and insecure registries
 - Custom MTU, DNS, and network configuration
-- AMD GPU runtime (opt-in via `docker_gpu_enabled`)
+- AMD container toolkit (opt-in via `docker_amd_ctk_enabled`)
 
 ## Requirements
 
@@ -86,11 +86,11 @@ docker_enabled: true
 | `docker_default_runtime` | `""` | Default runtime name (empty = runc) |
 | `docker_cdi_enabled` | `false` | Enable Container Device Interface feature |
 
-### GPU (AMD)
+### AMD Container Toolkit
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
-| `docker_gpu_enabled` | `false` | Install AMD container runtime and enable CDI |
+| `docker_amd_ctk_enabled` | `false` | Install AMD container toolkit, register `amd` runtime, enable CDI |
 
 ### Swarm Mode
 
@@ -142,13 +142,15 @@ docker_swarm_role: manager
 docker_swarm_advertise_addr: "100.64.0.1"  # Tailscale IP
 ```
 
-## GPU Support (AMD)
+## AMD Container Toolkit
 
-Setting `docker_gpu_enabled: true` on a host:
+Setting `docker_amd_ctk_enabled: true` on a host:
 
 - Installs `amd-container-toolkit` from the official AMD repo.
 - Generates `/etc/cdi/amd.json` via `amd-ctk cdi generate`.
-- Registers `amd-container-runtime` as the daemon's default runtime and enables the CDI feature.
+- Registers `amd-container-runtime` in `daemon.json` and enables the CDI feature.
+
+Whether `amd` becomes the daemon's default runtime is left to the user. Set `docker_default_runtime: amd` in host_vars to make every container use it (simplest for swarm services and stacks that can't easily set per-service runtimes); otherwise services opt in per-container with `runtime: amd`.
 
 Services access the GPU by setting `AMD_VISIBLE_DEVICES=all` in their environment and placing on a node with a matching label (e.g. `node.labels.gpu == true`). No device entries, no volume mounts, no `group_add` needed — the runtime handles device injection.
 

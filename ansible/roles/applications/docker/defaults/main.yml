@@ -12,7 +12,7 @@
 #   - Registry: Mirrors, insecure registries
 #   - Metrics: Prometheus endpoint, generic resources
 #   - Runtime Configuration: Additional OCI runtimes (CDI, default-runtime)
-#   - GPU (AMD): amd-container-toolkit install and runtime registration
+#   - AMD CTK: amd-container-toolkit install and runtime registration
 #   - Swarm: Cluster configuration, init options, join settings
 #   - Packages: Docker CE packages to install
 #
@@ -82,7 +82,7 @@ docker_node_generic_resources: [] # (list) Generic resources for Swarm schedulin
 docker_runtimes: {} # (dict) Additional OCI runtimes to register. Example: {amd: {path: amd-container-runtime}}
 docker_default_runtime: "" # (string) Default runtime name (empty = docker default = runc)
 docker_cdi_enabled: false # (boolean) Enable the Container Device Interface feature
-docker_gpu_enabled: false # (boolean) Install AMD container runtime and enable CDI
+docker_amd_ctk_enabled: false # (boolean) Install AMD container toolkit, register amd runtime, enable CDI
 
 # ==================================================================================
 # Docker Swarm Configuration

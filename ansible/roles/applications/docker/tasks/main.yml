@@ -100,9 +100,11 @@
     path: /usr/bin/dockerd
   register: __docker_installed
 
-- name: Install GPU runtime
+- name: Install AMD container toolkit
   ansible.builtin.include_tasks: gpu.yml
-  when: docker_gpu_enabled
+  when:
+    - docker_amd_ctk_enabled
+    - not ansible_check_mode or __docker_installed.stat.exists
 
 - name: Configure Docker (requires Docker present outside check mode)
   when: not ansible_check_mode or __docker_installed.stat.exists

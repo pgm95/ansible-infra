@@ -26,5 +26,5 @@ tailscale_enabled: false
 docker_enabled: true
 docker_data_root: "/data/docker-data"
 docker_containerd_root: "/data/containerd"
-docker_gpu_enabled: false
+docker_amd_ctk_enabled: false
 docker_swarm_enabled: false

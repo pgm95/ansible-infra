@@ -32,7 +32,8 @@ docker_containerd_root: "/data/containerd"
 docker_mtu: 1280
 docker_dns_servers: []
 docker_dns_search: []
-docker_gpu_enabled: true
+docker_amd_ctk_enabled: true
+docker_default_runtime: amd
 docker_swarm_enabled: true
 docker_swarm_init: false
 docker_swarm_role: worker

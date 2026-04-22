@@ -210,14 +210,16 @@ argument_specs:
         default: false
 
       # ========================================================================
-      # GPU Configuration (AMD)
+      # AMD Container Toolkit
       # ========================================================================
-      docker_gpu_enabled:
+      docker_amd_ctk_enabled:
         description: >-
-          Install the AMD container toolkit, generate the CDI spec, and
-          register amd-container-runtime as the default runtime. Services opt
-          in by setting AMD_VISIBLE_DEVICES=all plus a placement constraint
-          on a gpu label. No devices, volumes, or group_add needed.
+          Install the AMD container toolkit, generate the CDI spec, register
+          amd-container-runtime, and enable the CDI feature. Does NOT set the
+          default runtime - set docker_default_runtime: amd separately if
+          desired. Services opt in by setting AMD_VISIBLE_DEVICES=all plus a
+          placement constraint on a gpu label. No devices, volumes, or
+          group_add needed.
         type: bool
         default: false
       # ========================================================================

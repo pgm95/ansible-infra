@@ -1,26 +1,29 @@
 ---
 # ============================================================================
-# Docker Role - AMD GPU Runtime
+# Docker Role - AMD Container Toolkit
 # ============================================================================
-# Installs the AMD container toolkit and generates a CDI spec so swarm
-# services can access the GPU by setting AMD_VISIBLE_DEVICES in their env.
+# Installs the AMD container toolkit, generates a CDI spec, registers
+# amd-container-runtime in daemon.json, and enables the CDI feature.
 #
-# Runtime registration in daemon.json happens via docker_runtimes,
-# docker_default_runtime, and docker_cdi_enabled (set here via set_fact
-# before the daemon config is rendered in main.yml).
+# Does NOT set docker_default_runtime - that policy is left to the user.
+# To make amd the default runtime, set docker_default_runtime: amd in
+# host_vars. Otherwise services opt in per-container via runtime: amd.
+#
+# Runtime registration in daemon.json happens via docker_runtimes and
+# docker_cdi_enabled (set here via set_fact before the daemon config is
+# rendered in main.yml).
 #
 # Creates a CDI spec candidate at /tmp/amd.json, then copies it to
 # /etc/cdi/amd.json if it differs from the existing spec, for idempotency.
 
-- name: Docker | GPU | Register AMD runtime in daemon config
+- name: Docker | AMD CTK | Register AMD runtime in daemon config
   ansible.builtin.set_fact:
     docker_runtimes: "{{ docker_runtimes | combine({'amd': {'path': 'amd-container-runtime', 'args': []}}) }}"
-    docker_default_runtime: amd
     docker_cdi_enabled: true
 
 # AMD publishes apt repos keyed to Ubuntu codenames (jammy, noble). Map each
 # supported host distribution/major-version to the closest compatible suite.
-- name: Docker | GPU | Determine AMD toolkit apt suite
+- name: Docker | AMD CTK | Determine AMD toolkit apt suite
   ansible.builtin.set_fact:
     __amd_toolkit_suite: >-
       {%- set dist = ansible_facts['distribution'] | lower -%}
@@ -31,7 +34,7 @@
       {%- elif dist == 'ubuntu' and major == '24' -%}noble
       {%- endif -%}
 
-- name: Docker | GPU | Validate AMD toolkit suite was resolved
+- name: Docker | AMD CTK | Validate AMD toolkit suite was resolved
   ansible.builtin.assert:
     that: __amd_toolkit_suite | length > 0
     fail_msg: >-
@@ -40,7 +43,7 @@
       Supported: Debian 12/13, Ubuntu 22.04/24.04.
     quiet: true
 
-- name: Docker | GPU | Add AMD Container Toolkit apt repository
+- name: Docker | AMD CTK | Add AMD Container Toolkit apt repository
   ansible.builtin.deb822_repository:
     name: amd-container-toolkit
     types: [deb]
@@ -50,25 +53,28 @@
     signed_by: https://repo.radeon.com/rocm/rocm.gpg.key
     state: present
 
-- name: Docker | GPU | Install amd-container-toolkit
+- name: Docker | AMD CTK | Install amd-container-toolkit
   ansible.builtin.apt:
     name: amd-container-toolkit
     state: present
     update_cache: true
 
-- name: Docker | GPU | Ensure CDI spec directory exists
+- name: Docker | AMD CTK | Ensure CDI spec directory exists
   ansible.builtin.file:
     path: /etc/cdi
     state: directory
     mode: "0755"
 
-- name: Docker | GPU | Generate CDI spec candidate
+- name: Docker | AMD CTK | Generate CDI spec candidate
   # amd-ctk enforces the output filename must be amd.json, so stage in /tmp.
+  # check_mode: false because the copy task below needs the candidate file to
+  # exist to compute its diff; the generate is read-only outside /tmp.
   ansible.builtin.command:
     cmd: amd-ctk cdi generate --output=/tmp/amd.json
   changed_when: false
+  check_mode: false
 
-- name: Docker | GPU | Install CDI spec
+- name: Docker | AMD CTK | Install CDI spec
   ansible.builtin.copy:
     src: /tmp/amd.json
     dest: /etc/cdi/amd.json
@@ -76,7 +82,8 @@
     mode: "0644"
   notify: Docker | Restart docker
 
-- name: Docker | GPU | Clean up CDI candidate
+- name: Docker | AMD CTK | Clean up CDI candidate
   ansible.builtin.file:
     path: /tmp/amd.json
     state: absent
+  check_mode: false

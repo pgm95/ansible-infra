@@ -136,7 +136,7 @@ docker_enabled: false              # (boolean) Enable Docker installation
 # docker_metrics_addr: "127.0.0.1:9323" # (string) Metrics endpoint address
 # docker_experimental: false         # (boolean) Enable experimental features
 # docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
-# docker_gpu_enabled: false          # (boolean) Deploy DRM udev rules + auto-register gpu=1
+# docker_amd_ctk_enabled: false      # (boolean) Install AMD container toolkit + register amd runtime + enable CDI
 
 ## Role: applications/docker (Swarm)
 docker_swarm_enabled: false        # (boolean) Enable Swarm mode

@@ -249,7 +249,7 @@
     },
     "docker_default_runtime": { "type": "string", "description": "Default runtime name (empty = runc)" },
     "docker_cdi_enabled": { "type": "boolean", "description": "Enable Container Device Interface feature" },
-    "docker_gpu_enabled": { "type": "boolean", "description": "Install AMD container runtime and enable CDI" },
+    "docker_amd_ctk_enabled": { "type": "boolean", "description": "Install AMD container toolkit, register amd runtime, enable CDI" },
     "docker_packages": {
       "type": "array",
       "items": { "type": "string" },
@@ -300,8 +300,8 @@
   "allOf": [
     {
       "if": {
-        "properties": { "docker_gpu_enabled": { "const": true } },
-        "required": ["docker_gpu_enabled"]
+        "properties": { "docker_amd_ctk_enabled": { "const": true } },
+        "required": ["docker_amd_ctk_enabled"]
       },
       "then": {
         "required": ["docker_enabled"],
