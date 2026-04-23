@@ -1,50 +1,20 @@
 ---
-# ============================================================================
-# Swarm Group Defaults
-# ============================================================================
 # Applied to all swarm hosts via dynamic inventory (groups: ['swarm'])
-# Override in ansible/host_vars/<hostname>.yml (single source of truth)
-# ============================================================================
 
-# SSH Connection Settings (inherit from parent group, ensure consistency)
-ansible_connection: ssh
-ansible_user: root
+# docker_swarm_enabled: false        # (boolean) Enable Swarm mode
+# docker_swarm_role: worker          # (string) Node role: manager | worker
+# docker_swarm_init: false           # (boolean) Initialize new swarm (one node only)
 
-# ============================================================================
-# Docker Daemon - Network Configuration for Swarm
-# ============================================================================
-# NOTE: daemon.json settings (docker_mtu, docker_dns_*, etc.) belong in
-# host_vars, where they are applied during provisioning (lxc/vm/vps:deploy).
-# The swarm playbook does not write daemon.json.
-
-# ============================================================================
-# Swarm Network Configuration
-# ============================================================================
-# docker_swarm_advertise_addr and docker_swarm_data_path_addr are host-specific
-# and must be set in host_vars (typically the node's Tailscale IP).
-#
-# docker_swarm_listen_addr is derived: narrow management traffic to the
-# advertise address so Swarm's control plane (2377/TCP) is not bound to
-# 0.0.0.0 on nodes with public IPs. Docker's native default is 0.0.0.0:2377
-# The empty-string fallback below lets the role omit the flag so Docker
-# uses that default when no advertise address is configured.
+docker_swarm_advertise_addr: ""    # (string) Advertise address (Tailscale IP for WAN clusters)
 docker_swarm_listen_addr: >-
   {{ (docker_swarm_advertise_addr ~ ':2377')
      if docker_swarm_advertise_addr | default('')
      else '' }}
-
+docker_swarm_data_path_addr: "" # (string) Address for overlay data traffic
 docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
-
-# ============================================================================
-# Swarm Overlay Network Defaults
-# ============================================================================
-
+docker_swarm_vxlan_interface: "" # (string) Restrict VXLAN to interface (e.g., "tailscale0")
 docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
 docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
-
-# ============================================================================
-# Swarm Security & Raft Configuration
-# ============================================================================
 
 docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest
 docker_swarm_election_tick: 30 # (integer) Raft election timeout in ticks (role default: 10, raised for WAN/Tailscale latency)
@@ -52,21 +22,11 @@ docker_swarm_heartbeat_tick: 3 # (integer) Raft heartbeat interval in ticks (rol
 docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h")
 docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for high-latency links)
 
-# ============================================================================
-# Node Configuration
-# ============================================================================
-
 docker_swarm_availability: active # (string) Node availability: active, pause, drain
 docker_swarm_labels: {} # (dict) Node labels for placement constraints
+docker_swarm_manager_addrs: [] # (list) Manager addresses ["192.168.1.10:2377"]
 
-# ============================================================================
-# Token Configuration
-# ============================================================================
 # Tokens are retrieved dynamically during swarm init and shared via hostvars.
-# For existing swarms, persist tokens in secrets for idempotent joins:
-#   DOCKER_SWARM_MANAGER_TOKEN: "SWMTKN-1-..."
-#   DOCKER_SWARM_WORKER_TOKEN: "SWMTKN-1-..."
-
+# For existing swarms, persist tokens in secrets for idempotent joins
 docker_swarm_manager_token: "{{ lookup('env', 'DOCKER_SWARM_MANAGER_TOKEN') | default('', true) }}"
 docker_swarm_worker_token: "{{ lookup('env', 'DOCKER_SWARM_WORKER_TOKEN') | default('', true) }}"
-docker_swarm_manager_addrs: [] # (list) Manager addresses ["192.168.1.10:2377"]

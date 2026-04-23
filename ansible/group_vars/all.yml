@@ -1,5 +1,4 @@
 ---
-## This file serves as a complete variable reference for all roles.
 ## Precedence: role defaults < group_vars/all < group_vars/{type} < host_vars
 
 ## Connection Settings
@@ -109,7 +108,7 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # tailscale_verbose: false           # (boolean) Verbose output from tailscale role
 # tailscale_insecurely_log_authkey: false # (boolean) Log authkey (INSECURE, debug only)
 
-## Role: applications/docker
+## Role: applications/docker. Swarm vars are in swarm.yml.
 docker_enabled: false              # (boolean) Enable Docker installation
 # docker_data_root: /var/lib/docker  # (string) Docker root data directory
 # docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
@@ -138,27 +137,6 @@ docker_enabled: false              # (boolean) Enable Docker installation
 # docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
 # docker_amd_ctk_enabled: false      # (boolean) Install AMD container toolkit + register amd runtime + enable CDI
 # docker_wait_for_tailscale: false   # (boolean) systemd drop-in: docker.service waits for tailscaled at boot
-
-## Role: applications/docker (Swarm)
-docker_swarm_enabled: false        # (boolean) Enable Swarm mode
-# docker_swarm_role: worker          # (string) Node role: manager | worker
-# docker_swarm_init: false           # (boolean) Initialize new swarm (one node only)
-# docker_swarm_advertise_addr: ""    # (string) Advertise address (Tailscale IP for WAN clusters)
-# docker_swarm_data_path_addr: ""    # (string) Address for overlay data traffic
-# docker_swarm_data_path_port: 4789  # (integer) UDP port for VXLAN overlay
-# docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
-# docker_swarm_subnet_size: 24       # (integer) Default overlay subnet size
-# docker_swarm_autolock: false       # (boolean) Encrypt Raft logs at rest
-# docker_swarm_election_tick: 10     # (integer) Raft election timeout in ticks (swarm group: 30)
-# docker_swarm_heartbeat_tick: 1     # (integer) Raft heartbeat in ticks (swarm group: 3)
-# docker_swarm_cert_expiry: ""       # (string) Node cert expiry (e.g., "2160h")
-# docker_swarm_timeout: 120          # (integer) Docker API timeout in seconds
-# docker_swarm_vxlan_interface: ""   # (string) Restrict VXLAN to interface (e.g., "tailscale0")
-# docker_swarm_labels: {}            # (dict) Node labels for placement constraints
-# docker_swarm_availability: active  # (string) Node availability: active | pause | drain
-# docker_swarm_manager_token: ""     # (string) Manager join token
-# docker_swarm_worker_token: ""      # (string) Worker join token
-# docker_swarm_manager_addrs: []     # (list) Manager addresses ["ip:2377"]
 
 ## Role: applications/samba
 samba_enabled: false               # (boolean) Enable Samba fileserver
