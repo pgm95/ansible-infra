@@ -2,15 +2,19 @@
 # ============================================================================
 # Docker Swarm Tasks
 # ============================================================================
-# Called by playbooks/swarm.yml for cluster orchestration
-# Requires: community.docker collection, Docker SDK for Python
+# Called by playbooks/swarm.yml for cluster orchestration.
+# Requires: community.docker collection, Docker SDK for Python.
 #
-# This file handles:
-#   - Swarm initialization (first manager)
-#   - Joining existing swarm (managers and workers)
-#   - Node label configuration
-#   - Node availability management
-#   - Leaving swarm (with explicit tag)
+# Flow:
+#   1. Local state discovery via `docker info` (ground truth, no module quirk)
+#   2. Reset block: leave any swarm and end_host (when _swarm_reset_mode)
+#   3. Decide action: init | join | tokens | noop, plus whether to leave first
+#   4. Execute the action
+#   5. Post-membership configuration (VXLAN firewall, labels, availability)
+# ============================================================================
+
+# ============================================================================
+# Section 1: Local state discovery
 # ============================================================================
 
 - name: Swarm | Ensure Docker SDK for Python is installed
@@ -19,53 +23,131 @@
     state: present
     update_cache: true
     cache_valid_time: 3600
-  tags: [always]
 
-- name: Swarm | Get current swarm status
-  community.docker.docker_swarm_info:
-  register: _swarm_info
-  ignore_errors: true
-  tags: [always]
+# Pipe-delimited so a single docker call returns everything we need.
+# LocalNodeState:   inactive | active | pending | locked | error
+# ControlAvailable: true on managers, false elsewhere
+# Cluster.ID is deliberately NOT queried - on workers .Swarm.Cluster is nil
+# and Go template panics on nil dereference. If we ever need the cluster ID
+# for a worker-side check, query it via delegate_to: manager.
+- name: Swarm | Read local state from docker info
+  ansible.builtin.command:
+    cmd: >-
+      docker info --format
+      '{% raw %}{{.Swarm.LocalNodeState}}|{{.Swarm.ControlAvailable}}{% endraw %}'
+  register: _docker_info
+  changed_when: false
+  check_mode: false
 
-- name: Swarm | Assert docker daemon responded
-  ansible.builtin.assert:
-    that: _swarm_info.can_talk_to_docker | default(false)
-    fail_msg: >-
-      Could not query docker: {{ _swarm_info.msg | default('unknown error') }}.
-      Verify dockerd is running and the Docker SDK for Python is installed.
-    quiet: true
-  # Reset plays set ignore_unreachable to tolerate destroyed hosts. Skip the
-  # assert when the host is unreachable so the play-level flag can do its job.
-  when: _swarm_info is not unreachable
-  tags: [always]
-
-- name: Swarm | Set state facts
+- name: Swarm | Parse local state
   ansible.builtin.set_fact:
-    _swarm_active: "{{ _swarm_info.docker_swarm_active | default(false) }}"
-    _swarm_manager: "{{ _swarm_info.docker_swarm_manager | default(false) }}"
-    _node_state: "{{ _swarm_info.docker_swarm_local_node_state | default('inactive') }}"
-  tags: [always]
+    _node_state: "{{ _docker_info.stdout.split('|')[0] }}"
+    _is_manager: "{{ _docker_info.stdout.split('|')[1] | bool }}"
 
-- name: Swarm | Display current state
-  ansible.builtin.debug:
-    msg: "Host {{ inventory_hostname }}: state={{ _node_state }}, manager={{ _swarm_manager }}, active={{ _swarm_active }}"
-    verbosity: 1
-  tags: [always]
+# Workers cannot read Cluster.ID locally, so cluster mismatch is detected
+# by asking the init manager whether it sees us. Only relevant for non-init
+# nodes that are already active in some swarm; init is always processed
+# first under serial:1 so the manager is up by the time workers run.
+- name: Swarm | List cluster nodes from init manager
+  ansible.builtin.command:
+    cmd: >-
+      docker node ls --format '{% raw %}{{.Hostname}}{% endraw %}'
+  register: _cluster_nodes
+  changed_when: false
+  check_mode: false
+  delegate_to: "{{ _swarm_init_host }}"
+  when:
+    - _node_state == 'active'
+    - not docker_swarm_init | bool
+    - _swarm_init_host is defined
+
+- name: Swarm | Compute cluster membership
+  ansible.builtin.set_fact:
+    _in_target_cluster: >-
+      {{ ansible_facts.hostname in (_cluster_nodes.stdout_lines | default([])) }}
+  when:
+    - _node_state == 'active'
+    - not docker_swarm_init | bool
+
+# ============================================================================
+# Section 2: Reset (early exit)
+# ============================================================================
+# Reset is the nuclear option: leave whatever swarm this node is in (if any),
+# then stop processing further sections for this host.
+
+- name: Swarm | Reset block
+  when: _swarm_reset_mode | default(false)
+  block:
+    - name: Swarm | Force leave any swarm
+      ansible.builtin.command: docker swarm leave --force
+      register: _reset_leave
+      changed_when: _reset_leave.rc == 0
+      failed_when:
+        - _reset_leave.rc != 0
+        - "'This node is not part of a swarm' not in (_reset_leave.stderr | default(''))"
+      when: _node_state != 'inactive'
+
+    - name: Swarm | End reset for this host
+      ansible.builtin.meta: end_host
+
+# ============================================================================
+# Section 3: Decide action
+# ============================================================================
+# Node is considered correctly joined when:
+#   - state == active
+#   - actual manager status matches docker_swarm_role
+#   - in target cluster (per init manager's view, defaults true for init node)
+# Otherwise: leave first, then init (init nodes) or join (everyone else).
+
+- name: Swarm | Compute correctness checks
+  ansible.builtin.set_fact:
+    _role_matches: "{{ _is_manager == (docker_swarm_role == 'manager') }}"
+    _in_correct_cluster: "{{ _in_target_cluster | default(true) }}"
+
+- name: Swarm | Decide action
+  ansible.builtin.set_fact:
+    _should_leave_first: >-
+      {{ (_node_state == 'active' and not _role_matches)
+         or (_node_state == 'active' and not _in_correct_cluster)
+         or (_node_state in ['pending', 'locked', 'error']) }}
+    _target_action: >-
+      {{
+        ('tokens' if (_node_state == 'active' and _is_manager and _role_matches) else 'init')
+        if (docker_swarm_init | bool)
+        else ('noop' if (_node_state == 'active' and _role_matches and _in_correct_cluster) else 'join')
+      }}
 
 - name: Swarm | Determine advertise address
   ansible.builtin.set_fact:
-    _advertise_addr: "{{ docker_swarm_advertise_addr | default('') | string or ansible_facts.default_ipv4.address }}"
-  when: not _swarm_reset_mode | default(false)
-  tags: [always]
+    _advertise_addr: >-
+      {{ docker_swarm_advertise_addr | default('') | string
+         or ansible_facts.default_ipv4.address }}
+
+- name: Swarm | Display action
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: state={{ _node_state }},
+      manager={{ _is_manager }}, action={{ _target_action }}{{
+        ' (leave first)' if _should_leave_first else '' }}
+    verbosity: 1
 
 # ============================================================================
-# INIT BLOCK - First Manager Only
+# Section 4: Execute
 # ============================================================================
+
+- name: Swarm | Leave before re-action
+  when: _should_leave_first
+  block:
+    - name: Swarm | Force leave (mis-roled or stale state)
+      ansible.builtin.command: docker swarm leave --force
+      changed_when: true
+
+    - name: Swarm | Pause for state to settle
+      ansible.builtin.pause:
+        seconds: 5
+
 - name: Swarm | Initialize cluster
-  when:
-    - not _swarm_reset_mode | default(false)
-    - docker_swarm_init | bool
-    - not _swarm_active
+  when: _target_action == 'init'
   block:
     - name: Swarm | Initialize Docker Swarm
       community.docker.docker_swarm:
@@ -81,88 +163,83 @@
         heartbeat_tick: "{{ docker_swarm_heartbeat_tick }}"
         node_cert_expiry: "{{ docker_swarm_cert_expiry | default(omit, true) }}"
         timeout: "{{ docker_swarm_timeout }}"
-      register: _swarm_init_result
 
-    - name: Swarm | Retrieve join tokens
+    - name: Swarm | Retrieve tokens after init
       community.docker.docker_swarm_info:
-      register: _swarm_tokens
+      register: _swarm_facts
 
-    - name: Swarm | Store tokens on localhost for other nodes
+    - name: Swarm | Cache tokens and cluster id on localhost
       ansible.builtin.set_fact:
-        swarm_manager_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Manager }}"
-        swarm_worker_token: "{{ _swarm_tokens.swarm_facts.JoinTokens.Worker }}"
+        swarm_manager_token: "{{ _swarm_facts.swarm_facts.JoinTokens.Manager }}"
+        swarm_worker_token: "{{ _swarm_facts.swarm_facts.JoinTokens.Worker }}"
         swarm_manager_addr: "{{ _advertise_addr }}:2377"
-        swarm_cluster_id: "{{ _swarm_tokens.swarm_facts.ID }}"
+        swarm_cluster_id: "{{ _swarm_facts.swarm_facts.ID }}"
       delegate_to: localhost
       delegate_facts: true
 
-    - name: Swarm | Display initialization result
-      ansible.builtin.debug:
-        msg: |
-          Swarm initialized successfully on {{ inventory_hostname }}
-          Manager address: {{ _advertise_addr }}:2377
-
-          To persist tokens for future runs, add to SOPS secrets:
-            DOCKER_SWARM_MANAGER_TOKEN: "{{ _swarm_tokens.swarm_facts.JoinTokens.Manager }}"
-            DOCKER_SWARM_WORKER_TOKEN: "{{ _swarm_tokens.swarm_facts.JoinTokens.Worker }}"
-        verbosity: 1
-
-# ============================================================================
-# EXISTING SWARM - Retrieve tokens if already initialized
-# ============================================================================
-- name: Swarm | Retrieve tokens from existing swarm
-  when:
-    - not _swarm_reset_mode | default(false)
-    - docker_swarm_init | bool
-    - _swarm_active
-    - _swarm_manager
+- name: Swarm | Cache tokens from existing manager
+  when: _target_action == 'tokens'
   block:
-    - name: Swarm | Get tokens from existing swarm
+    - name: Swarm | Get swarm facts from existing manager
       community.docker.docker_swarm_info:
-      register: _existing_swarm_tokens
+      register: _swarm_facts
 
-    - name: Swarm | Store existing tokens on localhost
+    - name: Swarm | Cache tokens and cluster id on localhost
       ansible.builtin.set_fact:
-        swarm_manager_token: "{{ _existing_swarm_tokens.swarm_facts.JoinTokens.Manager }}"
-        swarm_worker_token: "{{ _existing_swarm_tokens.swarm_facts.JoinTokens.Worker }}"
+        swarm_manager_token: "{{ _swarm_facts.swarm_facts.JoinTokens.Manager }}"
+        swarm_worker_token: "{{ _swarm_facts.swarm_facts.JoinTokens.Worker }}"
         swarm_manager_addr: "{{ _advertise_addr }}:2377"
-        swarm_cluster_id: "{{ _existing_swarm_tokens.swarm_facts.ID }}"
+        swarm_cluster_id: "{{ _swarm_facts.swarm_facts.ID }}"
       delegate_to: localhost
       delegate_facts: true
 
-    - name: Swarm | Display existing swarm info
-      ansible.builtin.debug:
-        msg: "Swarm already active on {{ inventory_hostname }}, tokens retrieved for joining nodes"
-        verbosity: 1
-
-# ============================================================================
-# JOIN BLOCK - Additional Managers and Workers
-# ============================================================================
 - name: Swarm | Join cluster
-  when:
-    - not _swarm_reset_mode | default(false)
-    - not docker_swarm_init | bool
-    - not _swarm_active
+  when: _target_action == 'join'
   block:
-    - name: Swarm | Determine join token based on role
+    - name: Swarm | Resolve join token
       ansible.builtin.set_fact:
         _join_token: >-
-          {%- if docker_swarm_role == 'manager' -%}
-            {{ docker_swarm_manager_token if docker_swarm_manager_token | length > 0 else hostvars['localhost'].swarm_manager_token | default('') }}
-          {%- else -%}
-            {{ docker_swarm_worker_token if docker_swarm_worker_token | length > 0 else hostvars['localhost'].swarm_worker_token | default('') }}
-          {%- endif -%}
+          {{
+            (docker_swarm_manager_token if docker_swarm_manager_token | length > 0
+             else hostvars['localhost'].swarm_manager_token | default(''))
+            if docker_swarm_role == 'manager'
+            else
+            (docker_swarm_worker_token if docker_swarm_worker_token | length > 0
+             else hostvars['localhost'].swarm_worker_token | default(''))
+          }}
 
-    - name: Swarm | Determine manager addresses
+    - name: Swarm | Resolve manager addresses
       ansible.builtin.set_fact:
         _manager_addrs: >-
-          {%- if docker_swarm_manager_addrs | length > 0 -%}
-            {{ docker_swarm_manager_addrs }}
-          {%- elif hostvars['localhost'].swarm_manager_addr is defined -%}
-            {{ [hostvars['localhost'].swarm_manager_addr] }}
-          {%- else -%}
-            []
-          {%- endif -%}
+          {{
+            docker_swarm_manager_addrs if docker_swarm_manager_addrs | length > 0
+            else ([hostvars['localhost'].swarm_manager_addr]
+                  if hostvars['localhost'].swarm_manager_addr is defined
+                  else [])
+          }}
+
+    # Catches the "stale env override" mistake (env var still holds a token from
+    # a prior cluster after a reset+redeploy). The join itself would surface a
+    # clear "token invalid" error, but warning early saves a diagnostic round.
+    - name: Swarm | Warn on stale token override
+      vars:
+        _env_token: >-
+          {{ docker_swarm_manager_token if docker_swarm_role == 'manager'
+             else docker_swarm_worker_token }}
+        _cached_token: >-
+          {{ hostvars['localhost'].swarm_manager_token | default('')
+             if docker_swarm_role == 'manager'
+             else hostvars['localhost'].swarm_worker_token | default('') }}
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: env-set docker_swarm_{{ docker_swarm_role }}_token differs
+          from the token discovered via the init manager. Using the env value.
+          If the join fails with "token invalid" or "Permission denied", unset
+          the env override to fall back to the discovered token.
+      when:
+        - _env_token | length > 0
+        - _cached_token | length > 0
+        - _env_token != _cached_token
 
     - name: Swarm | Validate join requirements
       ansible.builtin.assert:
@@ -173,22 +250,13 @@
           Missing join token or manager address. Ensure the init manager has
           been provisioned first, or set docker_swarm_manager_token /
           docker_swarm_worker_token in group_vars or host_vars.
-        success_msg: "Join requirements validated for {{ docker_swarm_role }}"
+        quiet: true
 
     - name: Swarm | Wait for connectivity to manager
       ansible.builtin.wait_for:
         host: "{{ _manager_addrs[0] | regex_replace(':.*', '') }}"
         port: 2377
         timeout: 60
-      when: _manager_addrs | length > 0
-
-    - name: Swarm | Verify reverse connectivity from init node
-      ansible.builtin.wait_for:
-        host: "{{ _advertise_addr }}"
-        port: 22
-        timeout: 60
-      delegate_to: "{{ _swarm_init_host }}"
-      when: _swarm_init_host is defined
 
     - name: Swarm | Attempt join
       community.docker.docker_swarm:
@@ -202,115 +270,39 @@
       register: _join_result
       ignore_errors: true
 
-    # Handle stale swarm: force leave then retry
-    - name: Swarm | Force leave stale swarm
-      ansible.builtin.command: docker swarm leave --force
-      changed_when: true
-      when:
-        - _join_result is failed
-        - "'already part of a swarm' in (_join_result.msg | default(''))"
-
-    - name: Swarm | Wait for swarm state to clear
-      ansible.builtin.pause:
-        seconds: 5
-      when:
-        - _join_result is failed
-        - "'already part of a swarm' in (_join_result.msg | default(''))"
-
-    - name: Swarm | Retry join after leaving stale swarm
-      community.docker.docker_swarm:
-        state: join
-        advertise_addr: "{{ _advertise_addr }}"
-        listen_addr: "{{ docker_swarm_listen_addr | default(omit, true) }}"
-        data_path_addr: "{{ docker_swarm_data_path_addr | default(omit, true) }}"
-        join_token: "{{ _join_token }}"
-        remote_addrs: "{{ _manager_addrs }}"
-        timeout: "{{ docker_swarm_timeout }}"
-      register: _join_retry_result
-      ignore_errors: true
-      when:
-        - _join_result is failed
-        - "'already part of a swarm' in (_join_result.msg | default(''))"
-
-    # Handle background join: poll until node is active
-    - name: Swarm | Wait for background join to complete
-      community.docker.docker_swarm_info:
-      register: _join_poll
-      failed_when: false
-      until: _join_poll.docker_swarm_active | default(false)
+    # Module timed out waiting for the join API. Join may still be running in
+    # the background; poll docker info (not the module - it errors on workers)
+    # for active state.
+    - name: Swarm | Poll for background join completion
+      ansible.builtin.command:
+        cmd: >-
+          docker info --format '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+      register: _wait_state
+      changed_when: false
+      check_mode: false
       retries: "{{ (docker_swarm_timeout | int / 10) | int }}"
       delay: 10
-      when: >-
-        (_join_result is failed and 'Timeout was reached' in (_join_result.msg | default('')))
-        or
-        (_join_retry_result is defined and _join_retry_result is failed and 'Timeout was reached' in (_join_retry_result.msg | default('')))
+      until: _wait_state.stdout == 'active'
+      when:
+        - _join_result is failed
+        - "'Timeout was reached' in (_join_result.msg | default(''))"
 
-    # Fail on unexpected errors
     - name: Swarm | Verify join succeeded
       ansible.builtin.assert:
         that:
           - _join_result is success
-            or (_join_retry_result is defined and _join_retry_result is success)
-            or (_join_poll is defined and _join_poll.docker_swarm_active | default(false))
+            or (_wait_state is defined and _wait_state.stdout | default('') == 'active')
         fail_msg: >-
           Failed to join swarm. Last error:
-          {{ (_join_retry_result.msg | default(none)) or (_join_result.msg | default('Unknown error')) }}
+          {{ _join_result.msg | default('Unknown error') }}
         quiet: true
 
-    - name: Swarm | Display join result
-      ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} successfully joined swarm as {{ docker_swarm_role }}"
-        verbosity: 1
-
-    - name: Swarm | Refresh swarm active state after join
-      ansible.builtin.set_fact:
-        _swarm_active: true
-
 # ============================================================================
-# ALREADY IN SWARM - Skip join
+# Section 5: Post-membership configuration
 # ============================================================================
-- name: Swarm | Already in swarm
-  ansible.builtin.debug:
-    msg: "{{ inventory_hostname }} is already part of a swarm (state={{ _node_state }}), skipping join"
-    verbosity: 1
-  when:
-    - not _swarm_reset_mode | default(false)
-    - not docker_swarm_init | bool
-    - _swarm_active
+# Runs for every host that reaches this point (init / tokens / join / noop).
+# Each task gates itself on its own preconditions.
 
-# ============================================================================
-# STALE SWARM RECOVERY - Force leave if node is in a different cluster
-# ============================================================================
-- name: Swarm | Detect and leave stale cluster
-  when:
-    - not _swarm_reset_mode | default(false)
-    - not docker_swarm_init | bool
-    - _swarm_active
-    - _swarm_info.docker_swarm_active | default(false)
-    - hostvars['localhost'].swarm_cluster_id is defined
-    - _swarm_info.swarm_facts.ID | default('') != hostvars['localhost'].swarm_cluster_id
-  block:
-    - name: Swarm | Force leave stale cluster
-      ansible.builtin.command: docker swarm leave --force
-      changed_when: true
-
-    - name: Swarm | Wait for swarm state to clear after stale leave
-      ansible.builtin.pause:
-        seconds: 5
-
-    - name: Swarm | Reset state after stale leave
-      ansible.builtin.set_fact:
-        _swarm_active: false
-
-    - name: Swarm | Log stale swarm recovery
-      ansible.builtin.debug:
-        msg: >-
-          {{ inventory_hostname }} was in a different cluster - forced leave.
-          Will rejoin current cluster.
-
-# ============================================================================
-# VXLAN FIREWALL - Restrict overlay traffic to specific interface
-# ============================================================================
 - name: Swarm | Warn if public IP without VXLAN restriction
   ansible.builtin.debug:
     msg: |
@@ -318,13 +310,10 @@
       but docker_swarm_vxlan_interface is not set. Port {{ docker_swarm_data_path_port }}/UDP
       (VXLAN overlay) will be accessible from the internet.
 
-      How to fix:
-        Set docker_swarm_vxlan_interface (e.g., 'tailscale0') in host_vars to restrict
-        VXLAN traffic to a specific interface.
+      Set docker_swarm_vxlan_interface (e.g., 'tailscale0') in host_vars to
+      restrict VXLAN traffic to a specific interface.
   when:
-    - not _swarm_reset_mode | default(false)
     - docker_swarm_vxlan_interface | length == 0
-    - _swarm_active or docker_swarm_init | bool
     - ansible_facts.default_ipv4.address | default('') is not
       regex('^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|127\.|169\.254\.)')
 
@@ -334,10 +323,7 @@
     state: present
   environment:
     DEBIAN_FRONTEND: noninteractive
-  when:
-    - not _swarm_reset_mode | default(false)
-    - docker_swarm_vxlan_interface | length > 0
-    - _swarm_active or docker_swarm_init | bool
+  when: docker_swarm_vxlan_interface | length > 0
 
 - name: Swarm | Restrict VXLAN to {{ docker_swarm_vxlan_interface }}
   ansible.builtin.iptables:
@@ -347,25 +333,16 @@
     in_interface: "!{{ docker_swarm_vxlan_interface }}"
     jump: DROP
     comment: "Docker Swarm: restrict VXLAN to {{ docker_swarm_vxlan_interface }}"
-  when:
-    - not _swarm_reset_mode | default(false)
-    - docker_swarm_vxlan_interface | length > 0
-    - _swarm_active or docker_swarm_init | bool
+  when: docker_swarm_vxlan_interface | length > 0
   notify: Docker | Save iptables rules
 
-# ============================================================================
-# NODE CONFIGURATION - Labels and Availability
-# ============================================================================
 - name: Swarm | Warn if system hostname differs from inventory hostname
   ansible.builtin.debug:
     msg: >-
       System hostname '{{ ansible_facts.hostname }}' differs from inventory hostname
       '{{ inventory_hostname }}'. Node operations will use the system hostname
       since Docker Swarm registers nodes by system hostname.
-  when:
-    - not _swarm_reset_mode | default(false)
-    - _swarm_active or docker_swarm_init | bool
-    - ansible_facts.hostname != inventory_hostname
+  when: ansible_facts.hostname != inventory_hostname
 
 - name: Swarm | Configure node labels
   community.docker.docker_node:
@@ -373,10 +350,8 @@
     labels: "{{ docker_swarm_labels }}"
   delegate_to: "{{ _swarm_init_host }}"
   when:
-    - not _swarm_reset_mode | default(false)
     - docker_swarm_labels | length > 0
     - _swarm_init_host is defined
-    - _swarm_active or docker_swarm_init | bool
 
 - name: Swarm | Configure node availability
   community.docker.docker_node:
@@ -384,54 +359,5 @@
     availability: "{{ docker_swarm_availability }}"
   delegate_to: "{{ _swarm_init_host }}"
   when:
-    - not _swarm_reset_mode | default(false)
     - docker_swarm_availability != 'active'
     - _swarm_init_host is defined
-    - _swarm_active or docker_swarm_init | bool
-
-# ============================================================================
-# RESET BLOCK - Remove node from swarm
-# ============================================================================
-- name: Swarm | Remove unreachable nodes before init leaves
-  when:
-    - _swarm_reset_mode | default(false)
-    - _swarm_active
-    - docker_swarm_init | bool
-    - _swarm_manager
-  block:
-    - name: Swarm | List cluster nodes
-      community.docker.docker_swarm_info:
-        nodes: true
-      register: _reset_cluster_info
-
-    - name: Swarm | Demote down managers before removal
-      ansible.builtin.command: docker node demote {{ item.ID }}
-      loop: >-
-        {{ _reset_cluster_info.nodes
-           | selectattr('Status', 'equalto', 'Down')
-           | selectattr('ManagerStatus', 'defined')
-           | list }}
-      loop_control:
-        label: "{{ item.Hostname }} ({{ item.ID[:12] }})"
-      changed_when: true
-      failed_when: false
-
-    - name: Swarm | Remove down nodes from cluster
-      ansible.builtin.command: docker node rm --force {{ item.ID }}
-      loop: >-
-        {{ _reset_cluster_info.nodes
-           | selectattr('Status', 'equalto', 'Down')
-           | rejectattr('ID', 'equalto', _reset_cluster_info.docker_swarm_node_id | default(''))
-           | list }}
-      loop_control:
-        label: "{{ item.Hostname }} ({{ item.ID[:12] }})"
-      changed_when: true
-      failed_when: false
-
-- name: Swarm | Reset node (leave cluster)
-  community.docker.docker_swarm:
-    state: absent
-    force: true
-  when:
-    - _swarm_reset_mode | default(false)
-    - _swarm_active
