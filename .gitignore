@@ -9,6 +9,7 @@
 **/.old
 **/.cache
 *.local.*
+.miserc.toml
 
 # Sensitive files
 *.env
