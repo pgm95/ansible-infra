@@ -24,6 +24,20 @@
     update_cache: true
     cache_valid_time: 3600
 
+# Compute the init manager from the swarm group itself rather than relying on
+# a fact set externally via add_host. The role becomes self-contained: any
+# caller that populates the swarm group with one host having
+# docker_swarm_init: true gets the right delegate target for free.
+- name: Swarm | Compute init manager hostname
+  ansible.builtin.set_fact:
+    __swarm_init_host: >-
+      {{ (groups['swarm']
+          | map('extract', hostvars)
+          | selectattr('docker_swarm_init', 'defined')
+          | selectattr('docker_swarm_init')
+          | map(attribute='inventory_hostname')
+          | list)[0] }}
+
 # Pipe-delimited so a single docker call returns everything we need.
 # LocalNodeState:   inactive | active | pending | locked | error
 # ControlAvailable: true on managers, false elsewhere
@@ -55,11 +69,10 @@
   register: _cluster_nodes
   changed_when: false
   check_mode: false
-  delegate_to: "{{ _swarm_init_host }}"
+  delegate_to: "{{ __swarm_init_host }}"
   when:
     - _node_state == 'active'
     - not docker_swarm_init | bool
-    - _swarm_init_host is defined
 
 - name: Swarm | Compute cluster membership
   ansible.builtin.set_fact:
@@ -348,16 +361,12 @@
   community.docker.docker_node:
     hostname: "{{ ansible_facts.hostname }}"
     labels: "{{ docker_swarm_labels }}"
-  delegate_to: "{{ _swarm_init_host }}"
-  when:
-    - docker_swarm_labels | length > 0
-    - _swarm_init_host is defined
+  delegate_to: "{{ __swarm_init_host }}"
+  when: docker_swarm_labels | length > 0
 
 - name: Swarm | Configure node availability
   community.docker.docker_node:
     hostname: "{{ ansible_facts.hostname }}"
     availability: "{{ docker_swarm_availability }}"
-  delegate_to: "{{ _swarm_init_host }}"
-  when:
-    - docker_swarm_availability != 'active'
-    - _swarm_init_host is defined
+  delegate_to: "{{ __swarm_init_host }}"
+  when: docker_swarm_availability != 'active'

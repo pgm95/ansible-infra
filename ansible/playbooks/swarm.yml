@@ -66,7 +66,6 @@
       ansible.builtin.add_host:
         name: "{{ item }}"
         groups: swarm
-        _swarm_init_host: "{{ _init_hosts[0] }}"
       loop: "{{ _init_hosts + (_swarm_hosts | reject('in', _init_hosts) | list) }}"
       loop_control:
         label: "{{ item }} ({{ hostvars[item].docker_swarm_role | default('worker') }})"

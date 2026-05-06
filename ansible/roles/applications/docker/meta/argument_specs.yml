@@ -378,3 +378,136 @@ argument_specs:
           - containerd.io
           - docker-buildx-plugin
           - docker-compose-plugin
+
+  # ==========================================================================
+  # Entry point: tasks_from: swarm
+  # ==========================================================================
+  # Per-host swarm orchestration: state discovery, init/join/tokens/noop
+  # decision, post-bootstrap node configuration (labels, availability, VXLAN
+  # firewall). Invoked by playbooks/swarm.yml. Requires the calling play to
+  # populate the swarm group with one host having docker_swarm_init: true; the
+  # role computes the init manager hostname from the group internally, so no
+  # external add_host fact is needed beyond group membership.
+  swarm:
+    short_description: Per-host Docker Swarm orchestration
+    description:
+      - Discovers local swarm state via docker info (no module quirks).
+      - Picks one action per host (init/join/tokens/noop) and applies it.
+      - Configures node labels, availability, and VXLAN firewall.
+
+    options:
+      docker_swarm_enabled:
+        description: Enable Swarm orchestration on this host
+        type: bool
+        default: false
+
+      docker_swarm_role:
+        description: "Node role: manager or worker"
+        type: str
+        default: worker
+        choices:
+          - manager
+          - worker
+
+      docker_swarm_init:
+        description: >-
+          Mark this host as the cluster init manager. Exactly one host across
+          the swarm group must set this true.
+        type: bool
+        default: false
+
+      docker_swarm_advertise_addr:
+        description: Advertise address (empty falls back to default IPv4)
+        type: str
+        default: ""
+
+      docker_swarm_listen_addr:
+        description: >-
+          Listen address for management traffic. Empty falls back to docker's
+          native default (0.0.0.0:2377).
+        type: str
+        default: ""
+
+      docker_swarm_data_path_addr:
+        description: Address/interface for data traffic (empty = auto)
+        type: str
+        default: ""
+
+      docker_swarm_data_path_port:
+        description: UDP port for VXLAN overlay traffic
+        type: int
+        default: 4789
+
+      docker_swarm_default_addr_pool:
+        description: Overlay network address pools
+        type: list
+        elements: str
+        default: []
+      docker_swarm_subnet_size:
+        description: Default subnet size for overlay networks
+        type: int
+        default: 24
+
+      docker_swarm_autolock:
+        description: Encrypt Raft logs at rest (requires unlock on restart)
+        type: bool
+        default: false
+
+      docker_swarm_election_tick:
+        description: Raft election timeout in ticks
+        type: int
+        default: 10
+
+      docker_swarm_heartbeat_tick:
+        description: Raft heartbeat interval in ticks
+        type: int
+        default: 1
+
+      docker_swarm_cert_expiry:
+        description: Node certificate expiry (e.g., "2160h" for 90 days)
+        type: str
+        default: ""
+
+      docker_swarm_timeout:
+        description: Docker API timeout in seconds (raise for WAN/Tailscale)
+        type: int
+        default: 120
+
+      docker_swarm_vxlan_interface:
+        description: >-
+          Interface to restrict VXLAN traffic to. When set, creates an iptables
+          rule dropping port 4789/UDP from any other interface. Required for
+          nodes with public IPs.
+        type: str
+        default: ""
+
+      docker_swarm_labels:
+        description: Node labels for placement constraints
+        type: dict
+        default: {}
+      docker_swarm_availability:
+        description: "Node availability: active, pause, drain"
+        type: str
+        default: active
+        choices:
+          - active
+          - pause
+          - drain
+
+      docker_swarm_manager_token:
+        description: Manager join token (overrides runtime-discovered value)
+        type: str
+        default: ""
+        no_log: true
+
+      docker_swarm_worker_token:
+        description: Worker join token (overrides runtime-discovered value)
+        type: str
+        default: ""
+        no_log: true
+
+      docker_swarm_manager_addrs:
+        description: Manager addresses for joining (overrides discovered value)
+        type: list
+        elements: str
+        default: []
