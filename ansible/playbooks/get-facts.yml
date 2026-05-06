@@ -1,6 +1,7 @@
 ---
-# Playbook to gather and display comprehensive system facts
-# All hosts are statically defined in ansible/hosts.yml
+# Info Playbook
+#
+# Gathers and displays comprehensive system facts for inventory hosts.
 
 - name: Get System Facts
   hosts: "{{ target | default('all:!localhost') }}"
@@ -17,19 +18,16 @@
       ansible.builtin.set_fact:
         public_ipv4: "{{ ansible_facts.all_ipv4_addresses | ansible.utils.ipaddr('public') | first | default('N/A') }}"
       no_log: true
-
     - name: Get all private IPv4 addresses
       ansible.builtin.set_fact:
         private_ipv4_list: "{{ ansible_facts.all_ipv4_addresses | ansible.utils.ipaddr('private') | list }}"
       no_log: true
-
     - name: Check if Tailscale is installed
       ansible.builtin.command: which tailscale
       register: tailscale_check
       changed_when: false
       failed_when: false
       no_log: true
-
     - name: Get Tailscale status
       ansible.builtin.command: tailscale status --json
       register: tailscale_status_raw
@@ -37,13 +35,11 @@
       failed_when: false
       when: tailscale_check.rc == 0
       no_log: true
-
     - name: Parse Tailscale information
       ansible.builtin.set_fact:
         tailscale_info: "{{ tailscale_status_raw.stdout | from_json }}"
       when: tailscale_check.rc == 0 and tailscale_status_raw.rc == 0
       no_log: true
-
     - name: Extract Tailscale details
       ansible.builtin.set_fact:
         tailscale_ipv4: "{{ tailscale_info.Self.TailscaleIPs | select('search', '^100\\.') | first | default('N/A') }}"
@@ -53,7 +49,6 @@
         tailscale_exit_node: "{{ tailscale_info.Self.ExitNodeOption | default(false) }}"
       when: tailscale_check.rc == 0 and tailscale_status_raw.rc == 0
       no_log: true
-
     - name: Start async check for tailscaled service
       ansible.builtin.systemd:
         name: tailscaled
@@ -63,7 +58,6 @@
       failed_when: false
       when: tailscale_check.rc == 0
       no_log: true
-
     - name: Start async check for docker service
       ansible.builtin.systemd:
         name: docker
@@ -72,7 +66,6 @@
       register: docker_async
       failed_when: false
       no_log: true
-
     - name: Wait for tailscaled check completion
       ansible.builtin.async_status:
         jid: "{{ tailscaled_async.ansible_job_id }}"
@@ -82,7 +75,6 @@
       delay: 1
       when: tailscale_check.rc == 0
       no_log: true
-
     - name: Wait for docker check completion
       ansible.builtin.async_status:
         jid: "{{ docker_async.ansible_job_id }}"
@@ -91,7 +83,6 @@
       retries: 3
       delay: 1
       no_log: true
-
     - name: Set service status strings
       ansible.builtin.set_fact:
         tailscale_state: >-
@@ -104,7 +95,6 @@
              else 'N/A' }}
         docker_state: "{{ 'active' if docker_status.status.ActiveState | default('unknown') == 'active' else 'inactive' }}"
         docker_enabled: "{{ 'yes' if docker_status.status.UnitFileState | default('') == 'enabled' else 'no' }}"
-
     - name: Display host report
       ansible.builtin.debug:
         msg: "{{ __report }}"
@@ -167,7 +157,6 @@
           {% set used_pct = ((mount.size_total - mount.size_available) * 100 / mount.size_total) | round(0) | int %}
           {{ "%-20s" | format(mount.mount) }} {{ "%-10s" | format(size_gb) }} {{ "%-10s" | format(avail_gb) }} {{ used_pct }}% used
           {% endfor %}
-
     - name: Display verbose facts (use -v flag)
       ansible.builtin.debug:
         var: ansible_facts

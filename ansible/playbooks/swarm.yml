@@ -16,6 +16,7 @@
   connection: local
   gather_facts: false
   tags: ["always"]
+
   tasks:
     - name: Filter swarm-enabled hosts (env_scope-aware)
       ansible.builtin.set_fact:
@@ -26,7 +27,6 @@
         - (hostvars[item].env_scope | default(_mise_env)) == _mise_env
       vars:
         _mise_env: "{{ lookup('env', 'MISE_ENV') }}"
-
     - name: Fail if no swarm hosts found
       ansible.builtin.fail:
         msg: >-
@@ -34,7 +34,6 @@
           Set docker_swarm_enabled: true (and env_scope if filtered) on a host's
           host_vars file.
       when: _swarm_hosts | default([]) | length == 0
-
     - name: Compute swarm topology
       ansible.builtin.set_fact:
         _init_hosts: >-
@@ -50,7 +49,6 @@
              | map('default', 'worker')
              | select('equalto', 'manager')
              | list | length }}
-
     - name: Validate swarm topology
       ansible.builtin.assert:
         that:
@@ -64,7 +62,6 @@
           Got: {{ _init_hosts | length }} init hosts, {{ _manager_count }} managers.
         success_msg: "Init: {{ _init_hosts[0] }} | Managers: {{ _manager_count }}"
         quiet: true
-
     - name: Register swarm hosts (init first)
       ansible.builtin.add_host:
         name: "{{ item }}"
@@ -73,7 +70,6 @@
       loop: "{{ _init_hosts + (_swarm_hosts | reject('in', _init_hosts) | list) }}"
       loop_control:
         label: "{{ item }} ({{ hostvars[item].docker_swarm_role | default('worker') }})"
-
     - name: Display summary
       ansible.builtin.debug:
         msg: |
@@ -89,6 +85,7 @@
   hosts: swarm
   gather_facts: true
   serial: 1
+
   tasks:
     - name: Include swarm bootstrap tasks
       ansible.builtin.include_role:
@@ -100,13 +97,13 @@
   hosts: localhost
   gather_facts: false
   tags: ["status"]
+
   tasks:
     - name: Get swarm cluster information
       community.docker.docker_swarm_info:
         nodes: true
       register: _cluster_info
       delegate_to: "{{ _init_hosts[0] }}"
-
     - name: Display cluster summary
       vars:
         _nodes: "{{ _cluster_info.nodes | default([]) }}"
@@ -121,7 +118,6 @@
             - {{ node.Hostname }}: {{ node.Availability }} ({{ node.Status }}){% if node.ManagerStatus %} [{{ node.ManagerStatus }}]{% endif %}
 
           {% endfor %}
-
     - name: Warn on non-Ready nodes
       ansible.builtin.debug:
         msg: |
@@ -137,6 +133,7 @@
   gather_facts: false
   ignore_unreachable: true
   tags: ["reset", "never"]
+
   tasks:
     - name: Include swarm reset tasks
       ansible.builtin.include_role:
