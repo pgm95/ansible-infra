@@ -1,15 +1,15 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
 ["swarm:deploy"]
-description = " " # "Bootstrap/update Docker Swarm cluster"
+description = " "  # "Bootstrap/update Docker Swarm cluster"
 run = "ansible-playbook ansible/playbooks/swarm.yml"
 
 ["swarm:check"]
-description = " " # "Dry-run Swarm bootstrap"
+description = " "  # "Dry-run Swarm bootstrap"
 run = "ansible-playbook ansible/playbooks/swarm.yml --check --diff"
 
 ["swarm:status"]
-description = " " # "Display Swarm cluster status"
+description = " "  # "Display Swarm cluster status"
 env.ANSIBLE_STDOUT_CALLBACK = "json"
 env.ANSIBLE_CALLBACKS_ENABLED = "default"
 run = """
@@ -23,5 +23,5 @@ ansible-playbook ansible/playbooks/swarm.yml --tags status 2>/dev/null \
 """
 
 ["swarm:reset"]
-description = " " # "Destroy Swarm cluster (DESTRUCTIVE)"
+description = " "  # "Destroy Swarm cluster (DESTRUCTIVE)"
 run = "ansible-playbook ansible/playbooks/swarm.yml --tags reset"

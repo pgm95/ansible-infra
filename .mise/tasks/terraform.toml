@@ -1,23 +1,23 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
 ["tf:plan"]
-description = " " # Preview infrastructure changes
+description = " "  # Preview infrastructure changes
 dir = "{{config_root}}/terraform"
 run = "terraform plan"
 
 ["tf:apply"]
-description = " " # Apply infrastructure changes
+description = " "  # Apply infrastructure changes
 confirm = "WARNING: This may be destructive. Continue?"
 dir = "{{config_root}}/terraform"
 run = "terraform apply -auto-approve"
 
 ["tf:destroy"]
-description = " " # Destroy all infrastructure (DESTRUCTIVE)
+description = " "  # Destroy all infrastructure (DESTRUCTIVE)
 confirm = "WARNING: This will destroy all managed infrastructure. Continue?"
 dir = "{{config_root}}/terraform"
 run = "terraform destroy -auto-approve"
 
 ["tf:state"]
-description = " " # Show Terraform state
+description = " "  # Show Terraform state
 dir = "{{config_root}}/terraform"
 run = "terraform state list"

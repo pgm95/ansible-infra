@@ -1,7 +1,7 @@
 #:schema https://mise.jdx.dev/schema/mise-task.json
 
 ["sops:init"]
-description = " " # Generate age key and update SOPS_CONFIG
+description = " "  # Generate age key and update SOPS_CONFIG
 run = '''
 #!/usr/bin/env bash
 if [[ -f "${SOPS_AGE_KEY_FILE}" ]]; then
@@ -28,7 +28,7 @@ fi
 '''
 
 ["sops:encrypt"]
-description = " " # Encrypt all plaintext secrets files
+description = " "  # Encrypt all plaintext secrets files
 run = '''
 {% raw %}
 #!/usr/bin/env bash
@@ -62,7 +62,7 @@ exit 0
 '''
 
 ["sops:edit"]
-description = " " # Edit encrypted secrets file
+description = " "  # Edit encrypted secrets file
 usage = 'arg "<file>" help="Path to secrets file (default: shared.sops.yaml)"'
 env.EDITOR = "code --wait"
 run = '''
@@ -73,7 +73,7 @@ sops "${file}"
 '''
 
 ["sops:status"]
-description = " " # Show encryption status of secrets files
+description = " "  # Show encryption status of secrets files
 run = '''
 #!/usr/bin/env bash
 echo "Secrets:"
