@@ -1,12 +1,16 @@
 # Ansible Infrastructure Automation
 
-Automation for provisioning and configuring VPS servers, Proxmox VMs, LXC containers, and Docker Swarm clusters. Uses [Terraform](https://www.terraform.io/) (bpg/proxmox provider) for Proxmox guest lifecycle and [Ansible](https://docs.ansible.com/) for guest configuration. [Mise](https://mise.jdx.dev) handles task management, tool versioning, and environment isolation. Supports multi-environment deployments (dev/prod) with SOPS + age secret encryption.
+Automation for provisioning and configuring VPS servers, Proxmox VMs, LXC containers, and Docker Swarm clusters.
+Uses [Terraform](https://github.com/bpg/terraform-provider-proxmox) for Proxmox guest lifecycle and Ansible for guest configuration.
+[Mise](https://mise.jdx.dev) handles task management, tool versioning, and environment isolation.
+Supports multi-environment deployments (dev/prod) with SOPS + age secret encryption.
 
 ## Prerequisites
 
-- [mise](https://mise.jdx.dev), which automatically installs ansible-core (via pipx), terraform, uv, shellcheck, and pre-commit
-- Proxmox host accessible via SSH (for Terraform provider)
-- Tailscale (for Swarm clusters communicating over WAN)
+- [mise](https://mise.jdx.dev)
+- Proxmox host accessible via SSH
+- VPS if public-facing host is needed
+- Tailscale for hosts that need it
 
 ## Getting Started
 
@@ -21,56 +25,19 @@ mise run validate
 
 ### Responsibility Boundary
 
-**Terraform** owns Proxmox guest lifecycle (create/destroy). Resource definitions (VMIDs, disk layouts, network, device passthrough, bind mounts) live in `terraform/locals.tf`. Environment scoping uses Terraform workspaces aligned to `MISE_ENV`.
+**Terraform** owns Proxmox guest lifecycle. Resource definitions (VMIDs, disk layouts, network, device passthrough, bind mounts) live in `terraform/locals.tf`. Environment scoping uses Terraform workspaces aligned to `MISE_ENV`.
 
-**Ansible** owns guest provisioning - everything after the guest exists and is reachable via SSH. Playbooks are single-play, connecting directly to hosts and applying roles (SSH hardening, users, packages, Docker, Tailscale, etc.).
-
-`mise run site:deploy` chains all provisioning steps: `tf:apply` (idempotent, fast when no changes), then `lxc:deploy`, `vm:deploy`, `vps:deploy`, and `swarm:deploy`. Individual deploy tasks can also be run standalone.
-
-### Directory Structure
-
-```text
-.
-├── .config/             # Linting, sops, and pre-commit configurations
-├── terraform/
-│   ├── locals.tf        # Guest definitions (VMID, disks, network, devices)
-│   ├── lxc.tf           # LXC resource logic with dynamic blocks
-│   ├── vm.tf            # VM resource logic + vendor data snippet
-│   ├── images.tf        # OS template and cloud image downloads
-│   ├── providers.tf     # bpg/proxmox provider config
-│   ├── variables.tf     # Input variables
-│   └── templates/       # Cloud-init vendor data template
-├── ansible/
-│   ├── hosts.yml        # All hosts defined statically
-│   ├── host_vars/       # Per-host provisioning configs (flat directory)
-│   ├── group_vars/      # Group defaults (auto-loaded by Ansible)
-│   ├── playbooks/       # Playbooks
-│   ├── roles/
-│   │   ├── common/      # Base system (packages, users, ssh, dotfiles, hostname, swap)
-│   │   ├── network/     # Network config (dns, ntp, interface)
-│   │   └── applications/ # Services (docker, tailscale, samba)
-│   └── schemas/         # JSON schema for host_vars validation (host.schema.json)
-├── .secrets/            # SOPS-encrypted secrets (committed), age key (gitignored)
-└── .mise/
-    ├── config.toml      # Tool versions, env vars, inline tasks
-    ├── config.dev.toml  # Dev-specific env vars (Proxmox addr, secrets)
-    ├── config.prod.toml # Prod-specific env vars
-    └── tasks/           # TOML task definitions
-```
+**Ansible** owns guest provisioning and configuration, i.e. everything after the guest exists and is reachable via SSH.
 
 ### Environment Separation
 
-`MISE_ENV` controls the active environment via mise's native profile system. Default: `dev` (set in `.config/miserc.toml`).
+`MISE_ENV` (dev/prod) controls the active environment via mise's profile system.
+All env-specific values and secrets come from mise profile configs (`.mise/config.<env>.toml`).
 
-```bash
-MISE_ENV=prod mise run lxc:deploy    # Inline override
-```
+Terraform uses workspaces (`TF_WORKSPACE`) aligned to `MISE_ENV` for state isolation.
 
-Ansible is fully environment-agnostic. All env-specific values (Proxmox address, secrets) come from mise profile configs (`.mise/config.dev.toml`, `.mise/config.prod.toml`). Terraform uses workspaces (`TF_WORKSPACE`) aligned to `MISE_ENV` for state isolation. A single unified inventory serves both environments.
-
-- **Inventory** (`ansible/hosts.yml`): static host definitions with `env_scope` and connection details per host
-- **Host vars** (`ansible/host_vars/`): single file per host, shared across environments
-- **Secrets** (`.secrets/*.sops.yaml`): SOPS-encrypted with age, auto-decrypted by mise into env vars
+Ansible is fully environment-agnostic. A single inventory serves both environments.
+  > If an Ansible var needs to differ per environment, use `lookup('env', 'VAR')`.
 
 ### Variable Precedence
 
@@ -80,8 +47,6 @@ Configuration follows Ansible-native precedence (later overrides earlier):
 2. **Group vars** (`ansible/group_vars/`): shared defaults per host type
 3. **Host-Specific** (`ansible/host_vars/`): per-host overrides
 4. **Command-Line** (`--extra-vars`): runtime overrides (highest priority)
-
-> **Important:** If a variable needs to differ per environment, use `lookup('env', 'VAR')` in host_vars with the value provided by mise profiles.
 
 ### Inventory
 
@@ -98,7 +63,10 @@ The **swarm** group is assembled at runtime by iterating all inventory groups an
 
 ### Secrets
 
-Secrets are managed with SOPS + age and loaded as environment variables by mise's `_.file` directive. Ansible consumes them via `lookup('env', ...)` in group_vars and host_vars. Terraform consumes them via `TF_VAR_*` env vars. Roles never reference the secrets backend directly.
+Secrets are managed with SOPS + age and loaded as environment variables by mise's `_.file` directive.
+
+- Ansible consumes them via `lookup('env', ...)` in vars.
+- Terraform consumes them via `TF_VAR_*` env vars.
 
 | Secret | Location | In Git |
 |--------|----------|--------|
@@ -107,15 +75,16 @@ Secrets are managed with SOPS + age and loaded as environment variables by mise'
 | Prod secrets | `.secrets/prod.sops.yaml` | Yes (encrypted) |
 | Age private key | `age.key` | No (gitignored) |
 
-`mise run sops:edit` opens secrets in the editor. `mise run sops:status` shows encryption status.
+  > Use `mise run sops:edit <file>` to edit secrets.
 
 ## Playbook Design
 
 ### VPS Provisioning (`vps.yml`)
 
-Single-play playbook that connects to VPS hosts via SSH and applies system, network, and application roles. Uses a hybrid `tasks:` + `roles:` execution pattern. SSH hardening runs in `tasks:` with an immediate handler flush (to avoid locking yourself out mid-play), while remaining roles run in the standard `roles:` section.
+Single-play playbook that connects to VPS hosts via SSH and applies system, network, and application roles. Uses a hybrid `tasks:` + `roles:` execution pattern. SSH hardening runs in `tasks:` with an immediate handler flush (to avoid lock-out mid-play), while remaining roles run in the standard `roles:` section.
 
-First-time provisioning uses password auth (`mise run vps:first-run`), which overrides `ansible_host` with the public IP (`VPS_PUBLIC_IP` from SOPS secrets) via `--extra-vars`. Subsequent runs use key-based auth over Tailscale MagicDNS hostnames.
+First-time provisioning uses password auth (`mise run vps:first-run`), which overrides `ansible_host` with the public IP.
+Subsequent runs use key-based auth over Tailscale MagicDNS hostnames.
 
 ### LXC and VM Provisioning (`lxc.yml`, `vm.yml`)
 
@@ -131,19 +100,18 @@ Individual deploy tasks (`lxc:deploy`, `vm:deploy`) run Ansible only. Use `mise 
 
 ### Docker Swarm (`swarm.yml`)
 
-Swarm requires cross-host orchestration that doesn't fit the standard provision-per-host pattern, so it uses a dedicated seven-play playbook:
+Swarm requires cross-host orchestration that doesn't fit the standard provision-per-host pattern, so it uses a dedicated four-play playbook:
 
-1. **Discover**: iterates inventory groups for `docker_swarm_enabled: true`, validates exactly one init node with `docker_swarm_init: true`, and registers hosts to the `swarm` group.
-2. **Validate**: verifies Docker is active on all swarm hosts.
-3. **Bootstrap** (`serial: 1`): init node creates cluster and retrieves join tokens cached on localhost; remaining nodes join using cached tokens.
-4. **Status**: displays cluster info from init node.
-5-7. **Reset** (requires explicit `--tags reset`): tears down in order - workers, non-init managers, init node - all with `ignore_unreachable: true`.
+1. **Discover** (localhost): iterates inventory groups for `docker_swarm_enabled: true`, validates exactly one init node with `docker_swarm_init: true`, and registers hosts to the dynamic `swarm` group.
+2. **Bootstrap** (`hosts: swarm`, `serial: 1`): includes the `applications/docker` role's `swarm` tasks. Each node reads its own Swarm state via `docker info`, picks one action (init / join / tokens / noop), and applies labels and availability.
+3. **Display Cluster Status** (localhost, `tags: [status]`): queries the init manager and prints a node summary; warns on any non-Ready nodes. Runs as part of `swarm:deploy` and standalone via `swarm:status`.
+4. **Reset** (`hosts: swarm`, parallel, `tags: [reset, never]`): every reachable node force-leaves whatever swarm it is in. Tears down the cluster entirely; safe to re-bootstrap immediately after.
 
 Swarm supports heterogeneous clusters spanning LXC, VM, and VPS nodes. The daemon.json is computed from individual variables (e.g., `docker_mtu`, `docker_data_root`) with empty value filtering, so there is no need to override the full config dict per host.
 
 #### Things to Watch Out For
 
-**Serial execution is mandatory.** All bootstrap operations run `serial: 1`. Parallel joins cause split-brain during Raft elections.
+**Serial bootstrap is mandatory.** The bootstrap play runs `serial: 1`. Parallel joins can cause split-brain during Raft elections.
 
 **MTU matters.** When running Swarm over Tailscale, set `docker_mtu` to the Tailscale interface MTU (`1280`), not the overlay MTU. Docker subtracts the VXLAN 50-byte overhead itself, so a value of `1280` yields a `1230` overlay MTU. Setting `docker_mtu: 1230` double-counts the subtraction and produces a broken `1180` overlay.
 
@@ -151,28 +119,8 @@ Set `docker_mtu` in each swarm node's host_vars (applied during provisioning via
 
 **VXLAN on public IPs.** Docker Swarm binds VXLAN (port 4789/UDP) to `0.0.0.0` regardless of `--data-path-addr`. On nodes with public IPs, set `docker_swarm_vxlan_interface: tailscale0` to restrict overlay traffic to the VPN interface via iptables.
 
-**Join retries.** Don't use Ansible `retries` on the join task. The first attempt starts a background join, and retries see "already part of a swarm". The role handles this with structured recovery (force leave, retry) and background join polling.
-
-**Reset ordering.** Cluster teardown runs in order: workers, then non-init managers, then init node. This is enforced by play structure, not hostname ordering.
-
-## Roles
-
-| Category | Role | Purpose |
-|----------|------|---------|
-| Common | `packages` | System package management with optional feature flags |
-| Common | `users` | User/group management, SSH key deployment, sudo |
-| Common | `ssh` | SSH server hardening |
-| Common | `dotfiles` | Dotfiles deployment from a Git repository |
-| Common | `hostname` | Hostname and FQDN configuration |
-| Common | `swap` | Swap management |
-| Network | `dns` | DNS resolver configuration (systemd-resolved, resolvconf, resolv.conf) |
-| Network | `ntp` | NTP time synchronization via systemd-timesyncd |
-| Network | `interface` | Network interface configuration (static/DHCP) |
-| Application | `docker` | Docker CE, daemon config, optional Swarm mode, GPU support |
-| Application | `tailscale` | Tailscale VPN with OAuth auth and API-based IP assignment |
-| Application | `samba` | Samba file sharing |
-
-For role variables, see `ansible/roles/<name>/defaults/main.yml` and `ansible/roles/<name>/meta/argument_specs.yml`. Roles applied by each playbook are defined in the playbook files; check `ansible/playbooks/*.yml` for the current list.
+**State is read via `docker info`.**
+The role avoids `community.docker.docker_swarm_info` for discovery as the module conflates "not in swarm" and "worker member" into the same error without populating local-state fields.
 
 ## Adding New Hosts
 
@@ -205,34 +153,32 @@ For role variables, see `ansible/roles/<name>/defaults/main.yml` and `ansible/ro
 
 ## Validation
 
-```bash
-mise run validate
-```
+`mise run validate` runs all hooks configured in [pre-commit](.config/pre-commit.yaml)
 
-Runs all pre-commit hooks: ansible-lint (includes yamllint), shellcheck, check-jsonschema (host_vars schema validation), gitleaks (secret detection), markdownlint-cli2, taplo-lint, terraform_fmt, terraform_validate, and standard checks (trailing whitespace, YAML syntax, large files, private keys, merge conflicts).
-
-A unified JSON schema (`ansible/schemas/host.schema.json`) validates host_vars structure covering all provisioning variables from every role.
+A [JSON schema](`ansible/schemas/host.schema.json`) validates host_vars structure covering all role variables.
 
 ## Mise Task Reference
 
+  > All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
+
 ```bash
-mise run env:setup                     # Install tools, collections, hooks
-mise run validate                      # Lint, schema check, secrets scan
-mise run info                          # Display system facts
-mise run sops:edit                     # Edit shared secrets in editor
+mise run env:setup            # Install tools, collections, hooks
+mise run validate             # Lint, schema check, secrets scan
+mise run info                 # Display system facts
+mise run sops:edit            # Edit shared secrets in editor
 
-mise run site:deploy                   # Full deploy (TF apply + all groups + swarm)
-mise run vps:first-run                 # First-time VPS deploy (password auth)
-mise run vps:deploy                    # Provision VPS hosts
-mise run lxc:deploy                    # LXC provisioning
-mise run vm:deploy                     # VM provisioning
+mise run site:deploy          # Full deploy (TF apply + all groups + swarm)
+mise run vps:first-run        # First-time VPS deploy (password auth)
+mise run vps:deploy           # Provision VPS hosts
+mise run lxc:deploy           # LXC provisioning
+mise run vm:deploy            # VM provisioning
 
-mise run swarm:deploy                  # Bootstrap/update Swarm cluster
-mise run swarm:reset                   # Tear down Swarm cluster
+mise run swarm:deploy         # Bootstrap/update Swarm cluster
+mise run swarm:check          # Dry-run Swarm bootstrap
+mise run swarm:status         # Display cluster status
+mise run swarm:reset          # Tear down Swarm cluster
 
-mise run tf:plan                       # Preview Terraform changes
-mise run tf:apply                      # Apply Terraform changes
-mise run tf:destroy                    # Destroy all TF-managed resources
+mise run tf:plan              # Preview Terraform changes
+mise run tf:apply             # Apply Terraform changes
+mise run tf:destroy           # Destroy all TF-managed resources
 ```
-
-Ansible-playbook args pass through directly (e.g., `mise run lxc:deploy --limit host1 --tags docker`) via `raw_args` on the deploy tasks. All operations go through mise; avoid running `ansible-playbook` or `terraform` directly, as mise manages paths, secrets, and environment variables.
