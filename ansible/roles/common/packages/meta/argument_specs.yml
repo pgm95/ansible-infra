@@ -14,8 +14,7 @@ argument_specs:
       - Optional network diagnostic tools
       - Handles unattended-upgrades conflicts
       - Proper apt lock management
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

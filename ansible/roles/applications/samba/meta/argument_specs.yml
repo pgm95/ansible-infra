@@ -13,8 +13,7 @@ argument_specs:
       - Configures existing system user for Samba access
       - Deploys static smb.conf from project files/
       - Enables mDNS service discovery via Avahi
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

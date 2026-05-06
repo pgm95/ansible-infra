@@ -13,8 +13,7 @@ argument_specs:
       - Supports authentication method control
       - Manages connection keepalive settings
       - Deploys to /etc/ssh/sshd_config.d/99-ansible.conf
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

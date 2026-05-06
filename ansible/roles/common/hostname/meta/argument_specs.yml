@@ -12,8 +12,7 @@ argument_specs:
       - Sets system hostname via ansible.builtin.hostname module
       - Manages /etc/hosts with proper FQDN entries
       - Auto-detects primary IP address
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

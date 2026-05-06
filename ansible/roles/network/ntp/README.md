@@ -166,11 +166,3 @@ nc -vz pool.ntp.org 123
 # Or use ntpdate (if installed)
 ntpdate -q pool.ntp.org
 ```
-
-## License
-
-MIT
-
-## Author
-
-homeops infrastructure automation

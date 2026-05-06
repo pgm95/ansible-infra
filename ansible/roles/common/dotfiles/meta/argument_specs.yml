@@ -13,8 +13,7 @@ argument_specs:
       - Synchronizes repository to remote staging directory
       - Invokes deploy.sh with configurable arguments
       - Supports deployment to root and regular users
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

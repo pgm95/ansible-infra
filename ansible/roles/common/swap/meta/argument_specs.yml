@@ -12,8 +12,7 @@ argument_specs:
       - Disables swap immediately via swapoff
       - Removes swap entries from /etc/fstab
       - Recommended for Kubernetes and container hosts
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

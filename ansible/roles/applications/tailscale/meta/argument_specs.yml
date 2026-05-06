@@ -14,8 +14,7 @@ argument_specs:
       - Custom IP assignment via Tailscale API
       - Linux kernel optimizations for exit nodes
       - Optional SSH binding to Tailscale network
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

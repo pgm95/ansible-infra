@@ -12,8 +12,7 @@ argument_specs:
       - Configures systemd-timesyncd via drop-in file
       - Enables automatic time synchronization
       - Deploys to /etc/systemd/timesyncd.conf.d/99-ansible.conf
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

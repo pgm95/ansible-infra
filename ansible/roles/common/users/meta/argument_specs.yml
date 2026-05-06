@@ -13,8 +13,7 @@ argument_specs:
       - Deploys SSH authorized keys from vault
       - Configures sudo access with optional NOPASSWD
       - Always ensures root SSH access for recovery
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

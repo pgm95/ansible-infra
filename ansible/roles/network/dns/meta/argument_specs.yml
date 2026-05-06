@@ -14,8 +14,7 @@ argument_specs:
       - Configures systemd-resolved via drop-in file
       - Supports resolvconf head file for priority DNS
       - Falls back to direct /etc/resolv.conf management
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

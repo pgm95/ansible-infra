@@ -13,8 +13,7 @@ argument_specs:
       - Supports static IP and DHCP modes
       - Manages /etc/network/interfaces
       - "Note: Most VPS providers configure networking automatically"
-    author:
-      - HomeOps
+
 
     options:
       # ========================================================================

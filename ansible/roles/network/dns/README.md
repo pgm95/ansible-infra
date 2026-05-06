@@ -129,11 +129,3 @@ net_dns_configure: true
 net_dns_servers: [1.1.1.1]
 net_dns_search: []
 ```
-
-## License
-
-MIT
-
-## Author
-
-homeops infrastructure automation
