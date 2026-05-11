@@ -35,7 +35,7 @@
   block:
     # AMD publishes apt repos keyed to Ubuntu codenames (jammy, noble). Map each
     # supported host distribution/major-version to the closest compatible suite.
-    - name: Docker | AMD CTK | Determine AMD toolkit apt suite
+    - name: Docker | AMD CTK | Determine AMD toolkit apt suite and release
       ansible.builtin.set_fact:
         __amd_toolkit_suite: >-
           {%- set dist = ansible_facts['distribution'] | lower -%}
@@ -45,12 +45,20 @@
           {%- elif dist == 'ubuntu' and major == '22' -%}jammy
           {%- elif dist == 'ubuntu' and major == '24' -%}noble
           {%- endif -%}
+        __amd_toolkit_release: >-
+          {%- set dist = ansible_facts['distribution'] | lower -%}
+          {%- set major = ansible_facts['distribution_major_version'] -%}
+          {%- if (dist == 'debian' and major == '12') or (dist == 'ubuntu' and major == '22') -%}22.04
+          {%- elif (dist == 'debian' and major == '13') or (dist == 'ubuntu' and major == '24') -%}24.04
+          {%- endif -%}
 
     - name: Docker | AMD CTK | Validate AMD toolkit suite was resolved
       ansible.builtin.assert:
-        that: __amd_toolkit_suite | length > 0
+        that:
+          - __amd_toolkit_suite | length > 0
+          - __amd_toolkit_release | length > 0
         fail_msg: >-
-          AMD Container Toolkit has no apt suite for
+          AMD Container Toolkit has no apt suite/release mapping for
           {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_major_version'] }}.
           Supported: Debian 12/13, Ubuntu 22.04/24.04.
         quiet: true
@@ -67,7 +75,7 @@
 
     - name: Docker | AMD CTK | Install amd-container-toolkit
       ansible.builtin.apt:
-        name: amd-container-toolkit
+        name: "amd-container-toolkit={{ docker_amd_ctk_version }}~{{ __amd_toolkit_release }}"
         state: present
         update_cache: true
 
