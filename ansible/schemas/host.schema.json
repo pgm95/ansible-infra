@@ -284,6 +284,7 @@
       "items": { "type": "string" },
       "description": "Docker packages to install"
     },
+    "docker_packages_hold": { "type": "boolean", "description": "Apply dpkg hold to docker_packages (defends swarm against accidental Docker upgrades)" },
 
     "docker_swarm_enabled": { "type": "boolean", "description": "Enable Docker Swarm mode" },
     "docker_swarm_init": { "type": "boolean", "description": "This node initializes the swarm cluster" },

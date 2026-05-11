@@ -39,6 +39,10 @@ docker_packages: # (list) Docker packages to install
   - docker-buildx-plugin
   - docker-compose-plugin
 
+# Pin Docker packages via dpkg hold so apt upgrade skips them.
+# Protects against swarm disruption from unintended Docker upgrades.
+docker_packages_hold: true # (boolean) Apply dpkg hold to docker_packages
+
 # Data & Storage
 docker_data_root: /var/lib/docker # (string) Docker root data directory (data-root)
 docker_containerd_root: "" # (string) Containerd root directory (empty = default /var/lib/containerd)

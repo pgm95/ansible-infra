@@ -35,6 +35,7 @@ docker_enabled: true
 | `docker_data_root` | `/var/lib/docker` | Docker data directory |
 | `docker_containerd_root` | `""` | Containerd root directory (empty = default). Set when `docker_data_root` is on a separate disk. |
 | `docker_storage_driver` | `""` | Storage driver (empty = auto) |
+| `docker_packages_hold` | `true` | Apply dpkg hold to `docker_packages` so apt upgrade skips them |
 
 ### Networking
 
@@ -179,3 +180,15 @@ Setting `docker_wait_for_tailscale: true` drops `/etc/systemd/system/docker.serv
 - `docker_metrics_enabled: true` forces `experimental: true` in daemon.json (required by dockerd for the metrics endpoint).
 - The AMD Container Toolkit apt suite is auto-resolved from the host distribution. Supported: Debian 12/13, Ubuntu 22.04/24.04. Debian 12 and Ubuntu 22.04 use the `jammy` suite; Debian 13 and Ubuntu 24.04 use `noble`.
 - The role does not declare its own tag. To target its tasks selectively, wrap the role in a play with `tags: [docker]`.
+
+### Upgrade workflow
+
+`docker_packages_hold` defaults to `true` because a Docker daemon restart (which happens on package upgrade) disrupts swarm Raft coordination. To intentionally upgrade Docker on a single host:
+
+```bash
+# Single run: release hold and perform full upgrade
+mise run lxc:deploy --limit <host> \
+  --extra-vars "docker_packages_hold=false packages_fullupgrade=true"
+```
+
+Next routine deploy re-applies the hold (default). The `dpkg_selections` task is symmetric: setting `docker_packages_hold: false` releases any existing hold, setting it back to `true` re-applies. No manual `apt-mark` needed.

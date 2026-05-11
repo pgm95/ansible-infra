@@ -63,6 +63,14 @@
         state: present
         update_cache: true
 
+    # Symmetric: true -> hold, false -> install (releases any existing hold).
+    # Idempotent metadata-only operation; safe to re-apply on every run.
+    - name: Set Docker package hold state
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: "{{ docker_packages_hold | ternary('hold', 'install') }}"
+      loop: "{{ docker_packages }}"
+
   rescue:
     - name: Display installation error
       ansible.builtin.debug:

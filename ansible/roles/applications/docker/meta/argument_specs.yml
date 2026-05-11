@@ -389,6 +389,15 @@ argument_specs:
           - docker-buildx-plugin
           - docker-compose-plugin
 
+      docker_packages_hold:
+        description: >-
+          Apply dpkg hold to docker_packages so apt upgrade leaves them alone.
+          Defends swarm coordination against accidental Docker daemon restarts.
+          Set false (typically via --extra-vars for a single run) to release the
+          hold for an intentional Docker upgrade.
+        type: bool
+        default: true
+
   # ==========================================================================
   # Entry point: tasks_from: swarm
   # ==========================================================================

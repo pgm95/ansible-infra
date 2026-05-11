@@ -23,7 +23,7 @@ argument_specs:
       packages_fullupgrade:
         description: Perform full system upgrade (apt upgrade full)
         type: bool
-        default: true
+        default: false
 
       packages_install_base:
         description: Install base packages (curl, wget, git, etc.)
