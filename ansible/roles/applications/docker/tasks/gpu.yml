@@ -1,20 +1,14 @@
 ---
-# ============================================================================
-# Docker Role - AMD Container Toolkit
-# ============================================================================
+# Docker - AMD Container Toolkit
+#
 # Installs the AMD container toolkit, generates a CDI spec, registers
 # amd-container-runtime in daemon.json, and enables the CDI feature.
 #
-# Does NOT set docker_default_runtime - that policy is left to the user.
 # To make amd the default runtime, set docker_default_runtime: amd in
 # host_vars. Otherwise services opt in per-container via runtime: amd.
 #
 # Runtime registration in daemon.json happens via docker_runtimes and
-# docker_cdi_enabled (set here via set_fact before the daemon config is
-# rendered in main.yml).
-#
-# Creates a CDI spec candidate at /tmp/amd.json, then copies it to
-# /etc/cdi/amd.json if it differs from the existing spec, for idempotency.
+# docker_cdi_enabled (set here before the daemon config is rendered in main.yml).
 
 - name: Docker | AMD CTK | Register AMD runtime in daemon config
   ansible.builtin.set_fact:
@@ -85,25 +79,39 @@
         state: directory
         mode: "0755"
 
-    - name: Docker | AMD CTK | Generate CDI spec candidate
-      # amd-ctk enforces the output filename must be amd.json, so stage in /tmp.
-      # check_mode: false because the copy task below needs the candidate file to
-      # exist to compute its diff; the generate is read-only outside /tmp.
-      ansible.builtin.command:
-        cmd: amd-ctk cdi generate --output=/tmp/amd.json
+    # amd-ctk enforces the output filename must be amd.json, so stage in a
+    # temp dir. check_mode: false on staging, generate, and cleanup so the
+    # desired content can be computed (and the temp dir cleaned) in check mode
+    # too. Slurp pulls the content into Ansible memory; the final copy with
+    # content renders a proper diff via --check --diff.
+    - name: Docker | AMD CTK | Create CDI spec staging dir
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: amd-ctk-
+      register: __amd_staging
       changed_when: false
       check_mode: false
 
+    - name: Docker | AMD CTK | Generate CDI spec
+      ansible.builtin.command:
+        cmd: "amd-ctk cdi generate --output={{ __amd_staging.path }}/amd.json"
+      changed_when: false
+      check_mode: false
+
+    - name: Docker | AMD CTK | Read generated CDI spec
+      ansible.builtin.slurp:
+        src: "{{ __amd_staging.path }}/amd.json"
+      register: __amd_cdi_spec
+
     - name: Docker | AMD CTK | Install CDI spec
       ansible.builtin.copy:
-        src: /tmp/amd.json
+        content: "{{ __amd_cdi_spec.content | b64decode }}"
         dest: /etc/cdi/amd.json
-        remote_src: true
         mode: "0644"
-      notify: Docker | Restart docker
 
-    - name: Docker | AMD CTK | Clean up CDI candidate
+    - name: Docker | AMD CTK | Remove CDI spec staging dir
       ansible.builtin.file:
-        path: /tmp/amd.json
+        path: "{{ __amd_staging.path }}"
         state: absent
+      changed_when: false
       check_mode: false
