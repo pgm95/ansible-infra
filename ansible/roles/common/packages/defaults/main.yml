@@ -17,6 +17,7 @@ packages_install_base: false
 packages_install_shell: false
 packages_install_network: false
 packages_extra_list: [] # (list) Additional packages defined in host_vars
+packages_apt_pins: {} # (dict) APT preferences pins. Format: { pkg: { version: "x.y.z*", priority: 1001 } }
 
 packages_base_list:
   - apt-transport-https

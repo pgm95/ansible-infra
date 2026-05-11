@@ -50,6 +50,7 @@ packages_install_base: true # (boolean) Install base packages
 packages_install_shell: false # (boolean) Install shell utilities (ripgrep, fzf, bat, etc.)
 packages_install_network: false # (boolean) Install network tools (nmap, traceroute, etc.)
 packages_extra_list: [] # (list) Additional packages defined in host_vars
+# packages_apt_pins: {} # (dict) APT preferences pins. Format: { pkg: { version: "x.y.z*", priority: 1001 } }
 
 ## Role: common/swap
 swap_disable: true                   # (boolean) Disable swap
@@ -136,7 +137,7 @@ docker_enabled: false              # (boolean) Enable Docker installation
 # docker_experimental: false         # (boolean) Enable experimental features
 # docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
 # docker_amd_ctk_enabled: false      # (boolean) Install AMD container toolkit + register amd runtime + enable CDI
-docker_amd_ctk_version: "1.2.0"      # (string) AMD container toolkit version (1.3.0 ships with broken file ownership, fails on unprivileged LXC)
+# docker_amd_ctk_version: ""         # (string) AMD container toolkit version
 # docker_wait_for_tailscale: false   # (boolean) systemd drop-in: docker.service waits for tailscaled at boot
 
 ## Role: applications/samba

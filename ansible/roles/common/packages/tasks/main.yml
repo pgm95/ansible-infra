@@ -48,6 +48,22 @@
         update_cache: true
       changed_when: false
 
+    - name: Write apt preferences pins
+      ansible.builtin.copy:
+        dest: "/etc/apt/preferences.d/{{ item.key }}"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+        content: |
+          Package: {{ item.key }}
+          Pin: version {{ item.value.version }}
+          Pin-Priority: {{ item.value.priority | default(1001) }}
+      loop: "{{ packages_apt_pins | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: packages_apt_pins | length > 0
+
     - name: Upgrade system
       ansible.builtin.apt:
         upgrade: full

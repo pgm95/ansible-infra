@@ -30,6 +30,15 @@ Installs optional package categories and ad-hoc extras with automatic system upg
 - `packages_network_list` - Network diagnostics (6 packages)
 - `packages_extra_list` - Ad-hoc per-host packages (default: `[]`)
 
+**APT Preferences Pins** (`packages_apt_pins`, default: `{}`):
+
+Generic mechanism for pinning package versions via `/etc/apt/preferences.d/`. Keys are package names, values are dicts with:
+
+- `version` (required) - Version glob, e.g. `"1.2.0*"`
+- `priority` (optional, default `1001`) - Pin-Priority. `>= 1001` forces apt to downgrade if a higher version is installed.
+
+Pins land before the system upgrade task, so they protect the upgrade and any subsequent apt operations. Defensive use case: block a known-broken upstream release from being pulled by `apt full-upgrade`.
+
 ## Workflow
 
 ### Lock Management

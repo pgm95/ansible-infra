@@ -224,12 +224,13 @@ argument_specs:
 
       docker_amd_ctk_version:
         description: >-
-          AMD container toolkit package version to pin (e.g. "1.2.0"). The
-          role appends the distro release suffix (~22.04 / ~24.04) at install
-          time. Set in group_vars/all.yml since this is a project-wide
-          defensive pin against upstream releases with broken packaging.
+          AMD container toolkit package version (e.g. "1.2.0"). Empty
+          (default) installs the latest available version from the AMD repo.
+          The role appends the distro release suffix (~22.04 / ~24.04) at
+          install time. Use packages_apt_pins in host_vars to lock the
+          version against dist-upgrade.
         type: str
-        required: true
+        default: ""
 
       # ========================================================================
       # Systemd Integration

@@ -94,6 +94,19 @@
       "items": { "type": "string" },
       "description": "Additional per-host packages to install"
     },
+    "packages_apt_pins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "version": { "type": "string" },
+          "priority": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["version"],
+        "additionalProperties": false
+      },
+      "description": "APT preferences pins, keyed by package name. Each value: { version: <glob>, priority?: <int> }. Written to /etc/apt/preferences.d/<package>."
+    },
 
     "dotfiles_enabled": { "type": "boolean", "description": "Deploy dotfiles" },
     "dotfiles_repo_url": { "type": "string", "description": "Git repo URL (without https://)" },

@@ -23,7 +23,7 @@
 
 - name: Docker | AMD CTK | Stat amd-ctk binary
   ansible.builtin.stat:
-    path: /usr/bin/amd-ctk
+    path: /usr/local/bin/amd-ctk
   register: __amd_ctk_installed
 
 # Skip install + spec generation in check mode if amd-ctk isn't already on
@@ -75,7 +75,7 @@
 
     - name: Docker | AMD CTK | Install amd-container-toolkit
       ansible.builtin.apt:
-        name: "amd-container-toolkit={{ docker_amd_ctk_version }}~{{ __amd_toolkit_release }}"
+        name: "amd-container-toolkit{{ ('=' + docker_amd_ctk_version + '~' + __amd_toolkit_release) if docker_amd_ctk_version | length > 0 else '' }}"
         state: present
         update_cache: true
 

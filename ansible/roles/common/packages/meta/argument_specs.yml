@@ -50,6 +50,19 @@ argument_specs:
         default: []
 
       # ========================================================================
+      # APT Preferences Pins
+      # ========================================================================
+      packages_apt_pins:
+        description: >-
+          APT preferences pins, keyed by package name. Each value is a dict with
+          'version' (required, glob accepted, e.g. "1.2.0*") and optional
+          'priority' (defaults 1001 to force-downgrade if a higher version is
+          installed). Written to /etc/apt/preferences.d/<package> before the
+          system upgrade task.
+        type: dict
+        default: {}
+
+      # ========================================================================
       # Base Packages (Essential System Tools)
       # ========================================================================
       packages_base_list:
