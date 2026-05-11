@@ -16,11 +16,11 @@
       tags: [always]
 
   roles:
-    - role: common/ssh
-      tags: [common, ssh]
     - role: common/users
       tags: [common, users]
       when: users_list is defined and users_list | length > 0
+    - role: common/ssh
+      tags: [common, ssh]
     - role: common/packages
       tags: [common, packages]
     - role: common/dotfiles

@@ -18,7 +18,6 @@ hostname_configure: false            # (boolean) Enable hostname configuration
 
 ## Role: common/users
 users_sudo_nopasswd: false           # (boolean) Allow sudo without password
-ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
 # users_list: []
 #   - name: (string, required) Username
 #   - password: (string, required) Plain text (auto-hashed)
@@ -34,6 +33,7 @@ ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', tru
 #   - ssh_keys: (boolean) Deploy SSH keys (default: false)
 
 ## Role: common/ssh
+ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
 ssh_password_authentication: false # (boolean) Enable password authentication
 ssh_pubkey_authentication: true    # (boolean) Enable public key authentication
 ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords

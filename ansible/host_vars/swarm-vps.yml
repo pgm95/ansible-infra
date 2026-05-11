@@ -6,7 +6,7 @@ net_ntp_configure: true
 
 # Hostname
 hostname_configure: true
-hostname: "{{ ansible_host }}"
+hostname: "{{ inventory_hostname }}"
 
 # Packages
 packages_install_shell: true

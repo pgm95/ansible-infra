@@ -7,15 +7,25 @@
 
 argument_specs:
   main:
-    short_description: SSH server hardening configuration
+    short_description: SSH server hardening and authorized_keys deployment
     description:
       - Configures SSH security settings via drop-in file
+      - Deploys authorized_keys to root and to users_list members with ssh_keys true
       - Supports authentication method control
       - Manages connection keepalive settings
       - Deploys to /etc/ssh/sshd_config.d/99-ansible.conf
 
 
     options:
+      # ========================================================================
+      # Authorized Keys
+      # ========================================================================
+      ssh_authorized_keys:
+        description: SSH public keys deployed to root and to users with ssh_keys true
+        type: list
+        elements: str
+        default: []
+
       # ========================================================================
       # Authentication Configuration
       # ========================================================================

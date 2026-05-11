@@ -1,15 +1,13 @@
 # Users Role
 
-Comprehensive user and group management with SSH key deployment, sudo configuration, and automatic password hashing. Validates configurations to prevent common mistakes.
+User and group lifecycle management with sudo configuration and automatic password hashing. SSH key deployment is owned by the `common/ssh` role.
 
 ## Features
 
 - User and group creation with UID/GID support
 - Automatic password hashing (SHA512)
-- SSH key deployment from central file
 - Sudo access configuration (with/without password)
 - Interactive shell validation (prevents locked accounts)
-- Root SSH access (always maintained for recovery)
 - Custom home directory support
 - System user support
 - Password-only updates on creation
@@ -18,7 +16,6 @@ Comprehensive user and group management with SSH key deployment, sudo configurat
 
 - Debian/Ubuntu based system
 - Root or sudo access
-- SSH keys provided via `ssh_authorized_keys` (list in group_vars)
 
 ## Role Variables
 
@@ -68,7 +65,7 @@ Custom home directory path.
 Grant sudo privileges.
 
 **ssh_keys** (boolean, default: `false`)
-Deploy SSH keys from `ssh_authorized_keys` list.
+Marker consumed by the `common/ssh` role. When true, that role deploys `ssh_authorized_keys` to this user's `~/.ssh/authorized_keys` (exclusive).
 
 ## Workflow
 
@@ -162,34 +159,6 @@ users_list:
     password: "my_secure_password"  # Plain text input
     # Stored as: $6$rounds=656000$... (SHA512 hash)
 ```
-
-## SSH Key Management
-
-### Root SSH Access
-
-SSH keys are ALWAYS deployed to root user for recovery access:
-
-```yaml
-# Automatic - no configuration needed
-```
-
-Keys loaded from `ssh_authorized_keys` (list in group_vars)
-
-### User SSH Access
-
-Enable per-user SSH key deployment:
-
-```yaml
-users_list:
-  - name: admin
-    password: "plaintext"
-    ssh_keys: true  # Deploy SSH keys
-```
-
-**Key Behavior:**
-
-- Root keys: `exclusive: false` (don't remove existing keys)
-- User keys: `exclusive: true` (replace all keys)
 
 ## Sudo Configuration
 
@@ -312,12 +281,6 @@ users_list:
 - Never logged (no_log: true)
 - Only updated on user creation
 
-### SSH Key Security
-
-- Root keys preserve existing entries (recovery access)
-- User keys are exclusive (complete replacement)
-- Keys loaded from `ssh_authorized_keys` (provided via group_vars)
-
 ### Sudo Validation
 
 All sudo configurations validated with `visudo -cf` before deployment.
@@ -328,8 +291,8 @@ All sudo configurations validated with `visudo -cf` before deployment.
 
 ## Dependencies
 
-- **ssh** role: For SSH daemon configuration (recommended)
-- **dotfiles** role: For dotfiles deployment to created users (optional)
+- **ssh** role: Deploys SSH keys to root and to users in `users_list` with `ssh_keys: true`. Must run **after** this role so user home directories exist when keys are written.
+- **dotfiles** role: Deploys dotfiles to created users (optional)
 
 ## Handler Behavior
 
@@ -340,9 +303,6 @@ No handlers. Changes take effect immediately.
 ```
 /etc/sudoers.d/{username}              # Sudo configuration per user
 /home/{username}/                      # User home directories
-/home/{username}/.ssh/authorized_keys  # User SSH keys
-/root/.ssh/authorized_keys             # Root SSH keys (recovery)
-group_vars/all/main.yml                # Source SSH keys (ssh_authorized_keys)
 ```
 
 ## Common Configurations
@@ -433,6 +393,5 @@ visudo -c
 - User creation is idempotent
 - Passwords never shown in logs
 - Groups are appended (existing memberships preserved)
-- SSH keys for users are exclusive (not appended)
 - Validation prevents locked accounts with interactive shells
 - Only passwords are hashed - other attributes used as-is

@@ -2,31 +2,8 @@
 # ============================================================================
 # Users Role - User and Group Management
 # ============================================================================
-# Creates users, deploys SSH keys, and configures sudo access
-
-# ============================================================================
-# Root SSH Access (Always Enabled for Recovery)
-# ============================================================================
-
-- name: Validate SSH keys are defined
-  ansible.builtin.assert:
-    that:
-      - ssh_authorized_keys is defined
-      - ssh_authorized_keys | length > 0
-    fail_msg: >-
-      ssh_authorized_keys is missing or empty. Add at least one SSH
-      public key to group_vars or host_vars to ensure access to managed hosts.
-    success_msg: "SSH keys validated: {{ ssh_authorized_keys | length }} key(s)"
-  tags: [users, validation]
-
-- name: Add SSH keys to root user
-  ansible.posix.authorized_key:
-    user: root
-    key: "{{ ssh_authorized_keys | join('\n') }}"
-    state: present
-    exclusive: false # Don't remove existing keys
-  no_log: true
-  when: ssh_authorized_keys is defined and ssh_authorized_keys | length > 0
+# Creates users, groups, passwords, and sudo access. SSH key deployment is
+# handled by the common/ssh role.
 
 # ============================================================================
 # User Management Validation
@@ -104,19 +81,3 @@
     - users_list | default([]) | length > 0
     - item.sudo_access | default(false) | bool
     - item.name != 'root' # Root already has full sudo
-
-- name: Add SSH keys for users
-  ansible.posix.authorized_key:
-    user: "{{ item.name }}"
-    key: "{{ ssh_authorized_keys | join('\n') }}"
-    state: present
-    exclusive: true
-  no_log: true
-  loop: "{{ users_list | default([]) }}"
-  loop_control:
-    label: "{{ item.name }}" # Only show username in logs, not full item with password
-  when:
-    - users_list | default([]) | length > 0
-    - item.ssh_keys | default(false) | bool # Changed default to false (safer)
-    - item.name != 'root' # Root keys handled separately
-    - ssh_authorized_keys is defined and ssh_authorized_keys | length > 0

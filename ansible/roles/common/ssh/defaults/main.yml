@@ -13,6 +13,15 @@
 # Purpose: Configure SSH security settings and connection management
 
 # ============================================================================
+# Authorized Keys
+# ============================================================================
+# ssh_authorized_keys must be provided via group_vars or host_vars as a list
+# of public key strings. Keys are deployed to root (exclusive=false) and to
+# users in users_list with ssh_keys: true (exclusive=true).
+
+ssh_authorized_keys: [] # (list) SSH public keys for deployment
+
+# ============================================================================
 # Authentication Configuration
 # ============================================================================
 

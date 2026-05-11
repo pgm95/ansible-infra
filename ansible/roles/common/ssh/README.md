@@ -1,6 +1,6 @@
 # SSH Role
 
-Configures SSH daemon hardening settings for improved security. Deploys configuration via sshd_config.d drop-in file with validation.
+Owns all SSH-protocol concerns on a host: sshd hardening via a drop-in file, and `authorized_keys` deployment to root and to configured users.
 
 ## Features
 
@@ -11,6 +11,7 @@ Configures SSH daemon hardening settings for improved security. Deploys configur
 - Authentication method control
 - Maximum authentication attempts limit
 - Automatic SSH daemon reload on changes
+- Authorized keys deployed to root (recovery, non-exclusive) and to users in `users_list` with `ssh_keys: true` (exclusive)
 
 ## Requirements
 
@@ -20,6 +21,11 @@ Configures SSH daemon hardening settings for improved security. Deploys configur
 - sshd_config.d directory support
 
 ## Role Variables
+
+### Authorized Keys
+
+**ssh_authorized_keys** (list, default: `[]`)
+SSH public keys deployed to root (`exclusive: false`) and to every user in `users_list` with `ssh_keys: true` (`exclusive: true`). Typically populated from the `SSH_AUTHORIZED_KEYS` env var via `ansible/group_vars/all.yml`.
 
 ### Authentication Configuration
 
@@ -166,9 +172,9 @@ For first-time VPS deployment with password access:
 mise run vps:first-run
 ```
 
-1. SSH keys are deployed by users role
+1. SSH keys land before the sshd reload (key tasks run before the sshd_config drop-in copy), so the operator's key is in place when password auth is disabled.
 
-2. Subsequent runs enforce key-only authentication
+2. Subsequent runs enforce key-only authentication.
 
 ## Connection Timeout Logic
 
@@ -207,7 +213,7 @@ ssh_client_alive_count_max: 0
 
 ## Dependencies
 
-- **users** role: For SSH key deployment (recommended)
+- **users** role: Creates user accounts and home directories. Must run **before** this role so `~/.ssh/authorized_keys` can be written for users with `ssh_keys: true`.
 
 ## Common Configurations
 
@@ -277,6 +283,8 @@ tail -f /var/log/auth.log
 /etc/ssh/sshd_config                      # Main SSH configuration (not modified)
 /etc/ssh/sshd_config.d/                   # Drop-in configuration directory
 /etc/ssh/sshd_config.d/99-ansible.conf    # Ansible-managed hardening config
+/root/.ssh/authorized_keys                # Root keys (non-exclusive)
+/home/{username}/.ssh/authorized_keys     # Per-user keys (exclusive, for users with ssh_keys: true)
 ```
 
 ## Notes

@@ -8,6 +8,17 @@
 # Pre-Configuration Validation
 # ============================================================================
 
+- name: Validate SSH keys are defined
+  ansible.builtin.assert:
+    that:
+      - ssh_authorized_keys is defined
+      - ssh_authorized_keys | length > 0
+    fail_msg: >-
+      ssh_authorized_keys is missing or empty. Add at least one SSH
+      public key to group_vars or host_vars to ensure access to managed hosts.
+    success_msg: "SSH keys validated: {{ ssh_authorized_keys | length }} key(s)"
+  tags: [ssh, validation]
+
 - name: Validate ssh_permit_root_login value
   ansible.builtin.assert:
     that:
@@ -72,6 +83,36 @@
         name: ssh.socket
         state: stopped
         enabled: false
+
+# ============================================================================
+# Authorized Keys Deployment
+# ============================================================================
+# Root keys are deployed unconditionally for recovery access. User keys are
+# deployed for users in users_list with ssh_keys: true. Runs before sshd
+# hardening so the reload handler fires with keys already in place.
+
+- name: Add SSH keys to root user
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ ssh_authorized_keys | join('\n') }}"
+    state: present
+    exclusive: false # Don't remove existing keys
+  no_log: true
+
+- name: Add SSH keys for users
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ ssh_authorized_keys | join('\n') }}"
+    state: present
+    exclusive: true
+  no_log: true
+  loop: "{{ users_list | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - users_list | default([]) | length > 0
+    - item.ssh_keys | default(false) | bool
+    - item.name != 'root' # Root keys handled separately
 
 # ============================================================================
 # SSH Configuration Deployment

@@ -1,13 +1,12 @@
 ---
 # VPS Deployment Playbook
 #
-# Provisions VPS/bare-metal servers with base system and applications
-#
-# Ensures stable SSH connectivity while other roles use standard execution:
-#   1. include_role section: Used for roles requiring conditional execution or that need handler flushing between them:
-#      - hostname: conditionally applied (when: hostname_configure)
-#      - ssh: requires immediate handler flush to reload sshd
-#   2. roles section: Used for standard role execution where handlers can be deferred to the end of the play.
+# Provisions VPS/bare-metal servers with base system and applications.
+# Role order matters:
+#   - users + ssh first so subsequent roles can authenticate over SSH and
+#     so any user-keyed deployment (e.g. dotfiles rsync) has keys in place
+#   - hostname before tailscale so the device registers with the right name
+#   - network/interface late so a misapplied IP change can't break earlier roles
 
 - name: Setup VPS
   hosts: vps
@@ -33,32 +32,15 @@
              else 'No users configured - root-only system' }}
       tags: ["always", "users"]
 
-  # Role execution order prevents interface from disrupting DNS/NTP configuration:
-  # - hostname: Sets hostname/FQDN (no service restart)
-  # - interface: Configures IP/gateway (restarts networking service if enabled)
-  # - dns: Configures DNS resolvers (restarts systemd-resolved)
-  # - ntp: Configures NTP servers (restarts systemd-timesyncd)
-  tasks:
-    - name: Apply hostname configuration
-      ansible.builtin.include_role:
-        name: common/hostname
-        apply:
-          tags: [common, hostname]
-      tags: [common, hostname]
-      when: hostname_configure
-    - name: Apply SSH hardening
-      ansible.builtin.include_role:
-        name: common/ssh
-        apply:
-          tags: [common, ssh]
-      tags: [common, ssh]
-    - name: Flush handlers to reload SSH immediately
-      ansible.builtin.meta: flush_handlers
-      tags: [common, ssh]
-
   roles:
     - role: common/users
       tags: [common, users]
+      when: users_list is defined and users_list | length > 0
+    - role: common/ssh
+      tags: [common, ssh]
+    - role: common/hostname
+      tags: [common, hostname]
+      when: hostname_configure
     - role: common/packages
       tags: [common, packages]
     - role: common/swap
