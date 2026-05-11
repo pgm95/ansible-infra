@@ -6,6 +6,7 @@ docker_enabled: false
 tailscale_enabled: false
 packages_install_shell: false
 packages_install_network: false
+packages_fullupgrade: true
 
 # Dotfiles
 dotfiles_enabled: false

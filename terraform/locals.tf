@@ -150,7 +150,9 @@ locals {
         address     = "dhcp"
         mac_address = "BC:24:11:CC:2F:3D"
       }
-      features = {}
+      features = {
+        nesting = true # Systemd 257
+      }
       devices = [
         { path = "/dev/net/tun" },
       ]
@@ -180,7 +182,9 @@ locals {
         vlan_id = 50
         address = "dhcp"
       }
-      features = {}
+      features = {
+        nesting = true # Systemd 257
+      }
       devices = [
         { path = "/dev/net/tun" },
       ]

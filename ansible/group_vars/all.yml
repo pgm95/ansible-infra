@@ -121,7 +121,8 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # tailscale_insecurely_log_authkey: false # (boolean) Log authkey (INSECURE, debug only)
 
 ## Role: applications/docker. Swarm vars are in swarm.yml.
-docker_enabled: false              # (boolean) Enable Docker installation
+docker_enabled: false                # (boolean) Enable Docker installation
+docker_packages_hold: true           # (boolean) Apply dpkg hold to docker_packages
 # docker_data_root: /var/lib/docker  # (string) Docker root data directory
 # docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
 # docker_mtu: 0                      # (integer) Default MTU (0 = auto, 1230 for Tailscale+VXLAN)

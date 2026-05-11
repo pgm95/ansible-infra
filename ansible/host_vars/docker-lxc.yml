@@ -14,6 +14,7 @@ users_list:
 # Packages
 packages_install_shell: true
 packages_install_network: true
+packages_fullupgrade: true
 
 # Dotfiles
 dotfiles_enabled: true
@@ -28,3 +29,4 @@ docker_data_root: "/data/docker-data"
 docker_containerd_root: "/data/containerd"
 docker_amd_ctk_enabled: false
 docker_swarm_enabled: false
+docker_packages_hold: false

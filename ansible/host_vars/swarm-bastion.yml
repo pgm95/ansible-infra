@@ -5,6 +5,7 @@
 docker_enabled: false
 packages_install_shell: false
 packages_install_network: false
+packages_fullupgrade: true
 dotfiles_enabled: false
 samba_enabled: false
 
