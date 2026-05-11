@@ -1,10 +1,5 @@
 ---
 # ============================================================================
-# SSH Role - Server Hardening Configuration
-# ============================================================================
-# Deploys SSH security settings via drop-in file
-
-# ============================================================================
 # Pre-Configuration Validation
 # ============================================================================
 
@@ -113,6 +108,39 @@
     - users_list | default([]) | length > 0
     - item.ssh_keys | default(false) | bool
     - item.name != 'root' # Root keys handled separately
+
+# ============================================================================
+# Client SSH Identity Deployment
+# ============================================================================
+# Deploys a private key for outbound SSH from this host (e.g. bastion -> swarm
+# nodes). Skipped when ssh_client_identity is unset (empty dict default).
+
+- name: Validate ssh_client_identity shape when set
+  ansible.builtin.assert:
+    that:
+      - ssh_client_identity.name is defined
+      - ssh_client_identity.name | length > 0
+      - ssh_client_identity.private_key is defined
+      - ssh_client_identity.private_key | length > 0
+    fail_msg: >-
+      ssh_client_identity is set but missing required fields. Provide both
+      'name' and 'private_key' (got name={{ ssh_client_identity.name | default('undef') }},
+      private_key length={{ (ssh_client_identity.private_key | default('')) | length }}).
+    success_msg: "Client identity validated: {{ ssh_client_identity.name }}"
+  when: ssh_client_identity | length > 0
+
+- name: Deploy client SSH identity to /root/.ssh
+  ansible.builtin.copy:
+    dest: "/root/.ssh/{{ ssh_client_identity.name }}"
+    # trim + explicit newline normalizes the value to exactly one trailing \n.
+    # OpenSSH refuses to parse PEM keys missing the terminal newline (libcrypto
+    # error), and SOPS/YAML env serialization frequently drops it.
+    content: "{{ ssh_client_identity.private_key | trim }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  when: ssh_client_identity | length > 0
+  no_log: true
 
 # ============================================================================
 # SSH Configuration Deployment

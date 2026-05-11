@@ -22,6 +22,16 @@
 ssh_authorized_keys: [] # (list) SSH public keys for deployment
 
 # ============================================================================
+# Client Identity
+# ============================================================================
+# Optional private key for outbound SSH from this host.
+# Empty dict (default) skips deployment. When set, must contain:
+#   name:        filename under /root/.ssh/ (e.g. id_ed25519)
+#   private_key: key content, typically a SOPS env lookup
+
+ssh_client_identity: {} # (dict) Client SSH identity. Keys: name, private_key
+
+# ============================================================================
 # Authentication Configuration
 # ============================================================================
 

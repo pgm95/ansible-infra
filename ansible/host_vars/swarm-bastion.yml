@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+# General
+docker_enabled: false
+packages_install_shell: false
+packages_install_network: false
+dotfiles_enabled: false
+samba_enabled: false
+
+# SSH
+ssh_client_identity:
+  name: id_ed25519 # matches OpenSSH's default key search
+  private_key: "{{ lookup('env', 'SSH_SWARM_BASTION_PRIVKEY') }}"
+
+# Tailscale
+tailscale_enabled: true
+tailscale_tags: ["ansible", "swarm"]
+tailscale_ip: "100.88.0.5"
+tailscale_bind_ssh: false

@@ -33,7 +33,18 @@ users_sudo_nopasswd: false           # (boolean) Allow sudo without password
 #   - ssh_keys: (boolean) Deploy SSH keys (default: false)
 
 ## Role: common/ssh
-ssh_authorized_keys: "{{ (lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n') | select | list }}"
+# Registry of SSH client identities whose pubkey is granted SSH access on hosts that opt in via ssh_trusted_clients host_var.
+ssh_trusted_client_pubkeys:
+  swarm-bastion: "{{ lookup('env', 'SSH_SWARM_BASTION_PUBKEY') }}"
+
+# Base operator keys (SSH_AUTHORIZED_KEYS env) + per-host opt-in client pubkeys resolved through ssh_trusted_client_pubkeys.
+ssh_authorized_keys: >-
+  {{ ((lookup('env', 'SSH_AUTHORIZED_KEYS') | default('', true)).split('\n')
+      + (ssh_trusted_clients | default([])
+         | map('extract', ssh_trusted_client_pubkeys) | list))
+     | select | list }}
+# ssh_trusted_clients: []            # (list) Client identity names to trust on this host (keys of ssh_trusted_client_pubkeys)
+# ssh_client_identity: {}            # (dict) Client SSH identity for this host; keys: name (filename in /root/.ssh/), private_key
 ssh_password_authentication: false # (boolean) Enable password authentication
 ssh_pubkey_authentication: true    # (boolean) Enable public key authentication
 ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords

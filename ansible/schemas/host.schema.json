@@ -38,6 +38,20 @@
       "items": { "type": "string" },
       "description": "SSH public keys for deployment"
     },
+    "ssh_trusted_clients": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of SSH client identities (from ssh_trusted_client_pubkeys in group_vars/all.yml) to grant root SSH access on this host"
+    },
+    "ssh_client_identity": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "private_key": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Client SSH identity deployed to /root/.ssh/<name> for outbound SSH from this host"
+    },
 
     "users_list": {
       "type": "array",

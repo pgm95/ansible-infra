@@ -40,9 +40,9 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   # Features
   features {
-    fuse    = each.value.features.fuse
-    nesting = each.value.features.nesting
-    keyctl  = each.value.features.keyctl
+    fuse    = try(each.value.features.fuse, null)
+    nesting = try(each.value.features.nesting, null)
+    keyctl  = try(each.value.features.keyctl, null)
   }
 
   # Rootfs disk (first entry)

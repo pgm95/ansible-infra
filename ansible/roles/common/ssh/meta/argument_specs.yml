@@ -27,6 +27,23 @@ argument_specs:
         default: []
 
       # ========================================================================
+      # Client Identity
+      # ========================================================================
+      ssh_client_identity:
+        description: >-
+          Client SSH identity deployed to /root/.ssh/<name> for outbound SSH
+          from this host. Empty dict (default) skips deployment.
+        type: dict
+        default: {}
+        options:
+          name:
+            description: Filename in /root/.ssh/ for the deployed private key
+            type: str
+          private_key:
+            description: Private key content (typically a SOPS env lookup)
+            type: str
+
+      # ========================================================================
       # Authentication Configuration
       # ========================================================================
       ssh_password_authentication:

@@ -126,6 +126,67 @@ locals {
       ]
     }
 
+    swarm-bastion = {
+      env_scope   = "prod"
+      vm_id       = 107
+      description = ""
+      tags        = ["terraform"]
+      os_version  = "13"
+      cores       = 1
+      memory = {
+        dedicated = 512
+        swap      = 0
+      }
+      start_on_boot     = true
+      startup_order     = 2
+      disk_datastore_id = "zfs-lxc"
+      password          = var.universal_pass
+      disks = [
+        { size = 4 },
+      ]
+      network = {
+        bridge      = "vmbr0"
+        vlan_id     = 40
+        address     = "dhcp"
+        mac_address = "BC:24:11:CC:2F:3D"
+      }
+      features = {}
+      devices = [
+        { path = "/dev/net/tun" },
+      ]
+      bind_mounts = []
+    }
+
+    swarm-bastion-dev = {
+      env_scope   = "dev"
+      vm_id       = 407
+      description = "SSH jump host for swarm cluster"
+      tags        = ["terraform"]
+      os_version  = "12"
+      cores       = 1
+      memory = {
+        dedicated = 512
+        swap      = 0
+      }
+      start_on_boot     = true
+      startup_order     = 2
+      disk_datastore_id = "local-btrfs"
+      password          = var.universal_pass
+      disks = [
+        { size = 4 },
+      ]
+      network = {
+        bridge  = "vmbr3"
+        vlan_id = 50
+        address = "dhcp"
+      }
+      features = {}
+      devices = [
+        { path = "/dev/net/tun" },
+      ]
+      bind_mounts = []
+    }
+
     swarm-lxc = {
       env_scope   = "prod"
       vm_id       = 105
