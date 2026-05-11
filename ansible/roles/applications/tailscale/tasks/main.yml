@@ -12,21 +12,30 @@
 
 - name: Load configuration
   ansible.builtin.import_tasks: load_config.yml
+  # _ts_* facts are prerequisites for every subtag below. Listed explicitly
+  # rather than tagged always so unrelated invocations don't drag them in.
+  tags: [tailscale_validate, tailscale_install, tailscale_config, tailscale_ssh, tailscale_status]
 
 - name: Validate configuration
   ansible.builtin.import_tasks: validate.yml
+  tags: [tailscale_validate]
 
 - name: Install Tailscale
   ansible.builtin.import_tasks: install.yml
+  tags: [tailscale_install]
 
 - name: Apply Linux optimizations
   ansible.builtin.import_tasks: linux_optimizations.yml
+  tags: [tailscale_config]
 
 - name: Configure device via API
   ansible.builtin.import_tasks: api_configuration.yml
+  tags: [tailscale_config]
 
 - name: Bind SSH to Tailscale network
   ansible.builtin.import_tasks: ssh_binding.yml
+  tags: [tailscale_ssh]
 
 - name: Display status
   ansible.builtin.import_tasks: status.yml
+  tags: [tailscale_status]

@@ -12,7 +12,6 @@
       ssh_authorized_keys is missing or empty. Add at least one SSH
       public key to group_vars or host_vars to ensure access to managed hosts.
     success_msg: "SSH keys validated: {{ ssh_authorized_keys | length }} key(s)"
-  tags: [ssh, validation]
 
 - name: Validate ssh_permit_root_login value
   ansible.builtin.assert:
@@ -64,9 +63,11 @@
   ansible.builtin.stat:
     path: /usr/lib/systemd/system/ssh.socket
   register: __ssh_socket_unit
+  tags: [ssh_config]
 
 - name: Disable SSH socket activation
   when: __ssh_socket_unit.stat.exists
+  tags: [ssh_config]
   block:
     - name: Ensure ssh.service is enabled for direct startup
       ansible.builtin.systemd:
@@ -93,6 +94,7 @@
     state: present
     exclusive: false # Don't remove existing keys
   no_log: true
+  tags: [ssh_keys]
 
 - name: Add SSH keys for users
   ansible.posix.authorized_key:
@@ -108,6 +110,7 @@
     - users_list | default([]) | length > 0
     - item.ssh_keys | default(false) | bool
     - item.name != 'root' # Root keys handled separately
+  tags: [ssh_keys]
 
 # ============================================================================
 # Client SSH Identity Deployment
@@ -128,6 +131,7 @@
       private_key length={{ (ssh_client_identity.private_key | default('')) | length }}).
     success_msg: "Client identity validated: {{ ssh_client_identity.name }}"
   when: ssh_client_identity | length > 0
+  tags: [ssh_client_identity]
 
 - name: Deploy client SSH identity to /root/.ssh
   ansible.builtin.copy:
@@ -141,6 +145,7 @@
     mode: "0600"
   when: ssh_client_identity | length > 0
   no_log: true
+  tags: [ssh_client_identity]
 
 # ============================================================================
 # SSH Configuration Deployment
@@ -150,6 +155,7 @@
   ansible.builtin.stat:
     path: /etc/ssh/sshd_config.d
   register: __sshd_config_dir
+  tags: [ssh_config]
 
 - name: Ensure sshd_config.d directory exists
   ansible.builtin.file:
@@ -159,6 +165,7 @@
     group: root
     mode: "0755"
   when: not __sshd_config_dir.stat.exists
+  tags: [ssh_config]
 
 - name: Deploy SSH hardening configuration
   ansible.builtin.copy:
@@ -180,6 +187,7 @@
       ClientAliveCountMax {{ ssh_client_alive_count_max }}
     validate: "sshd -t -f /etc/ssh/sshd_config -f %s"
   notify: SSH | Reload sshd
+  tags: [ssh_config]
 
 - name: Display SSH configuration summary
   ansible.builtin.debug:

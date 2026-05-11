@@ -6,13 +6,11 @@
   ansible.builtin.set_fact:
     hostname: "{{ inventory_hostname }}"
   when: hostname is not defined
-  tags: ["always"]
 
 - name: Hostname | Set FQDN from domain suffix
   ansible.builtin.set_fact:
     _fqdn: "{{ hostname }}.{{ hostname_domain_suffix }}"
   when: hostname_domain_suffix | length > 0
-  tags: ["always"]
 
 ### Validate
 - name: Hostname | Validate hostname is not empty

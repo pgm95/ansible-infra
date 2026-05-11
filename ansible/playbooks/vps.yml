@@ -30,41 +30,41 @@
           {{ 'Will create ' + (users_list | length | string) + ' user(s)'
              if (users_list is defined and users_list | length > 0)
              else 'No users configured - root-only system' }}
-      tags: ["always", "users"]
+      tags: ["always"]
 
   roles:
     - role: common/users
-      tags: [common, users]
+      tags: [users]
       when: users_list is defined and users_list | length > 0
     - role: common/ssh
-      tags: [common, ssh]
+      tags: [ssh]
     - role: common/hostname
-      tags: [common, hostname]
+      tags: [hostname]
       when: hostname_configure
     - role: common/packages
-      tags: [common, packages]
+      tags: [packages]
     - role: common/swap
-      tags: [common, swap]
+      tags: [swap]
     - role: common/dotfiles
-      tags: [common, dotfiles]
+      tags: [dotfiles]
       when: dotfiles_enabled
     - role: network/dns
-      tags: [network, dns]
+      tags: [dns]
     - role: network/ntp
-      tags: [network, ntp]
+      tags: [ntp]
     - role: network/interface
-      tags: [network, interface]
+      tags: [interface]
       when: net_iface_configure
     - role: applications/tailscale
-      tags: [application, tailscale, vpn]
+      tags: [tailscale]
       when:
         - not ansible_check_mode # Skip in check mode due to collection limitation
         - tailscale_enabled
     - role: applications/docker
-      tags: [application, docker]
+      tags: [docker]
       when:
         - docker_enabled
     - role: applications/samba
-      tags: [application, samba]
+      tags: [samba]
       when:
         - samba_enabled

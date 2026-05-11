@@ -17,25 +17,25 @@
 
   roles:
     - role: common/users
-      tags: [common, users]
+      tags: [users]
       when: users_list is defined and users_list | length > 0
     - role: common/ssh
-      tags: [common, ssh]
+      tags: [ssh]
     - role: common/packages
-      tags: [common, packages]
+      tags: [packages]
     - role: common/dotfiles
-      tags: [common, dotfiles]
+      tags: [dotfiles]
       when: dotfiles_enabled
     - role: applications/tailscale
-      tags: [application, tailscale, vpn]
+      tags: [tailscale]
       when:
         - not ansible_check_mode
         - tailscale_enabled
     - role: applications/docker
-      tags: [application, docker]
+      tags: [docker]
       when:
         - docker_enabled
     - role: applications/samba
-      tags: [application, samba]
+      tags: [samba]
       when:
         - samba_enabled

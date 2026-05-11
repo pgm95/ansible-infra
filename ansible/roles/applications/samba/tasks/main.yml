@@ -19,7 +19,6 @@
       host_vars/{{ inventory_hostname }}.yml referencing a user from
       users_list.
     success_msg: "Samba user reference validated: {{ samba_existing_user }}"
-  tags: [samba, validation]
 
 - name: Validate smb_conf_file is defined
   ansible.builtin.assert:
@@ -30,14 +29,12 @@
       smb_conf_file is missing or empty. Define it in
       host_vars/{{ inventory_hostname }}.yml with the path to your smb.conf.
     success_msg: "SMB config path validated: {{ smb_conf_file }}"
-  tags: [samba, validation]
 
 - name: Verify Samba user exists on system
   ansible.builtin.command: id {{ samba_user }}
   register: __user_exists
   changed_when: false
   failed_when: false
-  tags: [samba, validation]
 
 - name: Validate system user exists
   ansible.builtin.assert:
@@ -48,13 +45,11 @@
       role runs before samba and that the user is defined in users_list.
       Error: {{ __user_exists.stderr | default('no output') }}.
     success_msg: "System user validated: {{ samba_user }}"
-  tags: [samba, validation]
 
 - name: Display user verification
   ansible.builtin.debug:
     msg: "User {{ samba_user }} exists with: {{ __user_exists.stdout }}"
     verbosity: 1
-  tags: [samba, validation]
 
 - name: Install Samba and related packages
   ansible.builtin.apt:
@@ -67,14 +62,14 @@
       - libnss-mdns
     state: present
     update_cache: true
-  tags: [samba, packages]
+  tags: [samba_install]
 
 - name: Check if Samba user exists in Samba database
   ansible.builtin.command: pdbedit -L -u {{ samba_user }}
   register: __samba_user_check
   failed_when: false
   changed_when: false
-  tags: [samba, users]
+  tags: [samba_users]
 
 - name: Create Samba password for existing user
   # Note: Shell piping necessary as smbpasswd requires interactive input
@@ -87,7 +82,7 @@
   no_log: true
   when: __samba_user_check.rc != 0
   changed_when: true
-  tags: [samba, users]
+  tags: [samba_users]
 
 - name: Update Samba password if user exists in database
   # Note: Shell piping necessary as smbpasswd requires interactive input
@@ -99,12 +94,12 @@
   no_log: true
   when: __samba_user_check.rc == 0
   changed_when: false
-  tags: [samba, users]
+  tags: [samba_users]
 
 - name: Enable Samba user
   ansible.builtin.command: smbpasswd -e {{ samba_user }}
   changed_when: false
-  tags: [samba, users]
+  tags: [samba_users]
 
 - name: Deploy SMB configuration
   ansible.builtin.copy:
@@ -115,14 +110,14 @@
     mode: "0644"
     backup: true
   notify: Samba | Restart samba services
-  tags: [samba, config]
+  tags: [samba_config]
 
 - name: Validate Samba configuration
   ansible.builtin.command: testparm -s /etc/samba/smb.conf
   register: __testparm_result
   changed_when: false
   failed_when: __testparm_result.rc != 0
-  tags: [samba, config]
+  tags: [samba_config]
 
 - name: Disable NetBIOS daemon (not needed)
   ansible.builtin.systemd:
@@ -130,7 +125,7 @@
     state: stopped
     enabled: false
   failed_when: false
-  tags: [samba, services]
+  tags: [samba_service]
 
 - name: Ensure Samba services are started and enabled
   ansible.builtin.systemd:
@@ -139,4 +134,4 @@
     enabled: true
     daemon_reload: true
   loop: "{{ samba_services }}"
-  tags: [samba, services]
+  tags: [samba_service]

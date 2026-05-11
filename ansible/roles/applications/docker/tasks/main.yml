@@ -16,6 +16,8 @@
       - distribution
       - distribution_release
       - architecture
+  # distribution/architecture facts are prerequisites for every subtag below.
+  tags: [docker_install, docker_daemon, docker_gpu]
 
 - name: Validate target OS is supported
   ansible.builtin.assert:
@@ -27,12 +29,14 @@
       This role only supports Debian and Ubuntu. Use a supported distribution
       or install Docker manually.
     success_msg: "Target OS validated: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_release'] }}"
+  tags: [docker_install, docker_daemon, docker_gpu]
 
 # ============================================================================
 # Docker Installation
 # ============================================================================
 
 - name: Docker installation workflow
+  tags: [docker_install]
   block:
     - name: Set Docker distribution name
       ansible.builtin.set_fact:
@@ -107,18 +111,27 @@
   ansible.builtin.stat:
     path: /usr/bin/dockerd
   register: __docker_installed
+  tags: [docker_daemon, docker_gpu]
 
 - name: Install AMD container toolkit
-  ansible.builtin.include_tasks: gpu.yml
+  ansible.builtin.include_tasks:
+    file: gpu.yml
+    apply:
+      tags: [docker_gpu]
   when:
     - docker_amd_ctk_enabled
     - not ansible_check_mode or __docker_installed.stat.exists
+  tags: [docker_gpu]
 
 - name: Configure Docker (requires Docker present outside check mode)
   when: not ansible_check_mode or __docker_installed.stat.exists
+  tags: [docker_daemon]
   block:
     - name: Build daemon config
-      ansible.builtin.include_tasks: daemon.yml
+      ansible.builtin.include_tasks:
+        file: daemon.yml
+        apply:
+          tags: [docker_daemon]
 
     - name: Configure Docker daemon
       ansible.builtin.copy:
