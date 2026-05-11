@@ -35,7 +35,7 @@ docker_enabled: true
 | `docker_data_root` | `/var/lib/docker` | Docker data directory |
 | `docker_containerd_root` | `""` | Containerd root directory (empty = default). Set when `docker_data_root` is on a separate disk. |
 | `docker_storage_driver` | `""` | Storage driver (empty = auto) |
-| `docker_packages_hold` | `true` | Apply dpkg hold to `docker_packages` so apt upgrade skips them |
+| `docker_packages_hold` | `false` (role) / `true` (project) | Apply dpkg hold to `docker_packages` so apt upgrade skips them. Role default is neutral; the project enforces hold via `group_vars/all.yml`. |
 
 ### Networking
 
@@ -179,7 +179,7 @@ Setting `docker_wait_for_tailscale: true` drops `/etc/systemd/system/docker.serv
 - `live-restore` is automatically disabled when `docker_swarm_enabled: true`.
 - `docker_metrics_enabled: true` forces `experimental: true` in daemon.json (required by dockerd for the metrics endpoint).
 - The AMD Container Toolkit apt suite is auto-resolved from the host distribution. Supported: Debian 12/13, Ubuntu 22.04/24.04. Debian 12 and Ubuntu 22.04 use the `jammy` suite; Debian 13 and Ubuntu 24.04 use `noble`.
-- The role does not declare its own tag. To target its tasks selectively, wrap the role in a play with `tags: [docker]`.
+- The role exposes a tier-1 `docker` tag (whole role) and tier-2 subtags `docker_install`, `docker_daemon`, `docker_gpu` for granular targeting. The `Gather facts` and `Validate target OS` preamble tasks carry all three subtags so any subtag invocation pulls them in.
 
 ### Upgrade workflow
 

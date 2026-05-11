@@ -86,13 +86,12 @@ net_dns_llmnr: false          # Disable LLMNR
 ```yaml
 roles:
   - role: network/dns
-    tags: [network, dns]
+    tags: [dns]
 ```
 
 ## Tags
 
-- `network` - Network-related roles
-- `dns` - DNS-specific tasks
+- `dns`: whole role (no internal subtags)
 
 ## Handlers
 

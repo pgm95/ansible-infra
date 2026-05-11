@@ -93,7 +93,7 @@ The role applies security hardening automatically:
 Run playbook:
 
 ```bash
-mise run vps:deploy --tags ssh,security
+mise run vps:deploy --tags ssh
 ```
 
 Result:
@@ -220,8 +220,10 @@ ssh_client_alive_count_max: 0
 
 ## Tags
 
-- `ssh`: SSH configuration tasks
-- `security`: Security hardening tasks
+- `ssh`: whole role (validate + key deploy + sshd config)
+- `ssh_keys`: authorized_keys deployment only (root + users)
+- `ssh_config`: sshd hardening drop-in + socket activation handling
+- `ssh_client_identity`: outbound client identity deployment (e.g. bastion)
 
 ## Dependencies
 

@@ -94,12 +94,11 @@ All configuration changes are validated with `testparm` before service restart. 
 
 ## Tags
 
-- `samba`: All Samba-related tasks
-- `validation`: User and configuration validation tasks
-- `packages`: Package installation tasks
-- `users`: Samba user management tasks
-- `config`: Configuration deployment tasks
-- `services`: Service management tasks
+- `samba`: whole role
+- `samba_install`: package install
+- `samba_users`: Samba user/password management
+- `samba_config`: smb.conf deployment + testparm validation
+- `samba_service`: systemd service management
 
 ## Directory Structure
 

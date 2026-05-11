@@ -63,7 +63,7 @@ net_iface_gateway: 192.168.1.1
 1. Run playbook:
 
 ```bash
-mise run vps:deploy --tags network
+mise run vps:deploy --tags interface
 ```
 
 ### DHCP Configuration
@@ -79,7 +79,7 @@ net_iface_name: eth0
 1. Run playbook:
 
 ```bash
-mise run vps:deploy --tags network
+mise run vps:deploy --tags interface
 ```
 
 ## Template Behavior
@@ -146,7 +146,7 @@ Ansible automatically backs up `/etc/network/interfaces` before modification. Ba
 
 ## Tags
 
-- `network`: Network interface configuration tasks
+- `interface`: whole role (no internal subtags)
 
 ## Dependencies
 

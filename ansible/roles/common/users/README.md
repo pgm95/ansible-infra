@@ -287,7 +287,7 @@ All sudo configurations validated with `visudo -cf` before deployment.
 
 ## Tags
 
-- No specific tags (runs with common/default tags)
+- `users`: whole role (no internal subtags; phases aren't operationally distinct)
 
 ## Dependencies
 

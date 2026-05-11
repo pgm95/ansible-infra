@@ -78,13 +78,12 @@ net_ntp_servers:
 ```yaml
 roles:
   - role: network/ntp
-    tags: [network, ntp]
+    tags: [ntp]
 ```
 
 ## Tags
 
-- `network` - Network-related roles
-- `ntp` - NTP-specific tasks
+- `ntp`: whole role (no internal subtags)
 
 ## Handlers
 

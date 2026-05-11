@@ -66,7 +66,7 @@ hostname: "{{ ansible_host }}"
 
 ## Tags
 
-- `always`: Variable resolution tasks run with all tag selections
+- `hostname`: whole role (no internal subtags; phases aren't operationally distinct)
 
 ## Dependencies
 
