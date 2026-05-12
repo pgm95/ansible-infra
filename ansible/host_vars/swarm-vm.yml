@@ -1,9 +1,6 @@
 ---
 # yaml-language-server: $schema=../schemas/host.schema.json
 
-# SSH
-ssh_trusted_clients: ["swarm-bastion"]
-
 # Users
 users_list:
   - name: swarm

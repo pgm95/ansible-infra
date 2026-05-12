@@ -113,41 +113,6 @@
   tags: [ssh_keys]
 
 # ============================================================================
-# Client SSH Identity Deployment
-# ============================================================================
-# Deploys a private key for outbound SSH from this host (e.g. bastion -> swarm
-# nodes). Skipped when ssh_client_identity is unset (empty dict default).
-
-- name: Validate ssh_client_identity shape when set
-  ansible.builtin.assert:
-    that:
-      - ssh_client_identity.name is defined
-      - ssh_client_identity.name | length > 0
-      - ssh_client_identity.private_key is defined
-      - ssh_client_identity.private_key | length > 0
-    fail_msg: >-
-      ssh_client_identity is set but missing required fields. Provide both
-      'name' and 'private_key' (got name={{ ssh_client_identity.name | default('undef') }},
-      private_key length={{ (ssh_client_identity.private_key | default('')) | length }}).
-    success_msg: "Client identity validated: {{ ssh_client_identity.name }}"
-  when: ssh_client_identity | length > 0
-  tags: [ssh_client_identity]
-
-- name: Deploy client SSH identity to /root/.ssh
-  ansible.builtin.copy:
-    dest: "/root/.ssh/{{ ssh_client_identity.name }}"
-    # trim + explicit newline normalizes the value to exactly one trailing \n.
-    # OpenSSH refuses to parse PEM keys missing the terminal newline (libcrypto
-    # error), and SOPS/YAML env serialization frequently drops it.
-    content: "{{ ssh_client_identity.private_key | trim }}\n"
-    owner: root
-    group: root
-    mode: "0600"
-  when: ssh_client_identity | length > 0
-  no_log: true
-  tags: [ssh_client_identity]
-
-# ============================================================================
 # SSH Configuration Deployment
 # ============================================================================
 
@@ -185,6 +150,11 @@
       MaxAuthTries {{ ssh_max_auth_tries }}
       ClientAliveInterval {{ ssh_client_alive_interval }}
       ClientAliveCountMax {{ ssh_client_alive_count_max }}
+      AuthenticationMethods publickey
+      LogLevel VERBOSE
+      AllowAgentForwarding no
+      AllowStreamLocalForwarding no
+      X11Forwarding no
     validate: "sshd -t -f /etc/ssh/sshd_config -f %s"
   notify: SSH | Reload sshd
   tags: [ssh_config]

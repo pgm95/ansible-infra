@@ -9,11 +9,6 @@ packages_fullupgrade: true
 dotfiles_enabled: false
 samba_enabled: false
 
-# SSH
-ssh_client_identity:
-  name: id_ed25519 # matches OpenSSH's default key search
-  private_key: "{{ lookup('env', 'SSH_SWARM_BASTION_PRIVKEY') }}"
-
 # Tailscale
 tailscale_enabled: true
 tailscale_tags: ["ansible", "swarm"]

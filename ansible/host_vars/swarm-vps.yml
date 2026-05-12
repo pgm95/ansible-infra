@@ -4,9 +4,6 @@
 net_dns_configure: true
 net_ntp_configure: true
 
-# SSH
-ssh_trusted_clients: ["swarm-bastion"]
-
 # Hostname
 hostname_configure: true
 hostname: "{{ inventory_hostname }}"

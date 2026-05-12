@@ -27,18 +27,6 @@ Owns all SSH-protocol concerns on a host: sshd hardening via a drop-in file, and
 **ssh_authorized_keys** (list, default: `[]`)
 SSH public keys deployed to root (`exclusive: false`) and to every user in `users_list` with `ssh_keys: true` (`exclusive: true`). Typically populated from the `SSH_AUTHORIZED_KEYS` env var via `ansible/group_vars/all.yml`.
 
-Trusted SSH client identities (e.g., a bastion's pubkey) are merged into this list at the `group_vars/all.yml` resolution layer through the `ssh_trusted_client_pubkeys` registry and the per-host `ssh_trusted_clients` opt-in list -- not inside this role. The role itself only consumes the final resolved list.
-
-### Client Identity
-
-**ssh_client_identity** (dict, default: `{}`)
-Optional private key deployed to `/root/.ssh/<name>` for outbound SSH from this host (e.g., a bastion authenticating to managed swarm nodes). Empty dict skips deployment. When set, must contain:
-
-- `name`: filename under `/root/.ssh/` (use `id_ed25519` for default OpenSSH key search)
-- `private_key`: key content, typically `{{ lookup('env', '<SECRET>') }}`
-
-File mode is `0600`, owned by root. Use in combination with `ssh_trusted_clients` on the target hosts to scope which hosts trust which clients.
-
 ### Authentication Configuration
 
 **ssh_password_authentication** (boolean, default: `false`)
@@ -223,7 +211,6 @@ ssh_client_alive_count_max: 0
 - `ssh`: whole role (validate + key deploy + sshd config)
 - `ssh_keys`: authorized_keys deployment only (root + users)
 - `ssh_config`: sshd hardening drop-in + socket activation handling
-- `ssh_client_identity`: outbound client identity deployment (e.g. bastion)
 
 ## Dependencies
 
@@ -298,7 +285,6 @@ tail -f /var/log/auth.log
 /etc/ssh/sshd_config.d/                   # Drop-in configuration directory
 /etc/ssh/sshd_config.d/99-ansible.conf    # Ansible-managed hardening config
 /root/.ssh/authorized_keys                # Root keys (non-exclusive)
-/root/.ssh/{ssh_client_identity.name}     # Client identity for outbound SSH (0600, only when ssh_client_identity set)
 /home/{username}/.ssh/authorized_keys     # Per-user keys (exclusive, for users with ssh_keys: true)
 ```
 
