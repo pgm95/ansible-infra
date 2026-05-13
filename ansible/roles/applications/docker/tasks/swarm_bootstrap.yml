@@ -1,16 +1,18 @@
 ---
 # ============================================================================
-# Docker Swarm Tasks
+# Docker Swarm Bootstrap Tasks
 # ============================================================================
-# Called by playbooks/swarm.yml for cluster orchestration.
+# Called by playbooks/swarm.yml's Bootstrap play (serial: 1).
 # Requires: community.docker collection, Docker SDK for Python.
 #
 # Flow:
 #   1. Local state discovery via `docker info` (ground truth, no module quirk)
-#   2. Reset block: leave any swarm and end_host (when _swarm_reset_mode)
-#   3. Decide action: init | join | tokens | noop, plus whether to leave first
-#   4. Execute the action
-#   5. Post-membership configuration (VXLAN firewall, labels, availability)
+#   2. Decide action: init | join | tokens | noop, plus whether to leave first
+#   3. Execute the action
+#   4. Post-membership configuration (VXLAN firewall, labels, availability)
+#
+# Reset is a separate task file (swarm_reset.yml) since it shares no
+# discovery, decision, or post-membership logic with bootstrap.
 # ============================================================================
 
 # ============================================================================
@@ -83,28 +85,7 @@
     - not docker_swarm_init | bool
 
 # ============================================================================
-# Section 2: Reset (early exit)
-# ============================================================================
-# Reset is the nuclear option: leave whatever swarm this node is in (if any),
-# then stop processing further sections for this host.
-
-- name: Swarm | Reset block
-  when: _swarm_reset_mode | default(false)
-  block:
-    - name: Swarm | Force leave any swarm
-      ansible.builtin.command: docker swarm leave --force
-      register: _reset_leave
-      changed_when: _reset_leave.rc == 0
-      failed_when:
-        - _reset_leave.rc != 0
-        - "'This node is not part of a swarm' not in (_reset_leave.stderr | default(''))"
-      when: _node_state != 'inactive'
-
-    - name: Swarm | End reset for this host
-      ansible.builtin.meta: end_host
-
-# ============================================================================
-# Section 3: Decide action
+# Section 2: Decide action
 # ============================================================================
 # Node is considered correctly joined when:
 #   - state == active
@@ -145,7 +126,7 @@
     verbosity: 1
 
 # ============================================================================
-# Section 4: Execute
+# Section 3: Execute
 # ============================================================================
 
 - name: Swarm | Leave before re-action
@@ -311,7 +292,7 @@
         quiet: true
 
 # ============================================================================
-# Section 5: Post-membership configuration
+# Section 4: Post-membership configuration
 # ============================================================================
 # Runs for every host that reaches this point (init / tokens / join / noop).
 # Each task gates itself on its own preconditions.

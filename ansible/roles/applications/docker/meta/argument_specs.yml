@@ -399,7 +399,7 @@ argument_specs:
         default: true
 
   # ==========================================================================
-  # Entry point: tasks_from: swarm
+  # Entry point: tasks_from: swarm_bootstrap
   # ==========================================================================
   # Per-host swarm orchestration: state discovery, init/join/tokens/noop
   # decision, post-bootstrap node configuration (labels, availability, VXLAN
@@ -407,7 +407,7 @@ argument_specs:
   # populate the swarm group with one host having docker_swarm_init: true; the
   # role computes the init manager hostname from the group internally, so no
   # external add_host fact is needed beyond group membership.
-  swarm:
+  swarm_bootstrap:
     short_description: Per-host Docker Swarm orchestration
     description:
       - Discovers local swarm state via docker info (no module quirks).

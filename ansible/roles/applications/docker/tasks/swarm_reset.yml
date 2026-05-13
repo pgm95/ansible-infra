@@ -1,0 +1,29 @@
+---
+# ============================================================================
+# Docker Swarm Reset Tasks
+# ============================================================================
+# Called by playbooks/swarm.yml's Reset play. Force-leaves whatever swarm
+# this node is in, regardless of cluster state.
+#
+# Runs parallel across hosts with ignore_unreachable: true. Per-node
+# `docker swarm leave --force` is independent of cluster quorum, so
+# ordering is irrelevant and there is no delegation to the init manager.
+# ============================================================================
+
+- name: Swarm | Read local node state
+  ansible.builtin.command:
+    cmd: >-
+      docker info --format
+      '{% raw %}{{.Swarm.LocalNodeState}}{% endraw %}'
+  register: _reset_state
+  changed_when: false
+  check_mode: false
+
+- name: Swarm | Force leave any swarm
+  ansible.builtin.command: docker swarm leave --force
+  register: _reset_leave
+  changed_when: _reset_leave.rc == 0
+  failed_when:
+    - _reset_leave.rc != 0
+    - "'This node is not part of a swarm' not in (_reset_leave.stderr | default(''))"
+  when: _reset_state.stdout != 'inactive'

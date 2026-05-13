@@ -89,7 +89,7 @@
     - name: Include swarm bootstrap tasks
       ansible.builtin.include_role:
         name: applications/docker
-        tasks_from: swarm
+        tasks_from: swarm_bootstrap
 
 # PLAY 3: Display cluster status. Also surfaces non-Ready nodes
 - name: Display Cluster Status
@@ -137,6 +137,4 @@
     - name: Include swarm reset tasks
       ansible.builtin.include_role:
         name: applications/docker
-        tasks_from: swarm
-      vars:
-        _swarm_reset_mode: true
+        tasks_from: swarm_reset
