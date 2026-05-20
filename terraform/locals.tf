@@ -12,7 +12,7 @@ locals {
       vm_id       = 103
       description = ""
       tags        = ["terraform", "docker"]
-      os_version  = "13"
+      os_version  = "debian-13"
       cores       = 2
       memory = {
         dedicated = 2048
@@ -52,7 +52,7 @@ locals {
       vm_id       = 101
       description = ""
       tags        = ["terraform"]
-      os_version  = "13"
+      os_version  = "debian-13"
       cores       = 1
       memory = {
         dedicated = 2048
@@ -92,7 +92,7 @@ locals {
       vm_id       = 401
       description = "Samba LXC test"
       tags        = ["terraform"]
-      os_version  = "12"
+      os_version  = "debian-12"
       cores       = 2
       memory = {
         dedicated = 2048
@@ -131,7 +131,7 @@ locals {
       vm_id       = 107
       description = ""
       tags        = ["terraform"]
-      os_version  = "13"
+      os_version  = "debian-13"
       cores       = 1
       memory = {
         dedicated = 512
@@ -164,7 +164,7 @@ locals {
       vm_id       = 407
       description = "SSH jump host for swarm cluster"
       tags        = ["terraform"]
-      os_version  = "12"
+      os_version  = "debian-12"
       cores       = 1
       memory = {
         dedicated = 512
@@ -196,7 +196,7 @@ locals {
       vm_id       = 105
       description = ""
       tags        = ["terraform", "swarm"]
-      os_version  = "13"
+      os_version  = "debian-13"
       cores       = 8
       memory = {
         dedicated = 8192
@@ -242,7 +242,7 @@ locals {
       vm_id       = 403
       description = "Swarm LXC test"
       tags        = ["terraform", "swarm"]
-      os_version  = "12"
+      os_version  = "debian-12"
       cores       = 4
       memory = {
         dedicated = 8192
@@ -295,6 +295,7 @@ locals {
       vm_id       = 102
       description = ""
       tags        = ["terraform", "swarm"]
+      os          = "debian-13"
       cores       = 8
       memory = {
         dedicated = 20480
@@ -333,6 +334,7 @@ locals {
       vm_id       = 402
       description = "Test Swarm VM"
       tags        = ["terraform", "swarm"]
+      os          = "debian-13"
       cores       = 4
       memory = {
         dedicated = 8192
@@ -383,12 +385,17 @@ locals {
   }
 
   # ---------------------------------------------------------------------------
-  # OS template mapping
+  # OS image mapping | LXC templates and VM cloud images
   # ---------------------------------------------------------------------------
 
   os_template = {
-    "12" = proxmox_download_file.debian_12_lxc.id
-    "13" = proxmox_download_file.debian_13_lxc.id
+    "debian-12" = proxmox_download_file.debian_12_lxc.id
+    "debian-13" = proxmox_download_file.debian_13_lxc.id
+  }
+
+  vm_cloud_image = {
+    "debian-13" = proxmox_download_file.debian_13_cloud.id
+    "ubuntu-26" = proxmox_download_file.ubuntu_26_cloud.id
   }
 
 }

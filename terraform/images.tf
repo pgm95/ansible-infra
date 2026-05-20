@@ -24,3 +24,13 @@ resource "proxmox_download_file" "debian_13_cloud" {
   file_name    = "debian-13-genericcloud-amd64.raw"
   overwrite    = false
 }
+
+resource "proxmox_download_file" "ubuntu_26_cloud" {
+  content_type = "import"
+  datastore_id = var.pve_download_storage
+  node_name    = var.pve_node_name
+  url          = "https://cloud-images.ubuntu.com/resolute/current/resolute-server-cloudimg-amd64.img"
+  # Ubuntu ships QCOW2 with a .img name; Proxmox `import` rejects .img, so store it as .qcow2.
+  file_name = "ubuntu-26-server-cloudimg-amd64.qcow2"
+  overwrite = false
+}

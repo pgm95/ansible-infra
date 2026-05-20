@@ -42,17 +42,18 @@ bootcmd:
 %{ endif ~}
 
 # Other Configuration - Hardcoded
-timezone: US/Eastern
+timezone: America/New_York
 disable_root: false
 
+package_reboot_if_required: true
 packages:
   - qemu-guest-agent
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
   - systemctl restart systemd-resolved
+  # Re-DHCP after cloud-init sets the hostname so the lease registers it rather than the image default
   - systemctl restart systemd-networkd
-  - networkctl reload
 
 write_files:
   - path: /etc/systemd/resolved.conf.d/99-terraform-cicustom-dns.conf
@@ -60,18 +61,17 @@ write_files:
     permissions: '0644'
     content: |
       [Resolve]
-      DNS=10.10.10.1
-      Domains=home.arpa
       DNSStubListener=no
       MulticastDNS=no
       LLMNR=no
 
-  - path: /etc/systemd/network/99-terraform-cicustom-dhcp.network
+  # Honor the DHCP-provided search domain (Debian defaults UseDomains=no and drops it).
+  - path: /etc/systemd/networkd.conf.d/99-terraform-cicustom-dhcp.conf
     owner: root:root
     permissions: '0644'
     content: |
-      [Match]
-      Name=eth*
+      [DHCPv4]
+      UseDomains=yes
 
-      [DHCP]
-      SendHostname=yes
+      [DHCPv6]
+      UseDomains=yes

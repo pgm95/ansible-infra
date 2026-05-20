@@ -8,7 +8,7 @@ resource "proxmox_virtual_environment_container" "lxc" {
 
   unprivileged  = true
   start_on_boot = each.value.start_on_boot
-  started       = true
+  started       = lookup(each.value, "started", true)
 
   startup {
     order = each.value.startup_order
@@ -17,8 +17,6 @@ resource "proxmox_virtual_environment_container" "lxc" {
   cpu {
     architecture = "amd64"
     cores        = each.value.cores
-    limit        = 0
-    units        = 1024
   }
 
   memory {
@@ -143,13 +141,14 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 }
 
-# Reboots LXC containers that use idmap. The provider writes idmap entries via
-# SSH after start, so bind mounts show 'nobody' until a reboot. Fires on create,
-# idmap value changes, and container replacement.
+# Unprivileged idmap is written via SSH at create but only takes effect after a
+# reboot: the first boot comes up on the default map, so bind mounts show
+# nobody:nogroup. The provider has no native post-create reboot. Gated to started
+# containers; started=false guests pick up the idmap on their first real start.
 resource "terraform_data" "lxc_idmap_reboot" {
   for_each = {
     for name, cfg in local.active_lxc : name => cfg
-    if lookup(cfg, "idmap_uid", null) != null
+    if lookup(cfg, "idmap_uid", null) != null && lookup(cfg, "started", true)
   }
 
   triggers_replace = [

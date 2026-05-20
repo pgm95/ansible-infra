@@ -28,7 +28,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   tags        = each.value.tags
 
   on_boot         = each.value.on_boot
-  started         = true
+  started         = lookup(each.value, "started", true)
   machine         = each.value.machine
   bios            = each.value.bios
   scsi_hardware   = each.value.scsi_hardware
@@ -36,6 +36,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   tablet_device   = true
   acpi            = true
   stop_on_destroy = true
+  kvm_arguments   = lookup(each.value, "kvm_arguments", null)
 
   startup {
     order = each.value.startup_order
@@ -50,6 +51,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
     cores        = each.value.cores
     sockets      = 1
     type         = "host"
+    numa         = lookup(each.value, "numa", false)
   }
 
   memory {
@@ -60,7 +62,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   # Boot disk - cloud image import
   disk {
     datastore_id = each.value.disk_datastore_id
-    import_from  = proxmox_download_file.debian_13_cloud.id
+    import_from  = local.vm_cloud_image[each.value.os]
     interface    = "scsi0"
     size         = each.value.disks[0].size
     cache        = each.value.disks[0].cache
@@ -85,6 +87,24 @@ resource "proxmox_virtual_environment_vm" "vm" {
     }
   }
 
+  # Required by Proxmox when bios = ovmf
+  dynamic "efi_disk" {
+    for_each = each.value.bios == "ovmf" ? [1] : []
+    content {
+      datastore_id = each.value.disk_datastore_id
+      type         = lookup(each.value, "efi_type", "4m")
+    }
+  }
+
+  dynamic "hostpci" {
+    for_each = lookup(each.value, "hostpci", [])
+    content {
+      device  = "hostpci${hostpci.key}"
+      mapping = hostpci.value.mapping
+      pcie    = lookup(hostpci.value, "pcie", true)
+    }
+  }
+
   network_device {
     bridge      = each.value.network.bridge
     model       = lookup(each.value.network, "model", "virtio")
@@ -103,7 +123,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
     }
 
     dns {
-      servers = each.value.cloudinit.servers != "" ? [each.value.cloudinit.servers] : null
+      servers = lookup(each.value.cloudinit, "servers", "") != "" ? [each.value.cloudinit.servers] : null
       domain  = lookup(each.value.cloudinit, "domain", null)
     }
 
@@ -120,6 +140,14 @@ resource "proxmox_virtual_environment_vm" "vm" {
     device = "socket"
   }
 
+  # root@pam only
+  dynamic "rng" {
+    for_each = lookup(each.value, "rng_source", null) != null ? [each.value.rng_source] : []
+    content {
+      source = rng.value
+    }
+  }
+
   vga {
     type = "serial0"
   }
@@ -130,5 +158,8 @@ resource "proxmox_virtual_environment_vm" "vm" {
 
   lifecycle {
     prevent_destroy = false
+    # Vendor cloud-init is consumed only at first boot
+    # re-rendering the template must never recreate a live VM
+    ignore_changes = [initialization[0].vendor_data_file_id]
   }
 }
