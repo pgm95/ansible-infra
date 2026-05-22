@@ -33,7 +33,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   bios            = each.value.bios
   scsi_hardware   = each.value.scsi_hardware
   keyboard_layout = "en-us"
-  tablet_device   = true
+  tablet_device   = false
   acpi            = true
   stop_on_destroy = true
   kvm_arguments   = lookup(each.value, "kvm_arguments", null)
@@ -102,6 +102,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
       device  = "hostpci${hostpci.key}"
       mapping = hostpci.value.mapping
       pcie    = lookup(hostpci.value, "pcie", true)
+      rombar  = lookup(hostpci.value, "rombar", false)
     }
   }
 
@@ -122,9 +123,13 @@ resource "proxmox_virtual_environment_vm" "vm" {
       }
     }
 
-    dns {
-      servers = lookup(each.value.cloudinit, "servers", "") != "" ? [each.value.cloudinit.servers] : null
-      domain  = lookup(each.value.cloudinit, "domain", null)
+    # Render dns only when set; an empty dns block is a perpetual diff under DHCP.
+    dynamic "dns" {
+      for_each = (lookup(each.value.cloudinit, "servers", "") != "" || lookup(each.value.cloudinit, "domain", "") != "") ? [1] : []
+      content {
+        servers = lookup(each.value.cloudinit, "servers", "") != "" ? [each.value.cloudinit.servers] : null
+        domain  = lookup(each.value.cloudinit, "domain", null)
+      }
     }
 
     user_account {
