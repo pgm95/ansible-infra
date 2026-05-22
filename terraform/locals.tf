@@ -191,52 +191,6 @@ locals {
       bind_mounts = []
     }
 
-    swarm-lxc = {
-      env_scope   = "prod"
-      vm_id       = 105
-      description = ""
-      tags        = ["terraform", "swarm"]
-      os_version  = "debian-13"
-      cores       = 8
-      memory = {
-        dedicated = 8192
-        swap      = 0
-      }
-      start_on_boot     = true
-      startup_order     = 22
-      disk_datastore_id = "zfs-lxc"
-      idmap_uid         = 1000
-      idmap_gid         = 1000
-      password          = var.universal_pass
-      disks = [
-        { size = 8 },
-        { size = 128, mp = "/data", backup = true },
-      ]
-      network = {
-        bridge      = "vmbr0"
-        vlan_id     = 40
-        address     = "dhcp"
-        mac_address = "BC:24:11:38:3A:7C"
-      }
-      features = {
-        fuse    = true
-        nesting = true
-        keyctl  = true
-      }
-      devices = [
-        { path = "/dev/dri/card1", gid = 1000 },
-        { path = "/dev/dri/renderD128", gid = 1000 },
-        { path = "/dev/kfd", gid = 1000 },
-        { path = "/dev/net/tun" },
-      ]
-      bind_mounts = [
-        { volume = "/sata/apple", path = "/mnt/apple" },
-        { volume = "/sata/media", path = "/mnt/media" },
-        { volume = "/sata/photos", path = "/mnt/photos" },
-        { volume = "/sata/personal", path = "/mnt/personal" },
-      ]
-    }
-
     swarm-lxc-dev = {
       env_scope   = "dev"
       vm_id       = 403
@@ -365,6 +319,50 @@ locals {
       }
       vendor_data_enabled = true
       vendor_datastore_id = "local-btrfs"
+    }
+
+    swarm-gpu = {
+      env_scope   = "prod"
+      vm_id       = 104
+      description = ""
+      tags        = ["terraform", "swarm"]
+      os          = "ubuntu-26"
+      cores       = 8
+      numa        = true
+      started     = true
+      memory = {
+        dedicated = 16384
+        floating  = 0
+      }
+      on_boot           = true
+      startup_order     = 22
+      machine           = "q35"
+      bios              = "ovmf"
+      scsi_hardware     = "virtio-scsi-single"
+      kvm_arguments     = "-fw_cfg name=opt/ovmf/X-PciMmio64Mb,string=65536"
+      rng_source        = "/dev/urandom"
+      disk_datastore_id = "zfs-vm"
+      disks = [
+        { size = 16, cache = "none", ssd = true, discard = "on", iothread = true, backup = true },
+        { size = 128, cache = "none", ssd = true, discard = "on", iothread = true, mp = "/data", backup = true },
+      ]
+      hostpci = [
+        { mapping = "B50", pcie = true },
+      ]
+      network = {
+        bridge      = "vmbr0"
+        vlan_id     = 40
+        model       = "virtio"
+        mac_address = "BC:24:11:9B:BE:DC"
+      }
+      cloudinit = {
+        username     = "root"
+        password     = var.universal_pass
+        address      = "dhcp"
+        datastore_id = "zfs-vm"
+      }
+      vendor_data_enabled = true
+      vendor_datastore_id = "zfs-cold"
     }
   }
 

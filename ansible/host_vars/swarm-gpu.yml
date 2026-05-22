@@ -14,19 +14,18 @@ users_list:
 # Packages
 packages_install_shell: true
 packages_install_network: true
-packages_apt_pins:
-  amd-container-toolkit:
-    # Upstream 1.3.0 ships bad UIDs/GIDs in its tarball; dpkg unpack fails on unprivileged LXC.
-    version: "{{ docker_amd_ctk_version }}*"
+packages_extra_list:
+  - "cifs-utils"
+  - "linux-firmware"
 
 # Dotfiles
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash claude nano"
+dotfiles_deploy_args: "bash nano"
 
 # Tailscale
 tailscale_enabled: true
 tailscale_tags: ["ansible", "swarm"]
-tailscale_ip: "100.88.0.3"
+tailscale_ip: "100.88.0.4"
 tailscale_bind_ssh: false
 
 # Docker
@@ -37,16 +36,13 @@ docker_containerd_root: "/data/containerd"
 docker_mtu: 1280
 docker_dns_servers: []
 docker_dns_search: []
-docker_amd_ctk_enabled: true
-docker_amd_ctk_version: "1.2.0"
-docker_default_runtime: amd
 docker_swarm_enabled: true
 docker_swarm_init: false
 docker_swarm_role: worker
 docker_swarm_advertise_addr: "{{ tailscale_ip }}"
 docker_swarm_listen_addr: "{{ tailscale_ip }}:2377"
 docker_swarm_data_path_port: 4789
-docker_swarm_labels: { type: "lxc", location: "onprem", ip: "private", gpu: "true", storage: "true" }
+docker_swarm_labels: { type: "vm", location: "onprem", ip: "private", gpu: "true" }
 docker_swarm_availability: active
 docker_insecure_registries:
   - "registry.{{ lookup('env', 'DOMAIN_PRIVATE') }}"
