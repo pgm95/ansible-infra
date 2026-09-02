@@ -4,10 +4,6 @@
 [settings]
 experimental = true
 auto_install = false
-python.uv_venv_auto = true
-sops.age_key_file = "age.key"
-unix_default_file_shell_args = "bash -o errexit -o nounset -o pipefail"
-unix_default_inline_shell_args = "bash -c -o errexit -o nounset -o pipefail"
 
 [tools]
 "aqua:jdx/usage" = "latest"
@@ -25,8 +21,6 @@ uvx_args = "--with requests --with netaddr --with dnspython --with passlib --wit
 MISE_ENV = "{{ mise_env | first }}"
 PROJECT_CONFIGS_DIR = "{{config_root}}/.config"
 PROJECT_SECRETS_DIR = "{{config_root}}/.secrets"
-
-# Tooling configs
 YAMLLINT_CONFIG_FILE = "{{ env.PROJECT_CONFIGS_DIR }}/yamllint.yml"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 SOPS_CONFIG = "{{ env.PROJECT_CONFIGS_DIR }}/sops.yaml"
@@ -49,34 +43,19 @@ PROXMOX_VE_PASSWORD = "{{ env.UNIVERSAL_PASS }}"
 PROXMOX_VE_USERNAME = "root@pam"
 
 [task_config]
-includes = [
-  ".mise/tasks/site.toml",
-  ".mise/tasks/swarm.toml",
-  ".mise/tasks/sops.toml",
-  ".mise/tasks/terraform.toml"
-]
+shell = "bash -c -o errexit -o nounset -o pipefail"
 
 ############################ TASKS ############################
 [tasks."env:setup"]
 description = " "  # Complete environment setup via mise
-run = """
-#!/usr/bin/env bash
-echo "====== MISE ======"
-mise trust 2>/dev/null || true
-mise install
-echo ""
-echo "====== ANSIBLE ======"
-mkdir -p $ANSIBLE_HOME/collections
-mise exec -- ansible-galaxy collection install -r ansible/requirements.yml --force -p $ANSIBLE_HOME/collections
-echo ""
-echo "====== PRE-COMMIT ======"
-mise exec -- pre-commit install --config $PROJECT_CONFIGS_DIR/pre-commit.yaml
-echo ""
-echo "====== TERRAFORM ======"
-cd terraform
-mise exec -- terraform init
-mise exec -- terraform workspace new \"$TF_WORKSPACE\" || true
-"""
+run = [
+  "mise trust || true",
+  "mise install",
+  "mise x -- pre-commit install --config {{ env.PROJECT_CONFIGS_DIR }}/pre-commit.yaml",
+  "mkdir -p {{ env.ANSIBLE_HOME }}/collections",
+  "mise x -- ansible-galaxy collection install -r ansible/requirements.yml --force -p {{ env.ANSIBLE_HOME }}/collections",
+  "cd terraform && mise x -- terraform init && (mise x -- terraform workspace new {{ env.TF_WORKSPACE }} || true)"
+]
 
 [tasks."env:clean"]
 description = " "  # Clean up environment and cache
@@ -89,7 +68,9 @@ find . \( -name "*.tmp" -o -name "*.log" -o -name "__pycache__" -o -name "*.pyc"
 
 [tasks."validate"]
 description = " "  # Run all pre-commit hooks
-run = "pre-commit run --config $PROJECT_CONFIGS_DIR/pre-commit.yaml --all-files"
+run = [
+  "pre-commit run --config {{ env.PROJECT_CONFIGS_DIR }}/pre-commit.yaml --all-files"
+]
 
 [tasks."info"]
 description = " "  # Gather and display system facts (includes VMs/LXCs)
