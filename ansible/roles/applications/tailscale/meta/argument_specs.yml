@@ -127,7 +127,9 @@ argument_specs:
       # SSH Binding Configuration
       # ========================================================================
       tailscale_bind_ssh:
-        description: Bind SSH to Tailscale IP address + localhost only
+        description:
+          - Bind sshd to tailscale_ip and localhost only. Requires tailscale_ip.
+          - Enables net.ipv4.ip_nonlocal_bind host-wide so sshd can bind before tailscaled assigns the address at boot.
         type: bool
         default: false
 

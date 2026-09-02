@@ -58,7 +58,6 @@
     - role: applications/tailscale
       tags: [tailscale]
       when:
-        - not ansible_check_mode # Skip in check mode due to collection limitation
         - tailscale_enabled
     - role: applications/docker
       tags: [docker]

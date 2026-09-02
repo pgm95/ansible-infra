@@ -16,6 +16,16 @@
   changed_when: true
   failed_when: false
 
+# Defined before Restart sshd: handlers fire in definition order, so the sysctl
+# is live before sshd rebinds.
+- name: Tailscale | Apply SSH binding sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-tailscale-ssh.conf
+  changed_when: true
+
+- name: Tailscale | Reset SSH binding sysctl
+  ansible.builtin.command: sysctl -w net.ipv4.ip_nonlocal_bind=0
+  changed_when: true
+
 - name: Tailscale | Restart sshd
   ansible.builtin.service:
     name: sshd

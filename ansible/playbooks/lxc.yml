@@ -29,7 +29,6 @@
     - role: applications/tailscale
       tags: [tailscale]
       when:
-        - not ansible_check_mode
         - tailscale_enabled
     - role: applications/docker
       tags: [docker]

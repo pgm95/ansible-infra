@@ -102,6 +102,7 @@
     - _ts_ip is defined
     - _ts_ip | length > 0
 
+# Read-only tailnet probe; runs under --check too (uri has no check-mode support).
 - name: Tailscale | Validate IP is not already assigned on tailnet
   when:
     - _ts_ip is defined
@@ -121,6 +122,7 @@
         timeout: "{{ tailscale_api_timeout | default(30) }}"
       register: __ts_validate_oauth
       no_log: true
+      check_mode: false
       retries: 3
       delay: 2
       until: __ts_validate_oauth is succeeded
@@ -135,6 +137,7 @@
         timeout: "{{ tailscale_api_timeout | default(30) }}"
       register: __ts_tailnet_devices
       no_log: true
+      check_mode: false
 
     - name: Tailscale | Assert IP is not assigned to another device
       ansible.builtin.assert:
@@ -143,7 +146,7 @@
         fail_msg: >-
           tailscale_ip '{{ _ts_ip }}' is already assigned to another device.
           Currently in use on the tailnet: {{ __ts_assigned_ips | join(', ') }}.
-        success_msg: "IP {{ _ts_ip }} is available on the tailnet"
+        success_msg: "IP {{ _ts_ip }} is not assigned to another device on the tailnet"
       vars:
         __ts_assigned_ips: >-
           {{

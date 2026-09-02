@@ -1,38 +1,53 @@
 ---
-# Bind SSH to Tailscale IP address + localhost for restricted access
+# Bind sshd to the declared Tailscale IP + loopback.
+#
+# The address is tailscale_ip (validated and API-assigned by this role), not the
+# live daemon's address, so the result is deterministic and renders under
+# --check --diff.
+#
+# At boot sshd can start before tailscaled has assigned the address. OpenSSH
+# aborts only when every ListenAddress fails, so the Tailscale bind fails, the
+# loopback bind succeeds, and sshd runs unreachable with a healthy unit status.
+# ip_nonlocal_bind lets the bind succeed before the address exists; connections
+# arrive once tailscaled brings it up. Unit ordering cannot solve this: After=
+# waits for the daemon, not the address, and Requires= would tie sshd to
+# tailscaled health.
 
-- name: Tailscale | Configure SSH binding to network
-  when: tailscale_bind_ssh | default(false) | bool
+- name: Tailscale | Configure SSH binding
+  when: tailscale_bind_ssh | bool
   block:
-    - name: Tailscale | Get current status
-      ansible.builtin.command: tailscale status --json
-      register: __ts_ssh_status
-      changed_when: false
-      failed_when: false
+    - name: Tailscale | Validate SSH binding has an address
+      ansible.builtin.assert:
+        that:
+          - _ts_ip | length > 0
+        fail_msg: >-
+          tailscale_bind_ssh is enabled but tailscale_ip is not set, so sshd has
+          no Tailscale address to bind. Set tailscale_ip in
+          host_vars/{{ inventory_hostname }}.yml.
+        success_msg: "SSH binding address: {{ _ts_ip }}"
+        quiet: true
 
-    - name: Tailscale | Check if running
-      ansible.builtin.set_fact:
-        __ts_ssh_running: "{{ __ts_ssh_status.rc == 0 }}"
+    - name: Tailscale | Allow sshd to bind the Tailscale address before it exists
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-tailscale-ssh.conf
+        content: |
+          # Ansible managed - Tailscale SSH binding
+          # Host-wide: any process may bind an address the host does not own yet.
+          net.ipv4.ip_nonlocal_bind = 1
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: Tailscale | Apply SSH binding sysctl
 
-    - name: Tailscale | Parse IPv4 address
-      ansible.builtin.set_fact:
-        __ts_ssh_ipv4: "{{ (__ts_ssh_status.stdout | from_json).Self.TailscaleIPs | select('search', '^100\\.') | first | default('') }}"
-      when: __ts_ssh_running | bool
-
-    - name: Tailscale | Skip SSH binding if not available
-      ansible.builtin.debug:
-        msg: "WARNING: Tailscale not running or no IPv4 address assigned. Skipping SSH binding for safety."
-      when: not __ts_ssh_running | bool or (__ts_ssh_ipv4 | default('')) == ''
-
-    - name: Tailscale | Create SSH config for binding
+    - name: Tailscale | Create sshd drop-in for Tailscale binding
       ansible.builtin.copy:
         dest: /etc/ssh/sshd_config.d/55-tailscale.conf
         content: |
           # Ansible managed - Tailscale SSH binding
-          # Restricts SSH access to Tailscale network + localhost only
-          # WARNING: SSH becomes dependent on Tailscale availability
+          # Restricts sshd to the Tailscale network + localhost
 
-          ListenAddress {{ __ts_ssh_ipv4 }}:22
+          ListenAddress {{ _ts_ip }}:22
           ListenAddress 127.0.0.1:22
         owner: root
         group: root
@@ -40,35 +55,46 @@
         backup: true
         validate: "/usr/sbin/sshd -t -f %s"
       notify: Tailscale | Restart sshd
-      when:
-        - __ts_ssh_running | bool
-        - __ts_ssh_ipv4 | default('') != ''
 
-    - name: Tailscale | Display connection configuration instructions
-      ansible.builtin.debug:
-        msg: |
-          SSH binding enabled. SSH restricted to Tailscale IP {{ __ts_ssh_ipv4 }} + localhost.
-
-          REQUIRED: Update .env for future Ansible connections:
-          {{ inventory_hostname | upper | regex_replace('-', '_') }}_TS_IP={{ __ts_ssh_ipv4 }}
-        verbosity: 1
-      when:
-        - __ts_ssh_running | bool
-        - __ts_ssh_ipv4 | default('') != ''
-
-  rescue:
-    - name: Tailscale | Report SSH binding failure
-      ansible.builtin.debug:
-        msg: >-
-          WARNING: Failed to configure SSH binding to Tailscale.
-          Error: {{ ansible_failed_result.msg | default('Unknown error') }}
-          SSH will remain accessible via default configuration.
-
-- name: Tailscale | Remove SSH binding when disabled
-  when: not (tailscale_bind_ssh | default(false) | bool)
+- name: Tailscale | Remove SSH binding
+  when: not tailscale_bind_ssh | bool
   block:
-    - name: Tailscale | Remove SSH config file
+    - name: Tailscale | Remove sshd drop-in
       ansible.builtin.file:
         path: /etc/ssh/sshd_config.d/55-tailscale.conf
         state: absent
       notify: Tailscale | Restart sshd
+
+    - name: Tailscale | Remove non-local bind sysctl
+      ansible.builtin.file:
+        path: /etc/sysctl.d/99-tailscale-ssh.conf
+        state: absent
+      notify: Tailscale | Reset SSH binding sysctl
+
+- name: Tailscale | Apply pending sshd changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: Tailscale | Read sshd listeners
+  ansible.builtin.command: ss -Hltn sport = :22
+  register: __ts_ssh_listeners
+  changed_when: false
+  check_mode: false
+
+- name: Tailscale | Report sshd listeners
+  ansible.builtin.debug:
+    msg: "sshd listening on: {{ __ts_ssh_listeners.stdout_lines | map('split') | map(attribute=3) | join(', ') }}"
+
+- name: Tailscale | Verify sshd listens on the Tailscale address
+  ansible.builtin.assert:
+    that:
+      - (_ts_ip ~ ':22') in __ts_ssh_listeners.stdout
+      - "'127.0.0.1:22' in __ts_ssh_listeners.stdout"
+    fail_msg: >-
+      sshd is not listening on {{ _ts_ip }}:22 after restart
+      (got: {{ __ts_ssh_listeners.stdout_lines | map('split') | map(attribute=3) | join(', ') }}).
+      Check the sshd journal for a bind failure.
+    success_msg: "sshd bound to {{ _ts_ip }}:22 and 127.0.0.1:22"
+    quiet: true
+  when:
+    - tailscale_bind_ssh | bool
+    - not ansible_check_mode

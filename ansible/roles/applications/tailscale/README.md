@@ -86,7 +86,9 @@ Timeout for `tailscale up` in seconds.
 ### SSH Binding
 
 **tailscale_bind_ssh** (boolean, default: `false`)
-Restrict SSH to Tailnet IP + localhost only. Creates `/etc/ssh/sshd_config.d/01-tailscale-binding.conf`.
+Restrict sshd to `tailscale_ip` + localhost. Requires `tailscale_ip`. Writes `/etc/ssh/sshd_config.d/55-tailscale.conf` and `/etc/sysctl.d/99-tailscale-ssh.conf`, then restarts sshd mid-play and asserts it listens on the Tailscale address.
+
+The sysctl enables `net.ipv4.ip_nonlocal_bind` so sshd can bind the Tailscale address before tailscaled assigns it at boot. Without it, the Tailscale bind fails, the loopback bind succeeds, and sshd runs unreachable while systemd reports it healthy (OpenSSH only aborts when every `ListenAddress` fails). The sysctl is host-wide: any process may bind an address the host does not own yet, so a mistyped bind address elsewhere starts without error.
 
 **WARNING**: Locks out non-Tailscale SSH access. Ensure console recovery access is available.
 

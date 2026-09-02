@@ -9,6 +9,10 @@
 # - api_configuration.yml: Custom IP assignment via API
 # - ssh_binding.yml: SSH binding to Tailscale network (optional)
 # - status.yml: Connection status display
+#
+# Check mode: the upstream install role and the live-API phases do not support
+# it and are gated here. Validation asserts and ssh_binding run normally so
+# --check --diff shows their result.
 
 - name: Load configuration
   ansible.builtin.import_tasks: load_config.yml
@@ -22,14 +26,17 @@
 
 - name: Install Tailscale
   ansible.builtin.import_tasks: install.yml
+  when: not ansible_check_mode
   tags: [tailscale_install]
 
 - name: Apply Linux optimizations
   ansible.builtin.import_tasks: linux_optimizations.yml
+  when: not ansible_check_mode
   tags: [tailscale_config]
 
 - name: Configure device via API
   ansible.builtin.import_tasks: api_configuration.yml
+  when: not ansible_check_mode
   tags: [tailscale_config]
 
 - name: Bind SSH to Tailscale network
@@ -38,4 +45,5 @@
 
 - name: Display status
   ansible.builtin.import_tasks: status.yml
+  when: not ansible_check_mode
   tags: [tailscale_status]

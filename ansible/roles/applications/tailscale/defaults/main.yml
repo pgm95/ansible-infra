@@ -52,7 +52,7 @@ tailscale_up_timeout: 120 # (integer) Tailscale up command timeout in seconds
 
 ## SSH Binding Configuration =========================================
 # WARNING: Restricts SSH access to Tailscale network + localhost only (locks out non-Tailscale access)
-tailscale_bind_ssh: false # (boolean) Bind SSH to Tailscale IP address + localhost
+tailscale_bind_ssh: false # (boolean) Bind sshd to tailscale_ip + localhost; enables net.ipv4.ip_nonlocal_bind host-wide
 
 ## Debugging Configuration =========================================
 tailscale_verbose: false # (boolean) Enable verbose output from artis3n.tailscale role
