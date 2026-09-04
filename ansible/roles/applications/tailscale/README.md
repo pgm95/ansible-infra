@@ -83,6 +83,9 @@ Skip the `tailscale up` command.
 **tailscale_up_timeout** (integer, default: `120`)
 Timeout for `tailscale up` in seconds.
 
+**tailscale_port** (integer, default: `41641`)
+UDP port tailscaled listens on, written as `PORT` in `/etc/default/tailscaled`. Changing it restarts tailscaled. Nodes behind a shared NAT benefit from distinct ports: the router may sometimes preserve a source port for only one of them, the others get per-destination mappings and fall back to relayed connections.
+
 ### SSH Binding
 
 **tailscale_bind_ssh** (boolean, default: `false`)
@@ -107,6 +110,7 @@ Log credentials in output. For debugging only.
 | `load_config.yml` | Variable normalization |
 | `validate.yml` | Pre-deployment validation |
 | `install.yml` | Enrollment via `artis3n.tailscale.machine` |
+| `port.yml` | Listening port in `/etc/default/tailscaled`, restarts tailscaled on change |
 | `linux_optimizations.yml` | IP forwarding, UDP buffer tuning |
 | `api_configuration.yml` | Custom IP assignment via API |
 | `ssh_binding.yml` | SSH binding to Tailnet |

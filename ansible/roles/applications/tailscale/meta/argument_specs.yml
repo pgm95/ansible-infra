@@ -123,6 +123,15 @@ argument_specs:
         type: int
         default: 120
 
+      tailscale_port:
+        description: >-
+          UDP port tailscaled listens on for WireGuard traffic (PORT in
+          /etc/default/tailscaled). Nodes behind a shared NAT need distinct
+          ports or the router cannot preserve the mapping for all of them.
+          Changing it restarts tailscaled.
+        type: int
+        default: 41641
+
       # ========================================================================
       # SSH Binding Configuration
       # ========================================================================

@@ -1,0 +1,42 @@
+---
+# Set the UDP port tailscaled listens on.
+#
+# The Debian package ships /etc/default/tailscaled as a conffile and the unit
+# reads PORT from it (--port=${PORT}), so this is the only place to set it.
+# The port is a daemon flag, not a `tailscale up` argument, so changing it
+# does not touch the upstream role's state file or re-run enrollment.
+#
+# A change restarts tailscaled. docker.service on Swarm nodes uses Wants= on
+# tailscaled (see applications/docker), so the restart does not propagate to
+# Docker; expect a few seconds of overlay disruption on this node only.
+
+- name: Tailscale | Set listening port in /etc/default/tailscaled
+  ansible.builtin.lineinfile:
+    path: /etc/default/tailscaled
+    regexp: '^PORT='
+    line: 'PORT="{{ _ts_port }}"'
+    # No create: the Debian package always ships this conffile and the unit
+    # reads it. A missing file means an unexpected install and should fail.
+    backup: true
+  notify: Tailscale | Restart tailscaled
+
+- name: Tailscale | Apply pending tailscaled restart now
+  ansible.builtin.meta: flush_handlers
+
+- name: Tailscale | Verify tailscaled listens on the configured port
+  when: not ansible_check_mode
+  block:
+    - name: Tailscale | Read tailscaled UDP listeners
+      ansible.builtin.command: ss -Hlun sport = :{{ _ts_port }}
+      register: __ts_port_listeners
+      changed_when: false
+
+    - name: Tailscale | Assert tailscaled listens on the configured port
+      ansible.builtin.assert:
+        that:
+          - __ts_port_listeners.stdout | length > 0
+        fail_msg: >-
+          Nothing is listening on UDP {{ _ts_port }} after the restart.
+          Check `journalctl -u tailscaled` on {{ inventory_hostname }}.
+        success_msg: "tailscaled listening on UDP {{ _ts_port }}"
+        quiet: true

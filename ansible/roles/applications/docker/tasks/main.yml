@@ -151,8 +151,9 @@
       notify: Docker | Restart containerd
       when: docker_containerd_root | default('') | length > 0
 
-    # Boot ordering only - no daemon-reload or restart. systemd reads the
-    # drop-in fresh at next boot.
+    # Boot ordering only. Wants= (not Requires=) so a tailscaled restart or
+    # package upgrade does not propagate a stop/restart to docker.service and
+    # bounce every container. daemon_reload on the start task below applies it.
     - name: Make Docker wait for Tailscale at boot
       when: docker_wait_for_tailscale
       block:
@@ -168,7 +169,7 @@
             content: |
               [Unit]
               After=tailscaled.service
-              Requires=tailscaled.service
+              Wants=tailscaled.service
             mode: "0644"
             backup: true
 

@@ -15,6 +15,7 @@
     _ts_release_stability: "{{ tailscale_release_stability | default('stable') }}"
     _ts_up_skip: "{{ tailscale_up_skip | default(false) }}"
     _ts_up_timeout: "{{ tailscale_up_timeout | default(120) }}"
+    _ts_port: "{{ tailscale_port | default(41641) }}"
     _ts_verbose: "{{ tailscale_verbose | default(false) }}"
     _ts_insecure_log: "{{ tailscale_insecure_log | default(false) }}"
   no_log: true

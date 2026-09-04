@@ -102,6 +102,7 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 # tailscale_args: ""                 # (string) Additional tailscale up args (e.g., "--accept-routes")
 # tailscale_up_skip: false           # (boolean) Skip tailscale up command
 # tailscale_up_timeout: 120          # (integer) Tailscale up timeout in seconds
+# tailscale_port: 41641              # (integer) tailscaled UDP port (unique per node behind a shared NAT)
 # tailscale_bind_ssh: false          # (boolean) Bind SSH to Tailscale IP (locks out non-TS access)
 # tailscale_device_registration_delay: 5 # (integer) Seconds to wait for device registration
 # tailscale_device_registration_retries: 6 # (integer) Max retries for device registration

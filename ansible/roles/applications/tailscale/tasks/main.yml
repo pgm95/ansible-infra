@@ -5,6 +5,7 @@
 # - load_config.yml: Variable loading and normalization
 # - validate.yml: Configuration validation
 # - install.yml: Tailscale installation via artis3n.tailscale
+# - port.yml: Listening port in /etc/default/tailscaled (restarts tailscaled on change)
 # - linux_optimizations.yml: IP forwarding and UDP optimizations
 # - api_configuration.yml: Custom IP assignment via API
 # - ssh_binding.yml: SSH binding to Tailscale network (optional)
@@ -28,6 +29,10 @@
   ansible.builtin.import_tasks: install.yml
   when: not ansible_check_mode
   tags: [tailscale_install]
+
+- name: Configure listening port
+  ansible.builtin.import_tasks: port.yml
+  tags: [tailscale_config]
 
 - name: Apply Linux optimizations
   ansible.builtin.import_tasks: linux_optimizations.yml

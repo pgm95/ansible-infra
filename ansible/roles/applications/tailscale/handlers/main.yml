@@ -1,6 +1,11 @@
 ---
 # Tailscale role handlers
 
+- name: Tailscale | Restart tailscaled
+  ansible.builtin.service:
+    name: tailscaled
+    state: restarted
+
 - name: Tailscale | Apply sysctl settings
   ansible.builtin.command: sysctl -p {{ sysctl_config_file }}
   changed_when: true

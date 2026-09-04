@@ -49,6 +49,7 @@ tailscale_api_timeout: 30 # (integer) API request timeout in seconds
 # tailscale_args: ""                  # (string) Additional args (e.g., "--accept-routes --ssh")
 tailscale_up_skip: false # (boolean) Skip tailscale up command (for testing)
 tailscale_up_timeout: 120 # (integer) Tailscale up command timeout in seconds
+tailscale_port: 41641 # (integer) UDP port tailscaled listens on (PORT in /etc/default/tailscaled)
 
 ## SSH Binding Configuration =========================================
 # WARNING: Restricts SSH access to Tailscale network + localhost only (locks out non-Tailscale access)
@@ -74,6 +75,7 @@ tailscale_insecurely_log_authkey: false # (boolean) Log authkey in output (INSEC
 # _ts_release_stability: tailscale_release_stability
 # _ts_up_skip: tailscale_up_skip
 # _ts_up_timeout: tailscale_up_timeout
+# _ts_port: tailscale_port
 # _ts_verbose: tailscale_verbose
 # _ts_insecure_log: tailscale_insecurely_log_authkey
 # _complete_ts_args: "--hostname={{ _ts_hostname }} {{ _ts_args }}"

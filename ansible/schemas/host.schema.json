@@ -183,6 +183,7 @@
     "tailscale_args": { "type": "string", "description": "Additional tailscale up arguments" },
     "tailscale_up_skip": { "type": "boolean", "description": "Skip tailscale up" },
     "tailscale_up_timeout": { "type": "integer", "description": "Tailscale up timeout in seconds" },
+    "tailscale_port": { "type": "integer", "description": "tailscaled UDP listening port (unique per node behind a shared NAT)" },
     "tailscale_bind_ssh": { "type": "boolean", "description": "Bind SSH to Tailscale interface" },
     "tailscale_verbose": { "type": "boolean", "description": "Enable verbose output" },
     "tailscale_insecurely_log_authkey": { "type": "boolean", "description": "Log authkey (INSECURE)" },

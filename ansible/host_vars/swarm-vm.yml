@@ -26,6 +26,7 @@ tailscale_enabled: true
 tailscale_tags: ["ansible", "swarm"]
 tailscale_ip: "100.88.0.2"
 tailscale_bind_ssh: false
+tailscale_port: 41102
 
 # Docker
 docker_enabled: true

@@ -91,7 +91,7 @@ docker_amd_ctk_enabled: false # (boolean) Install AMD container toolkit, registe
 docker_amd_ctk_version: "" # (string) AMD container toolkit version (empty = install latest)
 
 # Systemd Integration
-docker_wait_for_tailscale: false # (boolean) Drop in After=/Requires=tailscaled.service for boot ordering
+docker_wait_for_tailscale: false # (boolean) Drop in After=/Wants=tailscaled.service for boot ordering
 
 # ==================================================================================
 # Docker Swarm Configuration

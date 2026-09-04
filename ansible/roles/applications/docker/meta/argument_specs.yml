@@ -238,7 +238,7 @@ argument_specs:
       docker_wait_for_tailscale:
         description: >-
           Install /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
-          with After=/Requires=tailscaled.service so docker.service waits for
+          with After=/Wants=tailscaled.service so docker.service waits for
           Tailscale at boot. Boot ordering only - daemon-reload and restart
           are intentionally not performed; the dependency takes effect on the
           next reboot.

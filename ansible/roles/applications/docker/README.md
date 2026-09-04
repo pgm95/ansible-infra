@@ -97,7 +97,7 @@ docker_enabled: true
 
 | Variable | Default | Description |
 | ---------- | --------- | ------------- |
-| `docker_wait_for_tailscale` | `false` | Drop in `After=`/`Requires=tailscaled.service` so docker waits for Tailscale at boot |
+| `docker_wait_for_tailscale` | `false` | Drop in `After=`/`Wants=tailscaled.service` so docker waits for Tailscale at boot |
 
 ### Swarm Mode
 
@@ -167,7 +167,9 @@ For LXC containers, GPU device passthrough (`/dev/dri/*`, `/dev/kfd`) and the `g
 
 ## Tailscale Boot Ordering
 
-Setting `docker_wait_for_tailscale: true` drops `/etc/systemd/system/docker.service.d/wait-for-tailscale.conf` with `After=tailscaled.service` and `Requires=tailscaled.service`. The role intentionally does NOT run `daemon-reload` or restart docker after writing the file. The dependency only affects boot ordering (when systemd loads units fresh from disk), so it takes effect on the next reboot. Skipping the reload avoids needlessly dropping running containers.
+Setting `docker_wait_for_tailscale: true` drops `/etc/systemd/system/docker.service.d/wait-for-tailscale.conf` with `After=tailscaled.service` and `Wants=tailscaled.service`. The role does not restart docker after writing the file; the dependency only affects boot ordering.
+
+`Wants=` is deliberate. `Requires=` would make systemd stop or restart docker.service whenever tailscaled.service is explicitly stopped or restarted (see `systemd.unit(5)`), so a Tailscale port change or package upgrade would bounce every container on the node. With `live-restore` off on Swarm nodes that is a full workload restart.
 
 ## Dependencies
 
