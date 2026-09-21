@@ -45,6 +45,10 @@ description = " "  # "Dry-run VPS deployment"
 run = "ansible-playbook ansible/playbooks/vps.yml --check --diff"
 
 ["vps:first-run"]
+raw = true
 raw_args = true
 description = " "  # "First-time deployment with password authentication"
-run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root --extra-vars \"ansible_host={{ env.VPS_PUBLIC_IP }}\""
+# ssh_listen_addresses is emptied for the bootstrap: the tunnel address does not exist yet, and
+# binding sshd to it mid-play refuses every new connection the play opens (rsync). The next
+# vps:deploy over the tunnel applies the binding.
+run = "ansible-playbook ansible/playbooks/vps.yml --ask-pass --user root --extra-vars '{\"ansible_host\": \"{{ env.VPS_PUBLIC_IP }}\", \"ssh_listen_addresses\": []}'"

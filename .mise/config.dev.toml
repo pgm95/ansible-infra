@@ -4,7 +4,7 @@
 _.file = { path = "{{config_root}}/.secrets/dev.sops.yaml", redact = true }
 
 # Proxmox
-PVE_HOST_ADDR = "proxmox.home.arpa"
+PVE_HOST_ADDR = "nuc"
 PVE_NODE_NAME = "proxmox"
 
 # Terraform

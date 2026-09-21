@@ -7,15 +7,15 @@ run = "terraform plan"
 
 ["tf:apply"]
 description = " "  # Apply infrastructure changes
-confirm = "WARNING: This may be destructive. Continue?"
+raw = true
 dir = "{{config_root}}/terraform"
-run = "terraform apply -auto-approve"
+run = "terraform apply"
 
 ["tf:destroy"]
 description = " "  # Destroy all infrastructure (DESTRUCTIVE)
-confirm = "WARNING: This will destroy all managed infrastructure. Continue?"
+raw = true
 dir = "{{config_root}}/terraform"
-run = "terraform destroy -auto-approve"
+run = "terraform destroy"
 
 ["tf:state"]
 description = " "  # Show Terraform state
