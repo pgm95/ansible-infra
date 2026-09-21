@@ -12,6 +12,10 @@ ansible_python_interpreter: /usr/bin/python3
 system_timezone: UTC                 # (string) IANA timezone name (e.g. UTC, America/New_York)
                                      #   Empty string leaves the timezone unmanaged
 
+## Role: common/firmware (VMs only)
+# firmware_enabled: false            # (boolean) Install vendor firmware for passed-through hardware and bind the driver
+# firmware_families: []              # (list) Hardware families: intel-graphics | amd-graphics
+
 ## Role: common/hostname
 hostname_configure: false            # (boolean) Enable hostname configuration
 # hostname: ""                       # (string) Override hostname (default: inventory_hostname)
@@ -45,6 +49,7 @@ ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords
 # ssh_client_alive_interval: 300     # (integer) Seconds between keepalive messages
 # ssh_client_alive_count_max: 2      # (integer) Missed keepalives before disconnect
 # ssh_listen_addresses: []           # (list) Restrict sshd to these addresses plus loopback (e.g. tunnel address)
+# ssh_remove_dropins: []             # (list) sshd_config.d files to delete (provider drop-ins re-enabling password root login)
 
 ## Role: common/packages
 packages_fullupgrade: false # (boolean) Perform full system upgrade
@@ -77,6 +82,24 @@ net_iface_configure: false           # (boolean) Enable network interface config
 # net_iface_address: ""              # (string) Static IP with optional CIDR (e.g., "192.168.1.100/24")
 # net_iface_netmask: "255.255.255.0" # (string) Subnet mask (used if address has no CIDR)
 # net_iface_gateway: ""              # (string) Default gateway IP
+
+## Role: network/wireguard
+# wg_enabled: false                  # (boolean) Enable WireGuard configuration
+# wg_interface: wg0                  # (string) Interface name; drives the unit and file names
+# wg_address: ""                     # (string) Address on the tunnel in CIDR form (required when enabled)
+# wg_listen_port: 51820              # (integer) UDP port wg listens on
+# wg_mtu: 1420                       # (integer) Interface MTU (1420 suits a 1500 WAN path)
+# wg_private_key: ""                 # (string) Base64 private key (required when enabled; from secrets)
+# wg_peers: []                       # (list) Peer definitions (name, public_key, allowed_ips, endpoint, ...)
+# wg_restart_on_change: false        # (boolean) Restart the interface on config change instead of syncconf
+
+## Role: network/firewall
+# firewall_enabled: false            # (boolean) Enable host firewall management (nftables, inbound denied by default)
+# firewall_trusted_interfaces: []    # (list) Interfaces whose inbound traffic is accepted (e.g. the tunnel)
+# firewall_allow_tcp: []             # (list) TCP ports accepted from anywhere
+# firewall_allow_udp: []             # (list) UDP ports accepted from anywhere
+# firewall_allow_icmp: true          # (boolean) Accept ping and ICMP error types
+# firewall_forwarding: false         # (boolean) Allow forwarding (needed for Docker published ports)
 
 ## Role: network/ntp
 # net_ntp_configure: false           # (boolean) Enable NTP time synchronization
@@ -119,6 +142,8 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 docker_enabled: false                # (boolean) Enable Docker installation
 docker_packages_hold: true           # (boolean) Apply dpkg hold to docker_packages
 # docker_data_root: ""               # (string) Docker root data directory (empty = Docker default)
+# docker_containerd_root: ""         # (string) Containerd root directory (empty = containerd default)
+                                     #   A set root orders the daemon after its mount and verifies its state lives there
 # docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
 # docker_mtu: 0                      # (integer) Transport MTU (0 = auto/1500). Docker subtracts VXLAN itself:
                                      #   set the tunnel MTU (e.g. 1280 for Tailscale), never the overlay MTU
@@ -146,7 +171,7 @@ docker_packages_hold: true           # (boolean) Apply dpkg hold to docker_packa
 # docker_node_generic_resources: []  # (list) Non-GPU generic resources for Swarm scheduling
 # docker_amd_ctk_enabled: false      # (boolean) Install AMD container toolkit + register amd runtime + enable CDI
 # docker_amd_ctk_version: ""         # (string) AMD container toolkit version
-# docker_wait_for_tailscale: false   # (boolean) systemd drop-in: docker.service waits for tailscaled at boot
+# docker_wait_for_units: []          # (list) systemd units docker.service waits for at boot (After=/Wants=)
 
 ## Role: applications/samba
 samba_enabled: false               # (boolean) Enable Samba fileserver

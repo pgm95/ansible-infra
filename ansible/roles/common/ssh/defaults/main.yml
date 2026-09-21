@@ -46,6 +46,7 @@ ssh_client_alive_interval: 300 # (integer) Seconds between keepalive messages (0
 ssh_client_alive_count_max: 2 # (integer) Missed keepalives before disconnect
 
 ssh_listen_addresses: [] # (list) Restrict sshd to these addresses plus loopback.
+ssh_remove_dropins: [] # (list) Files under /etc/ssh/sshd_config.d to delete, e.g. a provider image's 99-ctrl.conf that re-enables password root login
                                                     # Typically the tunnel address, so management
                                                     # never touches the public interface. Empty
                                                     # leaves sshd on all interfaces and removes any

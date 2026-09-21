@@ -38,6 +38,11 @@
       "items": { "type": "string" },
       "description": "Restrict sshd to these addresses plus loopback (e.g. the tunnel address)"
     },
+    "ssh_remove_dropins": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "File names under /etc/ssh/sshd_config.d to delete (provider drop-ins that re-enable password root login)"
+    },
     "ssh_authorized_keys": {
       "type": "array",
       "items": { "type": "string" },
@@ -328,7 +333,11 @@
     "docker_cdi_enabled": { "type": "boolean", "description": "Enable Container Device Interface feature" },
     "docker_amd_ctk_enabled": { "type": "boolean", "description": "Install AMD container toolkit, register amd runtime, enable CDI" },
     "docker_amd_ctk_version": { "type": "string", "description": "AMD container toolkit package version (e.g. 1.2.0)." },
-    "docker_wait_for_tailscale": { "type": "boolean", "description": "Drop in After=/Requires=tailscaled.service for boot ordering" },
+    "docker_wait_for_units": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "systemd units docker.service waits for at boot via an After=/Wants= drop-in (e.g. wg-quick@wg0.service)"
+    },
     "docker_packages": {
       "type": "array",
       "items": { "type": "string" },

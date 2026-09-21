@@ -241,15 +241,17 @@ argument_specs:
       # ========================================================================
       # Systemd Integration
       # ========================================================================
-      docker_wait_for_tailscale:
+      docker_wait_for_units:
         description: >-
-          Install /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
-          with After=/Wants=tailscaled.service so docker.service waits for
-          Tailscale at boot. Boot ordering only - daemon-reload and restart
-          are intentionally not performed; the dependency takes effect on the
-          next reboot.
-        type: bool
-        default: false
+          systemd units docker.service waits for at boot, rendered as an
+          After=/Wants= drop-in (e.g. wg-quick@wg0.service on the relay so
+          the tunnel exists before HAProxy starts). Wants= rather than
+          Requires=, so restarting the awaited unit never bounces docker.
+          Boot ordering only; the drop-in triggers a daemon reload, not a
+          restart.
+        type: list
+        elements: str
+        default: []
       # ========================================================================
       # Docker Swarm Configuration
       # ========================================================================

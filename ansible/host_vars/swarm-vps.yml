@@ -25,6 +25,8 @@ wg_peers:
 
 ssh_listen_addresses:
   - "{{ wg_address | ansible.utils.ipaddr('address') }}"
+ssh_remove_dropins:
+  - 99-ctrl.conf
 
 firewall_enabled: true
 firewall_trusted_interfaces:
@@ -41,3 +43,5 @@ docker_dns_search: []
 docker_live_restore: true
 docker_data_root: "/data/docker-data"
 docker_containerd_root: "/data/containerd"
+docker_wait_for_units:
+  - "wg-quick@{{ wg_interface }}.service" # the relay's tunnel backend needs wg0 up before HAProxy starts

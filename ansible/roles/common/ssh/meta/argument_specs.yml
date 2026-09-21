@@ -96,3 +96,13 @@ argument_specs:
         type: list
         elements: str
         default: []
+      ssh_remove_dropins:
+        description: |
+          File names under /etc/ssh/sshd_config.d to delete, for provider
+          image drop-ins that re-enable password root login. Named
+          explicitly so cloud-init's own drop-in is left alone. Applied
+          after the keys are deployed, so a password-based first run keeps
+          its session and every later connection authenticates with a key.
+        type: list
+        elements: str
+        default: []

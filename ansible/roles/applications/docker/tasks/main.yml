@@ -191,25 +191,37 @@
       when: item.root | length == 0
       notify: Docker | Reload systemd
 
-    # Boot ordering only. Wants= (not Requires=) so a tailscaled restart or
-    # package upgrade does not propagate a stop/restart to docker.service and
-    # bounce every container. daemon_reload on the start task below applies it.
-    - name: Install wait-for-tailscale systemd drop-in
+    # Boot ordering only. Wants= (not Requires=) so a restart or package
+    # upgrade of the awaited unit does not propagate a stop/restart to
+    # docker.service and bounce every container. Reload only, same as the
+    # data mount ordering above.
+    - name: Docker | Order docker after the configured units at boot
       ansible.builtin.copy:
-        dest: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
+        dest: /etc/systemd/system/docker.service.d/wait-for-units.conf
         content: |
           [Unit]
-          After=tailscaled.service
-          Wants=tailscaled.service
+          {% for unit in docker_wait_for_units %}
+          After={{ unit }}
+          Wants={{ unit }}
+          {% endfor %}
         mode: "0644"
         backup: true
-      when: docker_wait_for_tailscale
+      when: docker_wait_for_units | length > 0
+      notify: Docker | Reload systemd
 
-    - name: Remove wait-for-tailscale systemd drop-in
+    - name: Docker | Remove unit ordering where no units are configured
+      ansible.builtin.file:
+        path: /etc/systemd/system/docker.service.d/wait-for-units.conf
+        state: absent
+      when: docker_wait_for_units | length == 0
+      notify: Docker | Reload systemd
+
+    # Predecessor of the list above; hosts still carrying it lose it here.
+    - name: Docker | Remove the retired wait-for-tailscale drop-in
       ansible.builtin.file:
         path: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
         state: absent
-      when: not docker_wait_for_tailscale
+      notify: Docker | Reload systemd
 
     - name: Start and enable Docker service
       ansible.builtin.systemd:

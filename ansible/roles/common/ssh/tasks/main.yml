@@ -171,6 +171,18 @@
   notify: SSH | Reload sshd
   tags: [ssh_config]
 
+# sshd takes the first value it sees across sshd_config.d in lexical order, so
+# a provider drop-in that re-enables password root login is only harmless while
+# it happens to sort after ours. Remove the ones we know about by name; keys
+# were deployed above, so the running play never depends on password auth.
+- name: SSH | Remove foreign sshd drop-ins
+  ansible.builtin.file:
+    path: "/etc/ssh/sshd_config.d/{{ item }}"
+    state: absent
+  loop: "{{ ssh_remove_dropins }}"
+  notify: SSH | Reload sshd
+  tags: [ssh_config]
+
 # ============================================================================
 # Listen Address Binding
 # ============================================================================
@@ -250,10 +262,36 @@
         state: absent
       notify: SSH | Reset bind sysctl
 
-- name: SSH | Apply pending sshd binding changes now
+# Reload now rather than at play end so the checks below see the effective
+# configuration. Reload keeps existing sessions, including this play's.
+- name: SSH | Apply pending sshd changes now
   tags: [ssh_config]
-  when: ssh_listen_addresses | length > 0
   ansible.builtin.meta: flush_handlers
+
+- name: SSH | Verify effective authentication settings
+  tags: [ssh_config]
+  when: not ansible_check_mode
+  block:
+    - name: SSH | Read effective sshd configuration
+      ansible.builtin.command: sshd -T
+      register: __sshd_effective
+      changed_when: false
+
+    - name: SSH | Assert sshd applies the declared authentication settings
+      ansible.builtin.assert:
+        that:
+          - ('passwordauthentication ' ~ (ssh_password_authentication | ternary('yes', 'no'))) in __sshd_effective.stdout_lines
+          # sshd -T spells prohibit-password as without-password on older OpenSSH
+          - >-
+            ('permitrootlogin ' ~ ssh_permit_root_login) in __sshd_effective.stdout_lines
+            or ('permitrootlogin ' ~ (ssh_permit_root_login | replace('prohibit-password', 'without-password'))) in __sshd_effective.stdout_lines
+        fail_msg: >-
+          sshd is not applying the declared authentication settings (got:
+          {{ __sshd_effective.stdout_lines | select('match', '^(passwordauthentication|permitrootlogin) ') | join(', ') }}).
+          Another drop-in in /etc/ssh/sshd_config.d sorts before 99-ansible.conf;
+          add it to ssh_remove_dropins.
+        success_msg: "sshd effective: password auth {{ ssh_password_authentication | ternary('yes', 'no') }}, root login {{ ssh_permit_root_login }}"
+        quiet: true
 
 - name: SSH | Verify sshd listeners
   tags: [ssh_config]
