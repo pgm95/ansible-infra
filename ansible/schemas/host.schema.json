@@ -33,6 +33,11 @@
     "ssh_max_auth_tries": { "type": "integer", "minimum": 1, "description": "Max authentication attempts" },
     "ssh_client_alive_interval": { "type": "integer", "minimum": 0, "description": "Keepalive interval in seconds" },
     "ssh_client_alive_count_max": { "type": "integer", "minimum": 0, "description": "Max missed keepalives before disconnect" },
+    "ssh_listen_addresses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Restrict sshd to these addresses plus loopback (e.g. the tunnel address)"
+    },
     "ssh_authorized_keys": {
       "type": "array",
       "items": { "type": "string" },
@@ -94,6 +99,12 @@
       "items": { "type": "string" },
       "description": "Additional per-host packages to install"
     },
+    "firmware_enabled": { "type": "boolean", "description": "Manage vendor firmware for passed-through hardware (VMs only)" },
+    "firmware_families": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["intel-graphics", "amd-graphics"] },
+      "description": "Hardware families needing firmware; each maps to a package per distribution and a PCI class that must end up bound"
+    },
     "packages_apt_pins": {
       "type": "object",
       "additionalProperties": {
@@ -123,6 +134,11 @@
     "swap_disable": { "type": "boolean", "description": "Disable swap" },
 
     "net_dns_configure": { "type": "boolean", "description": "Configure DNS servers" },
+    "net_dns_mode": {
+      "type": "string",
+      "enum": ["static", "dhcp"],
+      "description": "Resolver source of truth: static (write net_dns_servers) or dhcp (DHCP server owns resolution)"
+    },
     "net_dns_servers": {
       "type": "array",
       "items": { "type": "string" },
@@ -136,6 +152,53 @@
     "net_dns_stub_resolver": { "type": "boolean", "description": "Enable systemd-resolved stub resolver" },
     "net_dns_mdns": { "type": "boolean", "description": "Enable mDNS" },
     "net_dns_llmnr": { "type": "boolean", "description": "Enable LLMNR" },
+
+    "firewall_enabled": { "type": "boolean", "description": "Enable host firewall management" },
+    "firewall_trusted_interfaces": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Interfaces whose inbound traffic is accepted wholesale (e.g. wg0)"
+    },
+    "firewall_allow_tcp": {
+      "type": "array",
+      "items": { "type": ["integer", "string"] },
+      "description": "TCP ports accepted from anywhere"
+    },
+    "firewall_allow_udp": {
+      "type": "array",
+      "items": { "type": ["integer", "string"] },
+      "description": "UDP ports accepted from anywhere"
+    },
+    "firewall_allow_icmp": { "type": "boolean", "description": "Accept ping and ICMP errors needed by path MTU discovery" },
+    "firewall_forwarding": { "type": "boolean", "description": "Allow forwarding; false also sets net.ipv4.ip_forward=0" },
+
+    "wg_enabled": { "type": "boolean", "description": "Enable WireGuard configuration" },
+    "wg_interface": { "type": "string", "description": "WireGuard interface name (default wg0)" },
+    "wg_address": { "type": "string", "description": "Tunnel address in CIDR form, e.g. 10.60.60.3/32" },
+    "wg_listen_port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "UDP port WireGuard listens on" },
+    "wg_mtu": { "type": "integer", "minimum": 1280, "maximum": 1500, "description": "WireGuard interface MTU" },
+    "wg_private_key": { "type": "string", "description": "Base64 private key for this interface (from the secrets backend)" },
+    "wg_restart_on_change": { "type": "boolean", "description": "Restart the unit on change instead of applying with wg syncconf" },
+    "wg_peers": {
+      "type": "array",
+      "description": "WireGuard peer definitions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Label for the peer" },
+          "public_key": { "type": "string", "description": "Peer base64 public key" },
+          "allowed_ips": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "CIDRs routed to this peer"
+          },
+          "endpoint": { "type": "string", "description": "host:port; omit to let the peer roam" },
+          "persistent_keepalive": { "type": "integer", "description": "Keepalive interval in seconds" }
+        },
+        "required": ["public_key", "allowed_ips"],
+        "additionalProperties": false
+      }
+    },
 
     "net_ntp_configure": { "type": "boolean", "description": "Configure NTP servers" },
     "net_ntp_servers": {
@@ -189,8 +252,8 @@
     "tailscale_insecurely_log_authkey": { "type": "boolean", "description": "Log authkey (INSECURE)" },
 
     "docker_enabled": { "type": "boolean", "description": "Install and configure Docker" },
-    "docker_data_root": { "type": "string", "description": "Docker data root path" },
-    "docker_containerd_root": { "type": "string", "description": "Containerd root directory (empty = default /var/lib/containerd)" },
+    "docker_data_root": { "type": "string", "description": "Docker data root directory (empty = Docker default /var/lib/docker)" },
+    "docker_containerd_root": { "type": "string", "description": "Containerd root directory (empty = containerd default /var/lib/containerd)" },
     "docker_storage_driver": {
       "type": "string",
       "enum": ["", "overlay2", "btrfs", "zfs"],

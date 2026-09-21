@@ -1,0 +1,56 @@
+---
+# ============================================================================
+# Firewall Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/network/firewall
+
+argument_specs:
+  main:
+    short_description: Host firewall for an internet facing box, using nftables
+    description:
+      - Denies inbound by default and accepts loopback, established flows,
+        trusted interfaces and an explicit port list
+      - Denies forwarding in both the ruleset and the sysctl so the two cannot
+        disagree
+      - Refuses to apply a policy that would leave no inbound SSH path
+
+    options:
+      firewall_enabled:
+        description: Enable host firewall management
+        type: bool
+        default: false
+
+      firewall_trusted_interfaces:
+        description: |
+          Interfaces whose inbound traffic is accepted wholesale, e.g. ["wg0"].
+          Loopback is always accepted and does not need listing. An interface
+          listed here only counts as an SSH path if it exists on the host.
+        type: list
+        elements: str
+        default: []
+
+      firewall_allow_tcp:
+        description: TCP ports accepted from anywhere
+        type: list
+        elements: int
+        default: []
+
+      firewall_allow_udp:
+        description: UDP ports accepted from anywhere
+        type: list
+        elements: int
+        default: []
+
+      firewall_allow_icmp:
+        description: |
+          Accept ping and the ICMP error types path MTU discovery depends on.
+          Dropping these breaks more than it protects.
+        type: bool
+        default: true
+
+      firewall_forwarding:
+        description: |
+          Allow forwarding. false also sets net.ipv4.ip_forward=0.
+        type: bool
+        default: false

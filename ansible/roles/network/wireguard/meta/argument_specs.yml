@@ -1,0 +1,91 @@
+---
+# ============================================================================
+# WireGuard Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/network/wireguard
+
+argument_specs:
+  main:
+    short_description: Kernel WireGuard interface via wg-quick
+    description:
+      - Installs wireguard-tools and brings up one wg-quick managed interface
+      - Keeps the private key in its own 0600 file so the interface config
+        carries no secret and stays diffable
+      - Applies changes with wg syncconf by default, which does not drop the
+        interface or its peer sessions
+
+    options:
+      wg_enabled:
+        description: Enable WireGuard configuration
+        type: bool
+        default: false
+
+      wg_interface:
+        description: Interface name, which also drives the unit and file names
+        type: str
+        default: wg0
+
+      wg_address:
+        description: |
+          Address on the tunnel in CIDR form, e.g. "10.60.60.3/32".
+          Required when the role is enabled.
+        type: str
+        default: ""
+
+      wg_listen_port:
+        description: |
+          UDP port to listen on. The remote peer's configuration must name the
+          same port.
+        type: int
+        default: 51820
+
+      wg_mtu:
+        description: Interface MTU. 1420 suits a 1500 byte WAN path at both ends
+        type: int
+        default: 1420
+
+      wg_private_key:
+        description: |
+          Base64 private key for this interface. Supply it from the secrets
+          backend at the inventory layer; the role never names that backend.
+          Required when the role is enabled.
+        type: str
+        default: ""
+
+      wg_peers:
+        description: Peer definitions
+        type: list
+        elements: dict
+        default: []
+        options:
+          name:
+            description: Label for the peer, rendered as a comment
+            type: str
+          public_key:
+            description: Peer's base64 public key
+            type: str
+            required: true
+          allowed_ips:
+            description: CIDRs routed to this peer
+            type: list
+            elements: str
+            required: true
+          endpoint:
+            description: |
+              host:port of the peer. Omit it to let the peer roam, which is what
+              a remote end on a dynamic address requires.
+            type: str
+          persistent_keepalive:
+            description: Keepalive interval in seconds. Omit to disable
+            type: int
+
+      wg_restart_on_change:
+        description: |
+          How a configuration change is applied.
+          false: wg syncconf, which updates peers and keys without dropping the
+            interface.
+          true: restart the unit. Required for wg_address or wg_mtu changes,
+            which syncconf cannot apply.
+        type: bool
+        default: false

@@ -1,0 +1,61 @@
+---
+- name: Timezone | Skip when unmanaged
+  when: system_timezone | length == 0
+  ansible.builtin.debug:
+    msg: "system_timezone is empty, leaving the timezone unmanaged"
+    verbosity: 1
+
+- name: Timezone | Configure system timezone
+  when: system_timezone | length > 0
+  block:
+    # follow resolves the alias chain, so a dangling zone link fails the assert
+    # too. Catches typos before the module fails with a less obvious error, and
+    # covers the Ubuntu case where legacy US/* names need tzdata-legacy.
+    - name: Timezone | Verify the zone exists on this host
+      ansible.builtin.stat:
+        path: "/usr/share/zoneinfo/{{ system_timezone }}"
+        follow: true
+      register: __tz_zoneinfo
+
+    - name: Timezone | Validate timezone is available
+      ansible.builtin.assert:
+        that:
+          - __tz_zoneinfo.stat.exists
+        fail_msg: >-
+          system_timezone '{{ system_timezone }}' is not present in
+          /usr/share/zoneinfo on this host. Use a canonical IANA name
+          (e.g. America/New_York, not US/Eastern); legacy names need the
+          tzdata-legacy package on Ubuntu.
+        success_msg: "Validated: {{ system_timezone }}"
+        quiet: true
+
+    - name: Timezone | Read the active zone
+      ansible.builtin.stat:
+        path: /etc/localtime
+        follow: true
+      register: __tz_active
+
+    # A zone has more than one name: /usr/share/zoneinfo/UTC is a symlink to
+    # Etc/UTC. The module compares names rather than files, so a host sitting on
+    # Etc/UTC reports a change on every run against system_timezone: UTC.
+    # Compare the resolved files (same device and inode) so aliases settle.
+    - name: Timezone | Set system timezone
+      when: >-
+        not __tz_active.stat.exists
+        or __tz_active.stat.inode != __tz_zoneinfo.stat.inode
+        or __tz_active.stat.dev != __tz_zoneinfo.stat.dev
+      community.general.timezone:
+        name: "{{ system_timezone }}"
+
+    # timedatectl maintains only the /etc/localtime symlink. Debian's
+    # /etc/timezone is not touched by it and goes stale, leaving a host that
+    # reports one zone through timedatectl and a different one through the file.
+    - name: Timezone | Keep Debian /etc/timezone in step
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.copy:
+        dest: /etc/timezone
+        content: "{{ system_timezone }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true

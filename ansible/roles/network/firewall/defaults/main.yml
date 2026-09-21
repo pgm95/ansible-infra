@@ -1,0 +1,42 @@
+---
+# ============================================================================
+# Firewall Role - User-Configurable Variables
+# ============================================================================
+# Purpose: Host firewall for an internet facing box, using nftables.
+#
+# Policy shape: inbound is denied by default. What gets through is loopback,
+# already established flows, anything arriving on a trusted interface (the
+# tunnel), and an explicit list of publicly reachable ports. Forwarding is
+# denied outright: this host terminates connections, it does not route.
+#
+# LOCKOUT WARNING: enabling this role with no SSH path reachable will strand a
+# remote host. Either list 22 in firewall_allow_tcp, or make sure the tunnel
+# interface is in firewall_trusted_interfaces and actually up. The role asserts
+# one of those holds before writing any rules.
+
+firewall_enabled: false # (boolean) Enable host firewall management
+
+firewall_trusted_interfaces: [] # (list) Interfaces whose inbound traffic is
+                                                    # accepted wholesale, e.g. ["wg0"].
+                                                    # Loopback is always accepted and does not
+                                                    # need listing.
+
+firewall_allow_tcp: [] # (list) TCP ports accepted from anywhere
+                                                    # Example: [443]
+
+firewall_allow_udp: [] # (list) UDP ports accepted from anywhere
+                                                    # Example: [51820]
+
+firewall_allow_icmp: true # (boolean) Accept ping and the ICMP error types that
+                                                    # path MTU discovery depends on. Dropping
+                                                    # these breaks more than it protects.
+
+firewall_forwarding: false # (boolean) Allow forwarding. false also sets
+                                                    # net.ipv4.ip_forward=0 so the sysctl and the
+                                                    # ruleset cannot disagree.
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# _fw_config_path: ""                               # /etc/nftables.conf
+# __fw_ssh_path_ok: false                           # Result of the lockout guard

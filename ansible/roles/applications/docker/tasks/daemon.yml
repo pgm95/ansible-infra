@@ -21,7 +21,7 @@
     _docker_daemon_config: >-
       {{
         {}
-        | combine({'data-root': docker_data_root} if docker_data_root != '/var/lib/docker' else {})
+        | combine({'data-root': docker_data_root} if docker_data_root else {})
         | combine({'storage-driver': docker_storage_driver} if docker_storage_driver else {})
         | combine({'mtu': docker_mtu} if docker_mtu > 0 else {})
         | combine({'bip': docker_bridge_ip} if docker_bridge_ip else {})

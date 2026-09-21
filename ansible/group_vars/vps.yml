@@ -4,6 +4,7 @@
 net_dns_configure: true
 net_dns_servers:
   - 1.1.1.1
+  - 8.8.8.8
   - 9.9.9.9
 net_dns_search: []
 net_ntp_configure: true
@@ -11,3 +12,5 @@ net_ntp_servers:
   - pool.ntp.org
   - time.nist.gov
   - time.cloudflare.com
+
+wg_private_key: "{{ lookup('env', 'WG_VPS_PRIVATE_KEY') }}"

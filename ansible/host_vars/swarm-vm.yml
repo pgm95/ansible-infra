@@ -1,37 +1,27 @@
 ---
 # yaml-language-server: $schema=../schemas/host.schema.json
 
-# Users
 users_list:
-  - name: swarm
-    group: swarm
+  - name: swarm-user
+    group: swarm-user
     uid: 1000
     gid: 1000
     shell: /usr/sbin/nologin
     home: /nonexistent
     create_home: false
 
-# Packages
 packages_install_shell: true
 packages_install_network: true
 packages_extra_list:
   - "cifs-utils"
 
-# Dotfiles
+net_dns_configure: true
+net_dns_mode: dhcp
+
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash claude nano"
+dotfiles_deploy_args: "bash nano"
 
-# Tailscale
-tailscale_enabled: true
-tailscale_tags: ["ansible", "swarm"]
-tailscale_ip: "100.88.0.2"
-tailscale_bind_ssh: false
-tailscale_port: 41102
-
-# Docker
 docker_enabled: true
-docker_wait_for_tailscale: true
-docker_mtu: 1280
 docker_dns_servers: []
 docker_dns_search: []
 docker_swarm_enabled: true
@@ -39,10 +29,5 @@ docker_swarm_init: true
 docker_swarm_role: manager
 docker_data_root: "/data/docker-data"
 docker_containerd_root: "/data/containerd"
-docker_swarm_advertise_addr: "{{ tailscale_ip }}"
-docker_swarm_listen_addr: "{{ tailscale_ip }}:2377"
-docker_swarm_data_path_port: 4789
 docker_swarm_labels: { type: "vm", location: "onprem", ip: "private" }
 docker_swarm_availability: active
-docker_insecure_registries:
-  - "registry.{{ lookup('env', 'DOMAIN_PRIVATE') }}"

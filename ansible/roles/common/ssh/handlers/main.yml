@@ -1,7 +1,33 @@
 ---
 # SSH role handlers
+#
+# Handlers fire in definition order, not notification order. The sysctl
+# handlers sit first so ip_nonlocal_bind is live before sshd rebinds.
+
+- name: SSH | Apply bind sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-ansible-ssh-bind.conf
+  changed_when: true
+
+# Drops the runtime value only when nothing else still declares it.
+# Other roles set the same sysctl for their own binds and a blind reset
+# would leave them unable to bind until the next boot.
+- name: SSH | Reset bind sysctl
+  ansible.builtin.shell: >-
+    grep -rqs 'ip_nonlocal_bind *= *1' /etc/sysctl.d/
+    || sysctl -w net.ipv4.ip_nonlocal_bind=0
+  changed_when: true
 
 - name: SSH | Reload sshd
   ansible.builtin.systemd:
     name: ssh
     state: reloaded
+
+# A listener change gets a full restart rather than a reload. Reload is a
+# SIGHUP re-exec, and on this platform that path has failed to rebind before
+# ("Cannot bind any address"); a fresh process has no inherited-socket edge
+# cases. Existing sessions survive either way: each is a forked child of the
+# old daemon and is untouched when the listener goes away.
+- name: SSH | Restart sshd
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted

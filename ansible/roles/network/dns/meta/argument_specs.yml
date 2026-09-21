@@ -7,14 +7,14 @@
 
 argument_specs:
   main:
-    short_description: DNS resolver configuration with intelligent backend detection
+    short_description: DNS resolver configuration, static or DHCP-driven
     description:
-      - Auto-detects DNS management system (Tailscale, systemd-resolved, resolvconf, direct)
-      - Respects Tailscale MagicDNS when detected
-      - Configures systemd-resolved via drop-in file
-      - Supports resolvconf head file for priority DNS
-      - Falls back to direct /etc/resolv.conf management
-
+      - In static mode, writes the declared resolvers and auto-detects the
+        management system (Tailscale, systemd-resolved, resolvconf, direct)
+      - In DHCP mode, writes no resolver data; removes the writers that compete
+        with the DHCP client for /etc/resolv.conf, then verifies the result
+      - DHCP mode handles both stacks in use here, systemd-networkd on cloud
+        image VMs and ifupdown with dhclient on Proxmox LXC templates
 
     options:
       # ========================================================================
@@ -25,9 +25,20 @@ argument_specs:
         type: bool
         default: false
 
+      net_dns_mode:
+        description: |
+          Source of truth for resolution.
+          static: net_dns_servers is written to the host.
+          dhcp: the DHCP server owns resolution; nothing is written, competing
+            writers are removed, and the result is verified. net_dns_servers,
+            net_dns_search and net_dns_stub_resolver are ignored.
+        type: str
+        choices: [static, dhcp]
+        default: static
+
       net_dns_servers:
         description: |
-          DNS server IP addresses.
+          DNS server IP addresses. Static mode only.
           Common choices:
             - Cloudflare: 1.1.1.1, 1.0.0.1
             - Quad9: 9.9.9.9, 149.112.112.112

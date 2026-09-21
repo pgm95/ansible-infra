@@ -1,0 +1,52 @@
+---
+# ============================================================================
+# WireGuard Role - User-Configurable Variables
+# ============================================================================
+# Purpose: Bring up a kernel WireGuard interface via wg-quick.
+#
+# wg-quick is used rather than systemd-networkd because it adds an interface
+# without taking ownership of the host's existing networking, which matters on
+# a remote box whose primary interface is managed by something else.
+#
+# The private key is never written into the interface config. It lives in its
+# own 0600 file and is applied by a PostUp line, so the config stays readable
+# and diffable under --check --diff.
+
+wg_enabled: false # (boolean) Enable WireGuard configuration
+wg_interface: wg0 # (string) Interface name; drives the unit and file names
+
+wg_address: "" # (string) REQUIRED. Address on the tunnel in CIDR form
+                                                    # Example: "10.60.60.3/32"
+
+wg_listen_port: 51820 # (integer) UDP port wg listens on
+                                                    # The remote peer's config must match this
+
+wg_mtu: 1420 # (integer) Interface MTU. 1420 suits a 1500 WAN path both ends
+
+wg_private_key: "" # (string) REQUIRED. Base64 private key for this interface
+                                                    # Supply from the secrets backend at the
+                                                    # inventory layer, never in this role
+
+wg_peers: [] # (list) Peer definitions. Each entry:
+                                                    #   - name: (string) label, rendered as a comment
+                                                    #   - public_key: (string, required)
+                                                    #   - allowed_ips: (list, required) CIDRs to route
+                                                    #   - endpoint: (string) host:port. Omit so the peer
+                                                    #       may roam, which is what a dynamic remote
+                                                    #       address requires
+                                                    #   - persistent_keepalive: (integer) seconds
+
+wg_restart_on_change: false # (boolean) How a config change is applied.
+                                                    # false: `wg syncconf`, which updates peers and keys
+                                                    #   without dropping the interface or its sessions
+                                                    # true: restart the unit. Needed for wg_address or
+                                                    #   wg_mtu changes, which syncconf cannot apply
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# _wg_conf_path: ""                                 # /etc/wireguard/<interface>.conf
+# _wg_key_path: ""                                  # /etc/wireguard/<interface>.key
+# __wg_ip_forward: {}                               # Registered sysctl read, for the forwarding warning
+# __wg_peers_live: {}                               # Registered `wg show <if> peers` output
+# __wg_listener: {}                                 # Registered `ss` output for the listen port

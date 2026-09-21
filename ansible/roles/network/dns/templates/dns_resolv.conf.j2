@@ -1,4 +1,8 @@
-# Managed by Ansible
+# Managed by Ansible - network.dns role
+
+{% if _dns_resolv_note is defined %}
+# {{ _dns_resolv_note }}
+{% endif %}
 {% for server in net_dns_servers %}
 nameserver {{ server }}
 {% endfor %}

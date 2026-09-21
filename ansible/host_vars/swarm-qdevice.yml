@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=../schemas/host.schema.json
+
+packages_install_shell: true
+packages_install_network: true
+packages_extra_list:
+  - "cifs-utils"
+
+net_dns_configure: true
+net_dns_mode: dhcp
+
+dotfiles_enabled: true
+dotfiles_deploy_args: "bash nano"
+
+docker_enabled: true
+docker_dns_servers: []
+docker_dns_search: []
+docker_swarm_enabled: true
+docker_swarm_init: false
+docker_swarm_role: manager
+docker_data_root: "/data/docker-data"
+docker_containerd_root: "/data/containerd"
+docker_swarm_labels: { type: "vm", location: "onprem", ip: "private" }
+docker_swarm_availability: drain

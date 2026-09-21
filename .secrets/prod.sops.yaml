@@ -4,10 +4,10 @@ PROXMOX_TOKEN_SECRET: ENC[AES256_GCM,data:4K4S3qUCQE/vVq0MBG+5dc/ggJjVGx+yrqTeyb
 VPS_PUBLIC_IP: ENC[AES256_GCM,data:u1B9E5tfb0t4NHwfbNBQ,iv:qqB9Tremw63fsB8SCAm7Wsk2+ltT/miq9LJi6Ar0d2U=,tag:e7YxegPSPE3AkI+ZJJZNfQ==,type:str]
 DOMAIN_PUBLIC: ENC[AES256_GCM,data:xOgqSAEjThJFgw==,iv:ZXJX7u75Yp2wIgpNCde9E2B5dk1U+n7cbnlioiV4l9g=,tag:asuHAcar9Xn5BFyISQjTQg==,type:str]
 DOMAIN_PRIVATE: ENC[AES256_GCM,data:7FIO9+1f2QkzLfjX,iv:yAfD3WTjEJV/HbDQXzp5imsHayDJ2GsDvamqbuh9sKs=,tag:Xey7qb/x0D5UVnnN5ssL3g==,type:str]
+WG_VPS_PRIVATE_KEY: ENC[AES256_GCM,data:+6PJrvxV34sSzWbqLfrQ7xcDFhzI7dx30eTp/pozecTEphywyZvlfSaEeQM=,iv:Ld5AjLpjfP3zFe/m3oKKGbOwc4pf4ywR7WG1xDTC92s=,tag:WNtfH10/43VeRfLYjLeDVw==,type:str]
 sops:
     age:
-        - recipient: age1m2a7jfn9p999pw5l3w3x2556j42lx4ulr3d2n00ly5rn5a968ctssh0a7k
-          enc: |
+        - enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
             YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBsQUZPbHZDYkdnVFdoWHpj
             MjA5RXJicXV0bHViblZQa0YrSkN0QkRPWHcwCjNhelZUWFp3TE8wRm5MQk0xRkVh
@@ -15,7 +15,8 @@ sops:
             UksxbEY5bDhNUElXaGZVa0ZwNFFDblkKxMkM+UB1FurYmULNHk3U8eGutTr8CyxD
             sFBMmhdI0k9vyITXcLD+vMClD1vViOXgQI9xCA5buxxv+p4SPtOAzg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-15T21:09:25Z"
-    mac: ENC[AES256_GCM,data:psiSON9KdoGLixHpZSjT6sFToH4E2qNe/I2Jo+eFN3rBpHQKgIIw5y8kSf5GD82ARwl1XfOMpkMLZbwD35Kc63xZPITPrMG0M0c5AP4SteN2PgQ5TXIEFZzB7Askz3bl5XDnRCfQMFcHjZDOtMSMoJ5T6yW8e3lmQB/vXnyGaTg=,iv:JSO31dpqRB9kClFd4mYPtjqH+xtIZA8I0GaM33/lbGs=,tag:WiiaLG27mH7J50eJoR+ekw==,type:str]
+          recipient: age1m2a7jfn9p999pw5l3w3x2556j42lx4ulr3d2n00ly5rn5a968ctssh0a7k
+    lastmodified: "2026-09-11T05:11:20Z"
+    mac: ENC[AES256_GCM,data:zxdiZI95XDavYxTqQRZxuZvMT0fJeAYn6PSJv2eP1ey9s76or7gxKrAGGEKvkSC6XJ/w+kA6jPs1DzzqrrFLX41eBRz+lkaR+POzaQRE7AQiNsunvNpVJEXVW3DjVxZaL9bPrPyE3AIZeiDC1wo+XJ0y+xofn68SbQF7MpxjWtU=,iv:sSyl1LIRugLIp4I8AK2X7RnVoHwwliiXh+W8OUeYFGI=,tag:mxZZArdy2dJPyDcJk+Lldg==,type:str]
     unencrypted_suffix: _unencrypted
-    version: 3.12.2
+    version: 3.13.3

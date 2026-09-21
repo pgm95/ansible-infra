@@ -22,7 +22,14 @@
 # - Direct: Manages /etc/resolv.conf directly (fallback)
 
 net_dns_configure: false # (boolean) Enable DNS resolver configuration
-net_dns_servers: [] # (list) DNS server IP addresses
+net_dns_mode: static # (string) Resolver source of truth: static | dhcp
+                                                    # static: net_dns_servers is written to the host,
+                                                    #   adapting to its resolver backend (above).
+                                                    # dhcp: the DHCP server owns resolution. Nothing is
+                                                    #   written; competing writers are removed and the
+                                                    #   result is verified. net_dns_servers is ignored.
+
+net_dns_servers: [] # (list) DNS server IP addresses (static mode only)
                                                     # Example: ["1.1.1.1", "1.0.0.1", "9.9.9.9"]
                                                     #   Common choices:
                                                     #   - Cloudflare: 1.1.1.1, 1.0.0.1
@@ -52,4 +59,9 @@ net_dns_llmnr: false # (boolean) Enable Link-Local Multicast Name Resolution (LL
 # __tailscale_dns_found: false                      # Boolean: Tailscale DNS management detected
 # __systemd_resolved_status: {}                     # systemd-resolved service status
 # __resolvconf_check: {}                            # resolvconf binary existence check
-# __dns_manager: ""                                 # Detected DNS management system
+# __dns_manager: ""                                 # Detected DNS management system (static mode)
+# __dns_stack: ""                                   # Detected resolver stack: networkd | dhclient (dhcp mode)
+# __dns_resolved_status: {}                         # systemd-resolved service status (dhcp mode)
+# __dns_resolv: {}                                  # Slurped /etc/resolv.conf used for verification
+# __dns_nameservers: []                             # Nameservers parsed out of /etc/resolv.conf
+# __dns_search: []                                  # Search domains parsed out of /etc/resolv.conf

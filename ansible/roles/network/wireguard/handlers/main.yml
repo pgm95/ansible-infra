@@ -1,0 +1,37 @@
+---
+# WireGuard role handlers
+#
+# Only one of these ever runs: each is gated on wg_restart_on_change, and tasks
+# notify both.
+
+# syncconf applies peer, key and port changes to the live interface without
+# tearing it down, which matters because the operator's own SSH will eventually
+# ride this tunnel.
+#
+# The private key must be re-applied afterwards: syncconf reads the config file,
+# and a config without PrivateKey is applied as an all-zero key. Verified in
+# wireguard-tools src/setconf.c, where sync_conf() clears only
+# WGDEVICE_REPLACE_PEERS and leaves WGDEVICE_HAS_PRIVATE_KEY set.
+- name: WireGuard | Reload interface
+  when: not wg_restart_on_change
+  ansible.builtin.shell: |
+    set -o errexit -o nounset -o pipefail
+    if ip link show {{ _wg_interface }} > /dev/null 2>&1; then
+      wg syncconf {{ _wg_interface }} <(wg-quick strip {{ _wg_conf_path }})
+      wg set {{ _wg_interface }} private-key {{ _wg_key_path }}
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+# Address and MTU are wg-quick-level settings that syncconf cannot apply, so
+# changing either needs wg_restart_on_change for one run.
+- name: WireGuard | Restart interface
+  # wg-quick@.service ships with the package, so it is absent under --check on a
+  # host that does not have wireguard-tools yet.
+  when:
+    - wg_restart_on_change
+    - _wg_service_present | default(false) | bool
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ _wg_interface }}"
+    state: restarted

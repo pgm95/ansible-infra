@@ -27,12 +27,18 @@ argument_specs:
       # Data & Storage Configuration
       # ========================================================================
       docker_data_root:
-        description: Docker root data directory (data-root in daemon.json)
+        description: >-
+          Docker root data directory (data-root in daemon.json). Empty leaves
+          Docker's default. When set, docker.service is ordered after the mount
+          providing it and the role verifies dockerd's state lives on that mount.
         type: str
-        default: /var/lib/docker
+        default: ""
 
       docker_containerd_root:
-        description: Containerd root directory (empty = default /var/lib/containerd)
+        description: >-
+          Containerd root directory. Empty leaves containerd's default. When set,
+          containerd.service is ordered after the mount providing it and the
+          role verifies containerd's state lives on that mount.
         type: str
         default: ""
 

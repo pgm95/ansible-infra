@@ -1,0 +1,75 @@
+---
+# ============================================================================
+# Docker Role - Verify daemon state lives on the configured mounts
+# ============================================================================
+# A daemon that started before its data mount initialised its state under the
+# empty mountpoint on the root disk; the mount then hid it. The daemon keeps
+# running on the hidden files, so nothing fails until the root disk is
+# replaced and the stale copy on the data disk is opened instead.
+#
+# Detection: compare the block device behind a state file the daemon holds
+# open (via /proc/<pid>/fd) with the device that backs the configured root.
+# Read-only, so it runs under --check --diff as well.
+
+- name: Docker | Probe which device each daemon's open state file is on
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      pid=$(pidof {{ item.daemon }}) || { echo "no-daemon"; exit 0; }
+      for fd in /proc/$pid/fd/*; do
+        if [ "$(readlink "$fd")" = "{{ item.root }}/{{ item.file }}" ]; then
+          stat -L -c '%d' "$fd"
+          exit 0
+        fi
+      done
+      echo "no-fd"
+    executable: /bin/bash
+  loop:
+    - { daemon: containerd, root: "{{ docker_containerd_root }}", file: io.containerd.metadata.v1.bolt/meta.db }
+    - { daemon: dockerd, root: "{{ docker_data_root }}", file: volumes/metadata.db }
+  loop_control:
+    label: "{{ item.daemon }}"
+  when: item.root | length > 0
+  register: __docker_state_dev
+  changed_when: false
+  check_mode: false
+
+# A missing root means the daemon never started on it; report through the
+# assertion below rather than as a raw command failure.
+- name: Docker | Probe which device backs each configured root
+  ansible.builtin.command:
+    cmd: "stat -c '%d' {{ item.root }}"
+  loop:
+    - { daemon: containerd, root: "{{ docker_containerd_root }}" }
+    - { daemon: dockerd, root: "{{ docker_data_root }}" }
+  loop_control:
+    label: "{{ item.daemon }}"
+  when: item.root | length > 0
+  register: __docker_root_dev
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# A daemon that is not running, or has not opened the file yet, cannot be
+# judged; only a real device mismatch is a failure.
+- name: Docker | Assert daemon state is on the configured mount
+  ansible.builtin.assert:
+    that:
+      - item.1.rc == 0
+      - item.0.stdout in ['no-daemon', 'no-fd'] or item.0.stdout == item.1.stdout
+    fail_msg: >-
+      {{ item.0.item.daemon }} on {{ inventory_hostname }}:
+      {% if item.1.rc != 0 %}configured root {{ item.0.item.root }} does not
+      exist, so the daemon is not running on it (restart it after the config
+      change, or check the mount){% else %}holds its state on device
+      {{ item.0.stdout }} while {{ item.0.item.root }} is on device
+      {{ item.1.stdout }}. The daemon started before the data mount and is
+      running on a hidden copy under the mountpoint on the root disk. Move the
+      live state onto the data disk with both daemons stopped before the next
+      reboot, then re-run{% endif %}.
+    success_msg: "{{ item.0.item.daemon }} state on {{ item.0.item.root }} (device {{ item.1.stdout }})"
+    quiet: true
+  loop: "{{ __docker_state_dev.results | zip(__docker_root_dev.results) | list }}"
+  loop_control:
+    label: "{{ item.0.item.daemon }}"
+  when: not item.0.skipped | default(false)

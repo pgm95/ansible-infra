@@ -1,133 +1,31 @@
 ---
-# DNS resolver configuration with intelligent backend detection
+# DNS resolver configuration.
+#
+# Two modes, selected by net_dns_mode:
+#   static - the operator declares the resolvers (net_dns_servers) and this role
+#            writes them, adapting to whichever resolver backend the host runs.
+#   dhcp   - the DHCP server is the source of truth. This role writes no resolver
+#            data at all; it only ensures nothing else on the host competes with
+#            the DHCP client for /etc/resolv.conf, then verifies the result.
 
-### Validation
-- name: Validate DNS configuration
+- name: DNS | Validate mode
   when: net_dns_configure | bool
   ansible.builtin.assert:
     that:
-      - net_dns_servers is defined
-      - net_dns_servers | length > 0
-    fail_msg: "net_dns_servers must contain at least one DNS server when net_dns_configure is true"
+      - net_dns_mode in ['static', 'dhcp']
+    fail_msg: >-
+      net_dns_mode must be 'static' or 'dhcp'
+      (got: {{ net_dns_mode | default('undefined') }}).
     quiet: true
 
-### DNS Configuration with intelligent detection
-
-- name: Read /etc/resolv.conf content
-  when: net_dns_configure | bool
-  ansible.builtin.slurp:
-    path: /etc/resolv.conf
-  register: __resolv_conf_content
-  failed_when: false
-
-- name: Check if Tailscale manages DNS
-  when: net_dns_configure | bool
-  ansible.builtin.set_fact:
-    __tailscale_dns_found: "{{ 'tailscale' in (__resolv_conf_content.content | b64decode) if __resolv_conf_content.content is defined else false }}"
-
-- name: Check if systemd-resolved is active
-  when: net_dns_configure | bool
-  ansible.builtin.systemd:
-    name: systemd-resolved
-  register: __systemd_resolved_status
-  failed_when: false
-  check_mode: false
-
-- name: Check if resolvconf exists
-  when: net_dns_configure | bool
-  ansible.builtin.stat:
-    path: /usr/bin/resolvconf
-  register: __resolvconf_check
-
-- name: Determine DNS management system
-  when: net_dns_configure | bool
-  ansible.builtin.set_fact:
-    __dns_manager: >-
-      {{
-        'tailscale' if __tailscale_dns_found | default(false) else
-        'systemd-resolved' if (__systemd_resolved_status.status.ActiveState | default('inactive')) == 'active' else
-        'resolvconf' if __resolvconf_check.stat.exists | default(false) else
-        'direct'
-      }}
-
-- name: Display detected DNS manager
-  when: net_dns_configure | bool
-  ansible.builtin.debug:
-    msg: "Detected DNS manager: {{ __dns_manager }}"
-    verbosity: 1
-
-# Skip DNS configuration if Tailscale manages it
-- name: Skip DNS configuration (Tailscale managed)
+- name: DNS | Apply static resolver configuration
   when:
     - net_dns_configure | bool
-    - __dns_manager == 'tailscale'
-  ansible.builtin.debug:
-    msg: "Skipping DNS configuration - Tailscale manages DNS"
-    verbosity: 1
+    - net_dns_mode == 'static'
+  ansible.builtin.import_tasks: static.yml
 
-# systemd-resolved method
-- name: Configure DNS (systemd-resolved)
+- name: DNS | Apply DHCP-driven resolver configuration
   when:
     - net_dns_configure | bool
-    - __dns_manager == 'systemd-resolved'
-  block:
-    - name: Ensure systemd-resolved drop-in directory exists
-      ansible.builtin.file:
-        path: /etc/systemd/resolved.conf.d
-        state: directory
-        mode: "0755"
-
-    - name: Configure systemd-resolved via drop-in file
-      ansible.builtin.template:
-        src: dns_systemd_resolved.j2
-        dest: /etc/systemd/resolved.conf.d/99-ansible.conf
-        mode: "0644"
-      notify: DNS | Restart systemd-resolved
-
-    - name: Ensure /etc/resolv.conf is symlink to systemd-resolved (stub)
-      ansible.builtin.file:
-        src: /run/systemd/resolve/stub-resolv.conf
-        dest: /etc/resolv.conf
-        state: link
-        force: true
-      when: net_dns_stub_resolver | bool
-
-    - name: Ensure /etc/resolv.conf is symlink to systemd-resolved (direct)
-      ansible.builtin.file:
-        src: /run/systemd/resolve/resolv.conf
-        dest: /etc/resolv.conf
-        state: link
-        force: true
-      when: not (net_dns_stub_resolver | bool)
-
-# resolvconf method
-- name: Configure DNS (resolvconf)
-  when:
-    - net_dns_configure | bool
-    - __dns_manager == 'resolvconf'
-  block:
-    - name: Create resolvconf head file for custom DNS
-      ansible.builtin.template:
-        src: dns_resolvconf_head.j2
-        dest: /etc/resolvconf/resolv.conf.d/head
-        mode: "0644"
-      notify: DNS | Update resolvconf
-
-    - name: Ensure /etc/resolv.conf symlink exists
-      ansible.builtin.file:
-        src: /run/resolvconf/resolv.conf
-        dest: /etc/resolv.conf
-        state: link
-        force: true
-      notify: DNS | Update resolvconf
-
-# Direct file method (fallback)
-- name: Configure DNS (direct file)
-  when:
-    - net_dns_configure | bool
-    - __dns_manager == 'direct'
-  ansible.builtin.template:
-    src: dns_resolv.conf.j2
-    dest: /etc/resolv.conf
-    mode: "0644"
-    backup: true
+    - net_dns_mode == 'dhcp'
+  ansible.builtin.import_tasks: dhcp.yml

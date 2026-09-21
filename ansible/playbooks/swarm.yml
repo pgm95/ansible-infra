@@ -80,12 +80,19 @@
           {% endfor %}
 
 # PLAY 2: Bootstrap. serial:1 preserves Raft consensus during init/joins.
+# Facts are gathered by an explicit task, not the play flag: the implicit
+# gather is always-tagged, so `--tags reset` would still connect to every
+# swarm host here, and one unreachable host in a serial:1 batch aborts the
+# playbook before the Reset play runs.
 - name: Bootstrap Swarm Cluster
   hosts: swarm
-  gather_facts: true
+  gather_facts: false
   serial: 1
 
   tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+
     - name: Include swarm bootstrap tasks
       ansible.builtin.include_role:
         name: applications/docker

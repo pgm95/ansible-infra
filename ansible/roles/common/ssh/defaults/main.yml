@@ -44,3 +44,9 @@ ssh_max_auth_tries: 3 # (integer) Maximum authentication attempts per connection
 
 ssh_client_alive_interval: 300 # (integer) Seconds between keepalive messages (0=disabled)
 ssh_client_alive_count_max: 2 # (integer) Missed keepalives before disconnect
+
+ssh_listen_addresses: [] # (list) Restrict sshd to these addresses plus loopback.
+                                                    # Typically the tunnel address, so management
+                                                    # never touches the public interface. Empty
+                                                    # leaves sshd on all interfaces and removes any
+                                                    # binding this role previously applied.

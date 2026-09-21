@@ -1,0 +1,52 @@
+#!/usr/sbin/nft -f
+# Managed by Ansible - network.firewall role
+#
+# Only this table is flushed and rebuilt. A ruleset-wide flush would erase every
+# table on the host, including the ip nat and ip filter tables Docker maintains,
+# taking its port mappings with them until the daemon restarts. Other tables at
+# the same hooks are still evaluated alongside this one; a drop in any of them
+# wins, so this table stays authoritative for what it denies.
+#
+# The bare declaration first makes the flush safe on a host where the table does
+# not exist yet. nft applies the whole file as one transaction, so there is no
+# window with an empty input chain.
+
+table inet filter
+flush table inet filter
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # Return traffic for connections this host opened.
+        ct state established,related accept
+        ct state invalid drop
+
+        iif lo accept
+{% for iface in firewall_trusted_interfaces %}
+        iifname "{{ iface }}" accept
+{% endfor %}
+{% if firewall_allow_icmp %}
+
+        # echo-request for reachability; the rest are what path MTU discovery
+        # and traceroute need to work at all.
+        ip protocol icmp icmp type { echo-request, destination-unreachable, time-exceeded, parameter-problem } accept
+        ip6 nexthdr ipv6-icmp accept
+{% endif %}
+{% if firewall_allow_tcp | length > 0 %}
+
+        tcp dport { {{ firewall_allow_tcp | join(', ') }} } accept
+{% endif %}
+{% if firewall_allow_udp | length > 0 %}
+        udp dport { {{ firewall_allow_udp | join(', ') }} } accept
+{% endif %}
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy {{ 'accept' if firewall_forwarding else 'drop' }};
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

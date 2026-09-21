@@ -10,3 +10,11 @@
     name: systemd-resolved
     state: restarted
     daemon_reload: true
+
+# Re-reads networkd.conf.d and re-applies the DHCP lease, which is what makes a
+# changed UseDomains setting take effect without waiting for a renewal.
+- name: DNS | Restart systemd-networkd
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    state: restarted
+    daemon_reload: true

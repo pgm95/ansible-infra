@@ -1,18 +1,11 @@
 ---
 # yaml-language-server: $schema=../schemas/host.schema.json
 
-# General
-docker_enabled: false
-tailscale_enabled: false
-packages_install_shell: false
-packages_install_network: false
 packages_fullupgrade: true
 
-# Dotfiles
-dotfiles_enabled: false
-dotfiles_deploy_to_root: false
+net_dns_configure: true
+net_dns_mode: dhcp
 
-# Users
 users_list:
   - name: pggm95
     uid: 1000
@@ -22,7 +15,6 @@ users_list:
     home: /nonexistent
     create_home: false
 
-# Samba
 samba_enabled: true
 samba_existing_user: pggm95
 samba_password: "{{ lookup('env', 'UNIVERSAL_PASS') }}"

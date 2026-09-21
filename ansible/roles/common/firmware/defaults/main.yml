@@ -1,0 +1,7 @@
+---
+# Purpose: Install vendor firmware for hardware passed through to a VM and make
+# sure the kernel driver binds. Cloud images ship no firmware, and a driver
+# that probes before the firmware lands never retries on its own.
+
+firmware_enabled: false # (boolean) Manage firmware on this host
+firmware_families: [] # (list) Hardware families needing firmware: intel-graphics, amd-graphics

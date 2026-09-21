@@ -1,0 +1,27 @@
+---
+argument_specs:
+  main:
+    short_description: Install vendor firmware and bind the driver
+    description:
+      - Installs the distribution package carrying firmware for each requested
+        hardware family (Intel and AMD graphics today)
+      - Enables Debian's non-free-firmware component, which cloud images omit
+      - Re-probes unbound PCI devices after an install, since a driver that
+        failed for missing firmware does not retry by itself
+      - Asserts every PCI device of the requested classes has a driver bound
+      - VMs only, where hardware is passed through; LXC guests share the
+        host's already-bound devices
+
+    options:
+      firmware_enabled:
+        description: Manage firmware on this host
+        type: bool
+        default: false
+      firmware_families:
+        description: |
+          Hardware families needing firmware. Each maps to one package per
+          distribution and to the PCI class whose devices must end up bound.
+        type: list
+        elements: str
+        choices: [intel-graphics, amd-graphics]
+        default: []

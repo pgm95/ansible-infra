@@ -1,0 +1,18 @@
+---
+argument_specs:
+  main:
+    short_description: Set the system timezone
+    description:
+      - Applies the timezone to any guest type, converging on running hosts
+      - Validates the zone exists in /usr/share/zoneinfo before applying it
+      - Leaves the host untouched when the timezone is an empty string
+
+    options:
+      system_timezone:
+        description: |
+          IANA timezone name applied to the host.
+          Use canonical names (America/New_York), not legacy aliases
+          (US/Eastern), which are absent from Ubuntu without tzdata-legacy.
+          An empty string leaves the timezone unmanaged.
+        type: str
+        default: UTC

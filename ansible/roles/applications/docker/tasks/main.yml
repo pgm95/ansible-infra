@@ -151,27 +151,59 @@
       notify: Docker | Restart containerd
       when: docker_containerd_root | default('') | length > 0
 
+    - name: Ensure systemd drop-in directories exist
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item }}.service.d"
+        state: directory
+        mode: "0755"
+      loop: [containerd, docker]
+
+    # Order each daemon after the mount that provides its state directory.
+    # RequiresMountsFor adds After= and Requires= on the mount unit, so a
+    # daemon never starts on the root disk under an unmounted `nofail` data
+    # mount, and fails visibly if the disk is missing. Reload only: ordering
+    # is read at activation, a restart would bounce every container.
+    - name: Docker | Order daemons after their data mounts
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.unit }}.service.d/data-root.conf"
+        content: |
+          [Unit]
+          RequiresMountsFor={{ item.root }}
+        mode: "0644"
+        backup: true
+      loop:
+        - { unit: containerd, root: "{{ docker_containerd_root }}" }
+        - { unit: docker, root: "{{ docker_data_root }}" }
+      loop_control:
+        label: "{{ item.unit }}"
+      when: item.root | length > 0
+      notify: Docker | Reload systemd
+
+    - name: Docker | Remove data mount ordering where no root is set
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item.unit }}.service.d/data-root.conf"
+        state: absent
+      loop:
+        - { unit: containerd, root: "{{ docker_containerd_root }}" }
+        - { unit: docker, root: "{{ docker_data_root }}" }
+      loop_control:
+        label: "{{ item.unit }}"
+      when: item.root | length == 0
+      notify: Docker | Reload systemd
+
     # Boot ordering only. Wants= (not Requires=) so a tailscaled restart or
     # package upgrade does not propagate a stop/restart to docker.service and
     # bounce every container. daemon_reload on the start task below applies it.
-    - name: Make Docker wait for Tailscale at boot
+    - name: Install wait-for-tailscale systemd drop-in
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
+        content: |
+          [Unit]
+          After=tailscaled.service
+          Wants=tailscaled.service
+        mode: "0644"
+        backup: true
       when: docker_wait_for_tailscale
-      block:
-        - name: Ensure docker.service.d exists
-          ansible.builtin.file:
-            path: /etc/systemd/system/docker.service.d
-            state: directory
-            mode: "0755"
-
-        - name: Install wait-for-tailscale systemd drop-in
-          ansible.builtin.copy:
-            dest: /etc/systemd/system/docker.service.d/wait-for-tailscale.conf
-            content: |
-              [Unit]
-              After=tailscaled.service
-              Wants=tailscaled.service
-            mode: "0644"
-            backup: true
 
     - name: Remove wait-for-tailscale systemd drop-in
       ansible.builtin.file:
@@ -186,11 +218,25 @@
         state: started
         daemon_reload: true
 
+    # On a first provisioning the package install starts both daemons on their
+    # default roots before daemon.json and config.toml exist. Flush the restart
+    # handlers now so the guard below inspects the daemons on their configured
+    # roots, not the ones the package started.
+    - name: Apply pending daemon restarts before verifying
+      ansible.builtin.meta: flush_handlers
+
+    - name: Verify daemon state lives on the configured mounts
+      ansible.builtin.include_tasks:
+        file: verify.yml
+        apply:
+          tags: [docker_daemon]
+
 - name: Display Docker configuration summary
   ansible.builtin.debug:
     msg:
       - "Docker installed and configured successfully"
-      - "  - Data root: {{ docker_data_root }}"
+      - "  - Data root: {{ docker_data_root if docker_data_root else 'docker default' }}"
+      - "  - Containerd root: {{ docker_containerd_root if docker_containerd_root else 'containerd default' }}"
       - "  - Storage driver: {{ docker_storage_driver if docker_storage_driver else 'auto' }}"
       - "  - MTU: {{ docker_mtu if docker_mtu > 0 else 'auto' }}"
       - "  - Log driver: {{ docker_log_driver }}"

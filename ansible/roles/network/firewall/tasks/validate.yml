@@ -1,0 +1,70 @@
+---
+# Pre-configuration validation, with the lockout guard first.
+
+- name: Firewall | Validate platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Debian'
+    fail_msg: >-
+      network/firewall supports Debian family hosts only
+      (got: {{ ansible_facts.os_family | default('undetected') }}).
+    success_msg: "Platform validated"
+    quiet: true
+
+# A trusted interface only provides a way in if it exists on the host right now.
+# Listing wg0 before the tunnel is up would otherwise read as "SSH is covered"
+# while leaving no route in at all.
+#
+# Checked live rather than against ansible_facts.interfaces: facts are gathered
+# in pre_tasks, before the wireguard role runs, so a freshly created wg0 is
+# absent from the cached snapshot and the guard would veto a valid deploy.
+- name: Firewall | Check which trusted interfaces exist right now
+  ansible.builtin.stat:
+    path: "/sys/class/net/{{ item }}"
+  register: __fw_trusted_links
+  loop: "{{ firewall_trusted_interfaces }}"
+
+- name: Firewall | Determine whether an inbound SSH path survives
+  ansible.builtin.set_fact:
+    __fw_live_trusted: >-
+      {{ __fw_trusted_links.results | selectattr('stat.exists')
+         | map(attribute='item') | list }}
+    __fw_ssh_path_ok: >-
+      {{ (22 in firewall_allow_tcp)
+         or (__fw_trusted_links.results | selectattr('stat.exists') | list | length > 0) }}
+
+- name: Firewall | Refuse to lock this host out
+  ansible.builtin.assert:
+    that:
+      - __fw_ssh_path_ok | bool
+    fail_msg: >-
+      Applying this policy would leave no way in: 22 is not in
+      firewall_allow_tcp and none of firewall_trusted_interfaces
+      ({{ firewall_trusted_interfaces | join(', ') | default('none', true) }})
+      exist on this host yet. Bring the tunnel up before applying this policy,
+      or add 22 to firewall_allow_tcp if a public SSH path is intended.
+    success_msg: >-
+      Inbound SSH path confirmed via
+      {{ 'port 22' if 22 in firewall_allow_tcp else __fw_live_trusted | join(', ') }}
+    quiet: true
+
+- name: Firewall | Validate at least one inbound rule is defined
+  ansible.builtin.assert:
+    that:
+      - (firewall_allow_tcp | length + firewall_allow_udp | length
+         + firewall_trusted_interfaces | length) > 0
+    fail_msg: >-
+      No trusted interfaces and no allowed ports: the resulting policy would
+      accept nothing inbound but loopback and established flows.
+    success_msg: "Inbound policy defined"
+    quiet: true
+
+- name: Firewall | Validate port numbers
+  ansible.builtin.assert:
+    that:
+      - item | int > 0
+      - item | int < 65536
+    fail_msg: "Port '{{ item }}' is out of range 1-65535."
+    success_msg: "Port validated: {{ item }}"
+    quiet: true
+  loop: "{{ firewall_allow_tcp + firewall_allow_udp }}"

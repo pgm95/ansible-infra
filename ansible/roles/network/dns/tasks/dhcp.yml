@@ -1,0 +1,158 @@
+---
+# DHCP-driven resolver configuration.
+#
+# The DHCP server is the source of truth for nameservers (option 6), the host's
+# own domain (option 15) and the search list (option 119). This file writes no
+# resolver data. It removes the competing writers so the DHCP client is the only
+# owner of /etc/resolv.conf, then verifies what the host actually ended up with.
+#
+# Two stacks are in play and each has exactly one competitor:
+#   networkd/resolved (cloud image VMs) - networkd discards the DHCP search list
+#     unless UseDomains is on; Debian defaults it off, Ubuntu ships it on.
+#   ifupdown/dhclient (Proxmox LXC templates) - Proxmox rewrites resolv.conf on
+#     every container start from the hypervisor's own resolv.conf.
+
+### Detect the resolver stack
+
+- name: DNS | Check if systemd-resolved is active
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+  register: __dns_resolved_status
+  failed_when: false
+  check_mode: false
+
+- name: DNS | Determine resolver stack
+  ansible.builtin.set_fact:
+    __dns_stack: >-
+      {{ 'networkd' if (__dns_resolved_status.status.ActiveState | default('inactive')) == 'active'
+         else 'dhclient' }}
+
+- name: DNS | Report resolver stack
+  ansible.builtin.debug:
+    msg: "DHCP mode, resolver stack: {{ __dns_stack }}"
+    verbosity: 1
+
+### networkd: accept the DHCP search list
+
+- name: DNS | Configure systemd-networkd to honor DHCP domains
+  when: __dns_stack == 'networkd'
+  block:
+    - name: DNS | Ensure networkd drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/networkd.conf.d
+        state: directory
+        mode: "0755"
+
+    # Set network-wide rather than per-interface: netplan emits UseDomains only
+    # when dhcp4-overrides.use-domains is set, so the global default is not
+    # overridden by the generated .network file.
+    - name: DNS | Accept DHCP-provided domains
+      ansible.builtin.copy:
+        dest: /etc/systemd/networkd.conf.d/99-ansible.conf
+        content: |
+          # Managed by Ansible (network/dns role, dhcp mode)
+          # Apply the DHCP domain (option 15) and search list (option 119).
+          # networkd's default is no, which silently discards both.
+          [DHCPv4]
+          UseDomains=yes
+
+          [DHCPv6]
+          UseDomains=yes
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: DNS | Restart systemd-networkd
+
+    # Same path the static mode writes, so a host that changes mode replaces its
+    # drop-in rather than leaving an orphan. Resolvers and domains are omitted;
+    # only local resolution behaviour is declared.
+    - name: DNS | Ensure systemd-resolved drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: DNS | Configure systemd-resolved behaviour
+      ansible.builtin.template:
+        src: dns_systemd_resolved.j2
+        dest: /etc/systemd/resolved.conf.d/99-ansible.conf
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: DNS | Restart systemd-resolved
+
+### dhclient: stop Proxmox from rewriting resolv.conf
+
+# Documented Proxmox mechanism: a .pve-ignore.<name> file makes ct_modify_file
+# skip that file, so pre_start_hook stops clobbering it on every start.
+- name: DNS | Let the DHCP client own resolv.conf
+  when: __dns_stack == 'dhclient'
+  ansible.builtin.copy:
+    dest: /etc/.pve-ignore.resolv.conf
+    content: |
+      # Managed by Ansible (network/dns role, dhcp mode).
+      # Presence of this file stops Proxmox rewriting /etc/resolv.conf on
+      # container start, leaving the DHCP client as its only writer.
+    owner: root
+    group: root
+    mode: "0644"
+
+### Verify
+
+- name: DNS | Apply pending resolver changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: DNS | Read effective resolver configuration
+  ansible.builtin.slurp:
+    path: /etc/resolv.conf
+  register: __dns_resolv
+
+- name: DNS | Parse resolver configuration
+  ansible.builtin.set_fact:
+    __dns_nameservers: >-
+      {{ __dns_resolv_lines | select('match', '^\s*nameserver\s')
+         | map('regex_replace', '^\s*nameserver\s+', '') | list }}
+    # glibc honors the last search/domain directive, so take the last one.
+    # dhclient writes option 119 entries fully qualified with a trailing dot.
+    __dns_search: >-
+      {{ (__dns_resolv_lines | select('match', '^\s*(search|domain)\s')
+          | map('regex_replace', '^\s*(search|domain)\s+', '')
+          | list | last | default('')).split()
+         | map('regex_replace', '\.$', '') | list }}
+  vars:
+    __dns_resolv_lines: "{{ (__dns_resolv.content | b64decode).splitlines() | reject('match', '^\\s*#') | list }}"
+
+- name: DNS | Report resolver configuration
+  ansible.builtin.debug:
+    msg: >-
+      nameservers: {{ __dns_nameservers | join(', ') | default('none', true) }} |
+      search: {{ __dns_search | join(' ') | default('none', true) }}
+
+- name: DNS | Verify DHCP supplied resolvers and a search domain
+  ansible.builtin.assert:
+    that:
+      - __dns_nameservers | length > 0
+      - __dns_search | length > 0
+    fail_msg: >-
+      /etc/resolv.conf is missing DHCP-provided data
+      (nameservers: {{ __dns_nameservers | length }}, search: {{ __dns_search | length }}).
+      Check that the DHCP server sends options 6 and 15/119 on this segment, and
+      that no other process is overwriting the file.
+    success_msg: "Resolver is DHCP-driven: {{ __dns_search | first }} via {{ __dns_nameservers | first }}"
+    quiet: true
+
+# The bug this role exists to prevent: /etc/hosts claiming one domain while DHCP
+# supplies another. Proxmox builds the FQDN from the segment domain Terraform
+# declares, so a mismatch means the two sources have drifted apart.
+- name: DNS | Verify the host FQDN agrees with the DHCP domain
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.fqdn == inventory_hostname ~ '.' ~ (__dns_search | first)
+    fail_msg: >-
+      FQDN {{ ansible_facts.fqdn }} does not match the DHCP domain
+      {{ __dns_search | first }}. Check the guest's declared segment domain in
+      terraform/locals.tf against the DHCP server's domain for this segment.
+    success_msg: "FQDN {{ ansible_facts.fqdn }} matches the DHCP domain"
+    quiet: true

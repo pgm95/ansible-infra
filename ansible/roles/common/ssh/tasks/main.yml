@@ -79,6 +79,18 @@
         name: ssh.socket
         state: stopped
         enabled: false
+      register: __ssh_socket_disabled
+
+    # A socket-activated sshd inherits its listener from ssh.socket instead of
+    # binding one. Stopping the socket leaves that sshd serving on an inherited
+    # fd it cannot re-acquire, so the next reload re-execs into "Cannot bind any
+    # address" and the unit dies, taking SSH down. Restart it once, when the
+    # socket is actually turned off, so sshd owns a listener of its own.
+    # Safe mid-play: the running Ansible session is a forked child and survives.
+    - name: Ensure ssh.service owns its own listener
+      ansible.builtin.systemd:
+        name: ssh
+        state: "{{ 'restarted' if __ssh_socket_disabled is changed else 'started' }}"
 
 # ============================================================================
 # Authorized Keys Deployment
@@ -158,6 +170,117 @@
     validate: "sshd -t -f /etc/ssh/sshd_config -f %s"
   notify: SSH | Reload sshd
   tags: [ssh_config]
+
+# ============================================================================
+# Listen Address Binding
+# ============================================================================
+# Restrict sshd to declared addresses plus loopback, typically a tunnel
+# address so management never touches the public interface. Deterministic: the
+# address comes from inventory, not from probing a live interface, so the
+# result renders under --check --diff.
+#
+# At boot sshd can start before the interface owning the address exists.
+# OpenSSH aborts only when every ListenAddress fails, so the tunnel bind fails,
+# the loopback bind succeeds, and sshd runs unreachable behind a healthy unit
+# status. ip_nonlocal_bind lets the bind succeed before the address exists;
+# connections arrive once the interface comes up. Unit ordering cannot solve
+# this: After= waits for a daemon, not for an address.
+
+- name: SSH | Bind sshd to declared addresses
+  tags: [ssh_config]
+  when: ssh_listen_addresses | length > 0
+  block:
+    - name: SSH | Validate listen addresses
+      ansible.builtin.assert:
+        that:
+          - item | ansible.utils.ipaddr is truthy
+          - "'/' not in item"
+        fail_msg: >-
+          ssh_listen_addresses entry '{{ item }}' is not a plain IP address.
+          Give the address only, without a prefix length.
+        success_msg: "Listen address validated: {{ item }}"
+        quiet: true
+      loop: "{{ ssh_listen_addresses }}"
+
+    - name: SSH | Allow sshd to bind addresses before they exist
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-ansible-ssh-bind.conf
+        content: |
+          # Managed by Ansible - common.ssh role
+          # Host-wide: any process may bind an address the host does not own yet.
+          net.ipv4.ip_nonlocal_bind = 1
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+      notify: SSH | Apply bind sysctl
+
+    # Loopback is always included so local tooling and health checks keep
+    # working. sshd binds only what is listed once any ListenAddress is set.
+    - name: SSH | Deploy sshd listen drop-in
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/55-ansible-listen.conf
+        content: |
+          # Managed by Ansible - common.ssh role
+          # sshd listens on these addresses only.
+          {% for address in ssh_listen_addresses %}
+          ListenAddress {{ address }}:22
+          {% endfor %}
+          ListenAddress 127.0.0.1:22
+        owner: root
+        group: root
+        mode: "0644"
+        backup: true
+        validate: "/usr/sbin/sshd -t -f %s"
+      notify: SSH | Restart sshd
+
+- name: SSH | Remove sshd address binding
+  tags: [ssh_config]
+  when: ssh_listen_addresses | length == 0
+  block:
+    - name: SSH | Remove sshd listen drop-in
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d/55-ansible-listen.conf
+        state: absent
+      notify: SSH | Restart sshd
+
+    - name: SSH | Remove bind sysctl
+      ansible.builtin.file:
+        path: /etc/sysctl.d/99-ansible-ssh-bind.conf
+        state: absent
+      notify: SSH | Reset bind sysctl
+
+- name: SSH | Apply pending sshd binding changes now
+  tags: [ssh_config]
+  when: ssh_listen_addresses | length > 0
+  ansible.builtin.meta: flush_handlers
+
+- name: SSH | Verify sshd listeners
+  tags: [ssh_config]
+  when:
+    - ssh_listen_addresses | length > 0
+    - not ansible_check_mode
+  block:
+    - name: SSH | Read sshd listeners
+      ansible.builtin.command: ss -Hltn sport = :22
+      register: __ssh_listeners
+      changed_when: false
+
+    - name: SSH | Report sshd listeners
+      ansible.builtin.debug:
+        msg: "sshd listening on: {{ __ssh_listeners.stdout_lines | map('split') | map(attribute=3) | join(', ') }}"
+
+    - name: SSH | Assert sshd listens on each declared address and loopback
+      ansible.builtin.assert:
+        that:
+          - (item ~ ':22') in __ssh_listeners.stdout
+        fail_msg: >-
+          sshd is not listening on {{ item }}:22 after the restart
+          (got: {{ __ssh_listeners.stdout_lines | map('split') | map(attribute=3) | join(', ') }}).
+          Check the sshd journal for a bind failure.
+        success_msg: "sshd bound to {{ item }}:22"
+        quiet: true
+      loop: "{{ ssh_listen_addresses + ['127.0.0.1'] }}"
 
 - name: Display SSH configuration summary
   ansible.builtin.debug:

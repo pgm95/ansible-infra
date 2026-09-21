@@ -1,0 +1,14 @@
+---
+# Firewall role handlers
+
+- name: Firewall | Reload nftables
+  # The unit ships with the package, so it is absent under --check on a host
+  # that does not have nftables yet.
+  when: _fw_service_present | default(false) | bool
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: reloaded
+
+- name: Firewall | Apply forwarding sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-ansible-firewall.conf
+  changed_when: true

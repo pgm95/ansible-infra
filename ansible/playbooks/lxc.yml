@@ -23,6 +23,10 @@
       tags: [ssh]
     - role: common/packages
       tags: [packages]
+    - role: common/timezone
+      tags: [timezone]
+    - role: network/dns
+      tags: [dns]
     - role: common/dotfiles
       tags: [dotfiles]
       when: dotfiles_enabled

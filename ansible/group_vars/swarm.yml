@@ -1,30 +1,23 @@
 ---
 # Applied to all swarm hosts via dynamic inventory (groups: ['swarm'])
 
-# docker_swarm_enabled: false        # (boolean) Enable Swarm mode
-# docker_swarm_role: worker          # (string) Node role: manager | worker
-# docker_swarm_init: false           # (boolean) Initialize new swarm (one node only)
+docker_swarm_availability: active # (string) Node availability: active, pause, drain
 
-docker_swarm_advertise_addr: ""    # (string) Advertise address (Tailscale IP for WAN clusters)
+docker_swarm_advertise_addr: "" # (string) Advertise address (Tailscale IP for WAN clusters)
 docker_swarm_listen_addr: >-
   {{ (docker_swarm_advertise_addr ~ ':2377')
      if docker_swarm_advertise_addr | default('')
      else '' }}
-docker_swarm_data_path_addr: "" # (string) Address for overlay data traffic
+docker_swarm_data_path_addr: "" # (string) Address/interface for data traffic (empty = auto)
 docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
 docker_swarm_vxlan_interface: "" # (string) Restrict VXLAN to interface (e.g., "tailscale0")
-docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
+docker_swarm_default_addr_pool: ["10.0.0.0/16"] # (list) Overlay network pools ["10.10.0.0/16"]
 docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
 
-docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest
-docker_swarm_election_tick: 30 # (integer) Raft election timeout in ticks (role default: 10, raised for WAN/Tailscale latency)
-docker_swarm_heartbeat_tick: 3 # (integer) Raft heartbeat interval in ticks (role default: 1, raised for WAN/Tailscale latency)
-docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h")
-docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for high-latency links)
-
-docker_swarm_availability: active # (string) Node availability: active, pause, drain
-docker_swarm_labels: {} # (dict) Node labels for placement constraints
-docker_swarm_manager_addrs: [] # (list) Manager addresses ["192.168.1.10:2377"]
+docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest (requires unlock on restart)
+docker_swarm_election_tick: 10 # (integer) Amount of ticks (in seconds) needed without a leader to trigger a new election. Docker default value is 10 seconds.
+docker_swarm_heartbeat_tick: 1 # (integer) Amount of ticks (in seconds) between each heartbeat. Docker default value is 1 seconds.
+docker_swarm_timeout: 60 # (integer) The maximum amount of time in seconds to wait on a response from the API. Default: 60s.
 
 # Tokens are retrieved dynamically during swarm init and shared via hostvars.
 # For existing swarms, persist tokens in secrets for idempotent joins

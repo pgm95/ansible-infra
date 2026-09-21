@@ -1,0 +1,27 @@
+# Managed by Ansible - network.wireguard role
+# wg-quick(8) interface configuration.
+#
+# PrivateKey is deliberately absent. It is applied from a separate 0600 file by
+# the PostUp line below, so this file carries no secret and stays diffable.
+# `wg-quick strip` removes PostUp, so it never reaches `wg` itself.
+
+[Interface]
+Address = {{ wg_address }}
+ListenPort = {{ wg_listen_port }}
+MTU = {{ wg_mtu }}
+PostUp = wg set %i private-key {{ _wg_key_path }}
+{% for peer in wg_peers %}
+
+[Peer]
+{% if peer.name is defined %}
+# {{ peer.name }}
+{% endif %}
+PublicKey = {{ peer.public_key }}
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+{% if peer.endpoint | default('') | length > 0 %}
+Endpoint = {{ peer.endpoint }}
+{% endif %}
+{% if peer.persistent_keepalive | default(0) | int > 0 %}
+PersistentKeepalive = {{ peer.persistent_keepalive }}
+{% endif %}
+{% endfor %}

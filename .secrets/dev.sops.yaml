@@ -4,10 +4,10 @@ PROXMOX_TOKEN_SECRET: ENC[AES256_GCM,data:HN47qwcH6w2IcrjhKdnFHvbg98xRcM4UrwSOmP
 VPS_PUBLIC_IP: ENC[AES256_GCM,data:eu0W4YgWHVvJIa2hOA==,iv:uXNcs8yni6BZyVLx/Ds2ryfsFWXTh0YTuELjqufQlfs=,tag:k2CsNOXeM4IQp0cBssEX3g==,type:str]
 DOMAIN_PUBLIC: ENC[AES256_GCM,data:8/n2m+qHANvzAw==,iv:oiQaAGf3ErMh0thMgwYZJslY4cQ5Bynl8Hng4gGg734=,tag:rpYUqrpf5iMBtypVOfyLow==,type:str]
 DOMAIN_PRIVATE: ENC[AES256_GCM,data:Fin1zCcm4hvZO+EWyKbylhKO,iv:xLu+nAsEkQ0uzlCAbGN1o6hDVsCWJ4WTgMR4SDEc64g=,tag:Sd4BKMwSSpbXsKa8tTTHPg==,type:str]
+WG_VPS_PRIVATE_KEY: ENC[AES256_GCM,data:8TjtJgqgbRBpX4GlgNMkSxccgRD5QIS2t0NXwFdEYX/tMq00+SwIzWDnOIo=,iv:BrT5HjshixAcC9NlNuvja+h+nFU2/ILUpEhug0APsvQ=,tag:ST9T38NwD9809qzKmeEcGQ==,type:str]
 sops:
     age:
-        - recipient: age1m2a7jfn9p999pw5l3w3x2556j42lx4ulr3d2n00ly5rn5a968ctssh0a7k
-          enc: |
+        - enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
             YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzN0lQK3hxcHhRQ2ZkMmx3
             MDJidHpjZEZqR3NvZ2JBaEVlK1o2alovbENvCnZRVFNFY1M1Sjl2SkRSUml2L2NT
@@ -15,7 +15,8 @@ sops:
             dFFZZGF1amNEeDZoUVByaElwQnRCNzQK38l6u6nShxVzomNZ5M4bBt+OVcHeE+7s
             jnmDcLbhnmeRtoO0Beu68mn18Bhl5e1+S6CU+242WJU3l5rtY+0fzg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-15T21:09:38Z"
-    mac: ENC[AES256_GCM,data:r7t1Q+1RQgPFDL9g+hlLbjo3Q5IYI3Xw4p/p/TFSzXwj+ZCgQvsArgGP7s1LfHeGTNXVuMKUbDI9ExZ0w8aDU01aEJaw2td8Z2PLUuWuOWgpEZnR7w9WvOpwUPzrVY7sUHDDjzIrGfnDqrhZtAKDt9jfN61DBgZnf+oZPMy7XhU=,iv:A5VuF/+2/85kNCDCAR6ctIU5antM6Nw0PDz6Y50y8Xo=,tag:QEu9fA9i72TKgh7/XMJrcg==,type:str]
+          recipient: age1m2a7jfn9p999pw5l3w3x2556j42lx4ulr3d2n00ly5rn5a968ctssh0a7k
+    lastmodified: "2026-09-11T05:11:04Z"
+    mac: ENC[AES256_GCM,data:Wd9q0vKg4WEOGOCPzj9dJZcaDb1nrqM8OSnPki9JzBQ703n96pbm27S4JMRD39AUjQvoYkI/mUg3pJ3VECR7idCvaovYGD4X6m6ho75q6A0xSOFHCgpTNniOwoABVq2THuFMBoJM/liofgqeDWT5JFlOIEVsDKyBXeL2X+6afYY=,iv:KGG51fmzbnSxyz9aVwZPJ/licYzk3fRJwknQoVabJhw=,tag:2toSNaM9IyU4s9uYycLECg==,type:str]
     unencrypted_suffix: _unencrypted
-    version: 3.12.2
+    version: 3.13.3

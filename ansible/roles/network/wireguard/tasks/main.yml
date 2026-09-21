@@ -1,0 +1,111 @@
+---
+# Kernel WireGuard interface via wg-quick.
+#
+# The interface config and the private key are written as separate files: the
+# config carries no secret and is diffable, the key is 0600 and no_log. The
+# config's PostUp applies the key at interface start; the reload handler
+# re-applies it after syncconf.
+
+- name: WireGuard | Resolve interface paths
+  ansible.builtin.set_fact:
+    _wg_interface: "{{ wg_interface }}"
+    _wg_conf_path: "/etc/wireguard/{{ wg_interface }}.conf"
+    _wg_key_path: "/etc/wireguard/{{ wg_interface }}.key"
+
+- name: WireGuard | Validate configuration
+  ansible.builtin.import_tasks: validate.yml
+
+# The kernel module is in-tree since 5.6, so the tools package is all that is
+# needed. wireguard-dkms is only a Suggests of it on Debian 13 and is not pulled.
+- name: WireGuard | Install wireguard-tools
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+  register: __wg_pkg
+
+# True on any real run; under --check only where wireguard-tools is present.
+- name: WireGuard | Record whether the service will exist
+  ansible.builtin.set_fact:
+    _wg_service_present: "{{ not (ansible_check_mode and __wg_pkg is changed) }}"
+
+- name: WireGuard | Ensure configuration directory exists
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# SOPS values arrive without a trailing newline, and wg expects a clean key
+# file, so normalize at the write site.
+- name: WireGuard | Deploy private key
+  ansible.builtin.copy:
+    dest: "{{ _wg_key_path }}"
+    content: "{{ wg_private_key | trim }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify:
+    - WireGuard | Reload interface
+    - WireGuard | Restart interface
+
+- name: WireGuard | Deploy interface configuration
+  ansible.builtin.template:
+    src: wireguard_wg.conf.j2
+    dest: "{{ _wg_conf_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+    backup: true
+  notify:
+    - WireGuard | Reload interface
+    - WireGuard | Restart interface
+
+# wg-quick@.service is a template unit shipped by the package, so on a host that
+# does not have it yet the service module cannot see it. Under --check the
+# install above is only reported, never performed, so skip rather than fail: the
+# dry run has already shown the install that would create the unit. On a host
+# where the package is present this still runs and reports real service state.
+- name: WireGuard | Enable and start the interface
+  when: _wg_service_present | bool
+  ansible.builtin.systemd_service:
+    name: "wg-quick@{{ wg_interface }}"
+    enabled: true
+    state: started
+
+- name: WireGuard | Apply pending interface changes now
+  ansible.builtin.meta: flush_handlers
+
+# Gated on check mode: on a first dry run the interface does not exist yet, and
+# reporting that as a failure would be noise rather than drift.
+- name: WireGuard | Verify the interface
+  when: not ansible_check_mode
+  block:
+    # `wg show <if> peers` lists public keys only. The `dump` subcommand would
+    # include the private key in its first field, so it is deliberately not used.
+    - name: WireGuard | Read configured peers
+      ansible.builtin.command: "wg show {{ wg_interface }} peers"
+      register: __wg_peers_live
+      changed_when: false
+
+    - name: WireGuard | Read UDP listener
+      ansible.builtin.command: "ss -Hlun sport = :{{ wg_listen_port }}"
+      register: __wg_listener
+      changed_when: false
+
+    - name: WireGuard | Assert the interface is up with its peers
+      ansible.builtin.assert:
+        that:
+          - __wg_listener.stdout | length > 0
+          - __wg_peers_live.stdout_lines | length == wg_peers | length
+        fail_msg: >-
+          {{ wg_interface }} is not in the expected state: expected
+          {{ wg_peers | length }} peer(s) and a listener on UDP
+          {{ wg_listen_port }}, found {{ __wg_peers_live.stdout_lines | length }}
+          peer(s) and {{ 'a listener' if __wg_listener.stdout | length > 0 else 'none' }}.
+          Check `journalctl -u wg-quick@{{ wg_interface }}` on {{ inventory_hostname }}.
+        success_msg: >-
+          {{ wg_interface }} up on UDP {{ wg_listen_port }} with
+          {{ wg_peers | length }} peer(s)
+        quiet: true

@@ -11,6 +11,20 @@
   pre_tasks:
     - name: Filter by environment
       ansible.builtin.import_tasks: tasks/filter_env.yml
+    # Terraform returns once the guest agent reports an address, which on a
+    # fresh VM is before cloud-init has finished (and before its post-upgrade
+    # reboot). Block until cloud-init is done so a deploy right after tf:apply
+    # never provisions a half-initialised root.
+    # Exit 2 is "done with recoverable errors" (a warning in a module), which
+    # still means cloud-init has finished; only a real error (1) should stop us.
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command:
+        cmd: cloud-init status --wait
+      register: __cloud_init_status
+      changed_when: false
+      failed_when: __cloud_init_status.rc not in [0, 2]
+      check_mode: false
+      tags: [always]
     - name: Gather facts after environment filter
       ansible.builtin.setup:
       tags: [always]
@@ -23,6 +37,11 @@
       tags: [ssh]
     - role: common/packages
       tags: [packages]
+    - role: common/timezone
+      tags: [timezone]
+    - role: common/firmware
+      tags: [firmware]
+      when: firmware_enabled
     - role: network/dns
       tags: [dns]
     - role: network/ntp

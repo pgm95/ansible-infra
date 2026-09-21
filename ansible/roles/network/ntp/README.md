@@ -13,7 +13,7 @@ Manages NTP (Network Time Protocol) time synchronization using systemd-timesyncd
 ## Requirements
 
 - Debian-based system (tested on Debian 12/13)
-- systemd-timesyncd (installed by default on Debian)
+- systemd-timesyncd (installed by the role; some cloud images ship without it)
 
 ## Role Variables
 

@@ -84,3 +84,15 @@ argument_specs:
         description: Missed keepalives before disconnect
         type: int
         default: 2
+
+      ssh_listen_addresses:
+        description: |
+          Restrict sshd to these addresses plus loopback, typically a tunnel
+          address so management never touches the public interface. sshd binds
+          only what is listed once any ListenAddress is set. Sets
+          net.ipv4.ip_nonlocal_bind so the bind survives a boot where the
+          interface comes up after sshd. Empty leaves sshd on all interfaces and
+          removes any binding this role previously applied.
+        type: list
+        elements: str
+        default: []

@@ -26,6 +26,7 @@ packages_base_list:
   - gnupg
   - rsync
   - curl
+  - python3-debian # required on the target by deb822_repository (docker, amd-ctk repos)
   - wget
   - bash
   - git

@@ -1,0 +1,81 @@
+---
+# Host firewall via nftables.
+#
+# Deny inbound by default; accept loopback, established flows, trusted
+# interfaces and an explicit port list. Forwarding denied in both the ruleset
+# and the sysctl so the two cannot disagree.
+
+- name: Firewall | Resolve paths
+  ansible.builtin.set_fact:
+    _fw_config_path: /etc/nftables.conf
+
+- name: Firewall | Validate configuration
+  ansible.builtin.import_tasks: validate.yml
+
+- name: Firewall | Install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+  register: __fw_pkg
+
+# True on any real run; under --check only where nftables is already installed.
+- name: Firewall | Record whether the service will exist
+  ansible.builtin.set_fact:
+    _fw_service_present: "{{ not (ansible_check_mode and __fw_pkg is changed) }}"
+
+# Templated with validate, so a ruleset that does not parse is never written.
+- name: Firewall | Deploy nftables ruleset
+  ansible.builtin.template:
+    src: firewall_nftables.conf.j2
+    dest: "{{ _fw_config_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+    backup: true
+    validate: "nft --check --file %s"
+  notify: Firewall | Reload nftables
+
+- name: Firewall | Set IP forwarding sysctl
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-ansible-firewall.conf
+    content: |
+      # Managed by Ansible - network.firewall role
+      # This host terminates connections; it does not route.
+      net.ipv4.ip_forward = {{ 1 if firewall_forwarding else 0 }}
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Firewall | Apply forwarding sysctl
+
+# The unit ships with the package, so under --check on a host that does not
+# have it yet there is nothing to enable. The install above was only reported.
+- name: Firewall | Enable and start nftables
+  when: _fw_service_present | bool
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true
+    state: started
+
+- name: Firewall | Apply pending firewall changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: Firewall | Verify the ruleset
+  when: not ansible_check_mode
+  block:
+    - name: Firewall | Read the active input policy
+      ansible.builtin.command: nft -j list chain inet filter input
+      register: __fw_active
+      changed_when: false
+
+    - name: Firewall | Assert inbound is denied by default
+      ansible.builtin.assert:
+        that:
+          - (__fw_active.stdout | from_json).nftables
+            | map(attribute='chain', default={})
+            | selectattr('policy', 'defined')
+            | map(attribute='policy') | first == 'drop'
+        fail_msg: >-
+          The input chain policy is not 'drop' after applying the ruleset.
+          Check `nft list ruleset` on {{ inventory_hostname }}.
+        success_msg: "Inbound policy is drop, with the configured exceptions"
+        quiet: true

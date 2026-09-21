@@ -1,0 +1,116 @@
+---
+- name: Firmware | Skip when unmanaged
+  when: not firmware_enabled | bool
+  ansible.builtin.debug:
+    msg: "firmware_enabled is false, leaving firmware unmanaged"
+    verbosity: 1
+
+- name: Firmware | Manage vendor firmware
+  when: firmware_enabled | bool
+  block:
+    # One entry per family: the package on each distribution and the PCI base
+    # class (PCI-SIG class code registry) whose devices the family serves. The
+    # binding assertion below is derived from this, not from host_vars, so the
+    # same file works for a dev twin without the hardware.
+    - name: Firmware | Define family mapping
+      ansible.builtin.set_fact:
+        __firmware_map:
+          intel-graphics: { class: "03", ubuntu: linux-firmware-intel-graphics, debian: firmware-intel-graphics }
+          amd-graphics: { class: "03", ubuntu: linux-firmware-amd-graphics, debian: firmware-amd-graphics }
+        __firmware_distro: "{{ ansible_facts['distribution'] | lower }}"
+
+    - name: Firmware | Validate families and distribution
+      ansible.builtin.assert:
+        that:
+          - firmware_families | length > 0
+          - firmware_families | difference(__firmware_map.keys() | list) | length == 0
+          - __firmware_distro in ['debian', 'ubuntu']
+        fail_msg: >-
+          firmware_families must be a non-empty subset of
+          {{ __firmware_map.keys() | list | join(', ') }} on a Debian or Ubuntu host
+          (got: {{ firmware_families }} on {{ ansible_facts['distribution'] }}).
+        success_msg: "Validated: {{ firmware_families | join(', ') }} on {{ __firmware_distro }}"
+        quiet: true
+
+    - name: Firmware | Resolve packages and device classes
+      ansible.builtin.set_fact:
+        __firmware_packages: "{{ firmware_families | map('extract', __firmware_map) | map(attribute=__firmware_distro) | list }}"
+        __firmware_classes: "{{ firmware_families | map('extract', __firmware_map) | map(attribute='class') | unique | list }}"
+
+    # Debian keeps proprietary firmware in its own apt component, which the
+    # cloud image leaves out of every stanza. Append it where missing.
+    - name: Firmware | Enable the non-free-firmware component on Debian
+      when: __firmware_distro == 'debian'
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/debian.sources
+        regexp: '^(Components:(?!.*\bnon-free-firmware\b).*)$'
+        replace: '\1 non-free-firmware'
+        backup: true
+      register: __firmware_sources
+
+    - name: Firmware | Install firmware packages
+      ansible.builtin.apt:
+        name: "{{ __firmware_packages }}"
+        state: present
+        update_cache: "{{ __firmware_sources is changed }}"
+      when: not ansible_check_mode
+
+    # A device whose driver failed to probe (firmware missing at boot) keeps no
+    # driver link and is never retried on its own. Only devices of the
+    # requested classes are considered; asking the bus to re-run driver
+    # matching needs no module name and is a no-op if nothing claims them.
+    - name: Firmware | Find requested-class devices without a driver
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          for d in /sys/bus/pci/devices/*; do
+            class=$(cut -c3-4 "$d/class")
+            case " {{ __firmware_classes | join(' ') }} " in
+              *" $class "*) [ -e "$d/driver" ] || basename "$d" ;;
+            esac
+          done
+        executable: /bin/bash
+      register: __firmware_unbound
+      changed_when: false
+      check_mode: false
+
+    - name: Firmware | Re-probe unbound requested-class devices
+      ansible.builtin.shell:
+        cmd: "echo {{ item }} > /sys/bus/pci/drivers_probe"
+      loop: "{{ __firmware_unbound.stdout_lines }}"
+      changed_when: true
+
+    - name: Firmware | Find requested-class devices still without a driver
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          for d in /sys/bus/pci/devices/*; do
+            class=$(cut -c3-4 "$d/class")
+            case " {{ __firmware_classes | join(' ') }} " in
+              *" $class "*) [ -e "$d/driver" ] || echo "$(basename "$d") class=$(cat "$d/class")" ;;
+            esac
+          done
+        executable: /bin/bash
+      register: __firmware_unbound_classes
+      changed_when: false
+      check_mode: false
+
+    # Check mode cannot install or probe, so an unbound device there is
+    # expected on a fresh host; report it instead of failing.
+    - name: Firmware | Report requested-class devices without a driver (check mode)
+      when:
+        - ansible_check_mode
+        - __firmware_unbound_classes.stdout_lines | length > 0
+      ansible.builtin.debug:
+        msg: "WARNING: no driver bound yet: {{ __firmware_unbound_classes.stdout_lines | join(', ') }}"
+
+    - name: Firmware | Assert every requested-class device has a driver bound
+      when: not ansible_check_mode
+      ansible.builtin.assert:
+        that: __firmware_unbound_classes.stdout_lines | length == 0
+        fail_msg: >-
+          PCI devices of the requested firmware classes have no driver bound:
+          {{ __firmware_unbound_classes.stdout_lines | join(', ') }}. Check
+          journalctl -k for the probe error (missing firmware file or passthrough).
+        success_msg: "All class {{ __firmware_classes | join('/') }} devices have a driver bound"
+        quiet: true

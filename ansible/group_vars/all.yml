@@ -8,8 +8,9 @@ ansible_python_interpreter: /usr/bin/python3
 ## Host Scoping
 # env_scope: ""                      # (string) prod/dev. empty = all environments
 
-## System Settings
-system_timezone: UTC                 # (string) System timezone
+## Role: common/timezone
+system_timezone: UTC                 # (string) IANA timezone name (e.g. UTC, America/New_York)
+                                     #   Empty string leaves the timezone unmanaged
 
 ## Role: common/hostname
 hostname_configure: false            # (boolean) Enable hostname configuration
@@ -43,6 +44,7 @@ ssh_permit_empty_passwords: false  # (boolean) Allow empty passwords
 # ssh_max_auth_tries: 3              # (integer) Max authentication attempts per connection
 # ssh_client_alive_interval: 300     # (integer) Seconds between keepalive messages
 # ssh_client_alive_count_max: 2      # (integer) Missed keepalives before disconnect
+# ssh_listen_addresses: []           # (list) Restrict sshd to these addresses plus loopback (e.g. tunnel address)
 
 ## Role: common/packages
 packages_fullupgrade: false # (boolean) Perform full system upgrade
@@ -82,7 +84,10 @@ net_iface_configure: false           # (boolean) Enable network interface config
 
 ## Role: network/dns
 # net_dns_configure: false           # (boolean) Enable DNS resolver configuration
-# net_dns_servers: []                # (list) DNS server IPs (e.g., ["1.1.1.1", "9.9.9.9"])
+# net_dns_mode: static               # (string) Source of truth: static | dhcp
+                                     #   static: write net_dns_servers to the host
+                                     #   dhcp: DHCP owns resolution; remove competing writers and verify
+# net_dns_servers: []                # (list) DNS server IPs (e.g., ["1.1.1.1", "9.9.9.9"]) -- static mode only
 # net_dns_search: []                 # (list) DNS search domains
 # net_dns_stub_resolver: false       # (boolean) Enable systemd-resolved stub resolver (127.0.0.53)
 # net_dns_mdns: false                # (boolean) Enable Multicast DNS
@@ -113,9 +118,10 @@ tailscale_oauth_devices: "{{ lookup('env', 'TS_OAUTH_KEY') }}"
 ## Role: applications/docker. Swarm vars are in swarm.yml.
 docker_enabled: false                # (boolean) Enable Docker installation
 docker_packages_hold: true           # (boolean) Apply dpkg hold to docker_packages
-# docker_data_root: /var/lib/docker  # (string) Docker root data directory
+# docker_data_root: ""               # (string) Docker root data directory (empty = Docker default)
 # docker_storage_driver: ""          # (string) Storage driver (overlay2, btrfs, zfs, "" = auto)
-# docker_mtu: 0                      # (integer) Default MTU (0 = auto, 1230 for Tailscale+VXLAN)
+# docker_mtu: 0                      # (integer) Transport MTU (0 = auto/1500). Docker subtracts VXLAN itself:
+                                     #   set the tunnel MTU (e.g. 1280 for Tailscale), never the overlay MTU
 # docker_bridge_ip: ""               # (string) Custom docker0 bridge IP in CIDR
 # docker_default_address_pools: []   # (list) Bridge network pools [{"base": "x/16", "size": 24}]
 # docker_dns_servers: []             # (list) Container DNS servers

@@ -17,6 +17,12 @@
     daemon_reload: true
   notify: Docker | Wait for docker ready
 
+# Unit drop-ins that only order boot (RequiresMountsFor) take effect at the
+# next activation; a reload is enough and never bounces running containers.
+- name: Docker | Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
 - name: Docker | Wait for docker ready
   ansible.builtin.wait_for:
     path: /var/run/docker.sock

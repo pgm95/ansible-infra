@@ -1,0 +1,5 @@
+---
+# Purpose: Set the system timezone on every guest, regardless of guest type.
+
+system_timezone: UTC # (string) IANA timezone name (e.g. UTC, America/New_York)
+                     # Empty string leaves the timezone unmanaged.

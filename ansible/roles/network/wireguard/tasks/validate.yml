@@ -1,0 +1,136 @@
+---
+# Pre-configuration validation. Every check fails with the action needed, not
+# just the symptom.
+
+- name: WireGuard | Validate platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Debian'
+    fail_msg: >-
+      network/wireguard supports Debian family hosts only
+      (got: {{ ansible_facts.os_family | default('undetected') }}). If facts are
+      undetected, the play did not gather them for this tag.
+    success_msg: "Platform validated: {{ ansible_facts.distribution | default('Debian') }}"
+    quiet: true
+
+- name: WireGuard | Validate interface address
+  ansible.builtin.assert:
+    that:
+      - wg_address | length > 0
+      - "'/' in wg_address"
+      # ipaddr returns the address string or false, so make the result explicitly
+      # boolean: this ansible-core rejects non-boolean conditionals.
+      - wg_address | ansible.utils.ipaddr is truthy
+    fail_msg: >-
+      wg_address must be the tunnel address in CIDR form
+      (got: {{ wg_address | default('undefined') }}). Set it in
+      host_vars/{{ inventory_hostname }}.yml, e.g. "10.60.60.3/32".
+    success_msg: "Address validated: {{ wg_address }}"
+    quiet: true
+
+# The value is never interpolated into a message, so a failure cannot leak it.
+- name: WireGuard | Validate private key is present
+  ansible.builtin.assert:
+    that:
+      - wg_private_key | length > 0
+    fail_msg: >-
+      wg_private_key is empty. It is read from the secrets backend, so add the
+      key there and re-run; check that the value is present in the environment
+      for MISE_ENV={{ lookup('env', 'MISE_ENV') | default('unset', true) }}.
+    success_msg: "Private key present"
+    quiet: true
+
+- name: WireGuard | Validate listen port
+  ansible.builtin.assert:
+    that:
+      - wg_listen_port | int > 0
+      - wg_listen_port | int < 65536
+    fail_msg: >-
+      wg_listen_port must be 1-65535 (got: {{ wg_listen_port }}). The remote
+      peer's configuration must name the same port.
+    success_msg: "Listen port validated: {{ wg_listen_port }}"
+    quiet: true
+
+- name: WireGuard | Validate MTU
+  ansible.builtin.assert:
+    that:
+      - wg_mtu | int >= 1280
+      - wg_mtu | int <= 1500
+    fail_msg: >-
+      wg_mtu must be 1280-1500 (got: {{ wg_mtu }}). 1420 suits a 1500 byte WAN
+      path at both ends; 1280 is the IPv6 minimum.
+    success_msg: "MTU validated: {{ wg_mtu }}"
+    quiet: true
+
+- name: WireGuard | Validate at least one peer is defined
+  ansible.builtin.assert:
+    that:
+      - wg_peers | length > 0
+    fail_msg: >-
+      wg_peers is empty, so the interface would come up with nothing to talk to.
+      Define the remote peer in host_vars/{{ inventory_hostname }}.yml.
+    success_msg: "Peers defined: {{ wg_peers | length }}"
+    quiet: true
+
+- name: WireGuard | Validate peer entries
+  ansible.builtin.assert:
+    that:
+      - item.public_key is defined
+      - item.public_key | length > 0
+      - item.allowed_ips is defined
+      - item.allowed_ips | length > 0
+    fail_msg: >-
+      Peer '{{ item.name | default('unnamed') }}' needs both public_key and a
+      non-empty allowed_ips list.
+    success_msg: "Peer validated: {{ item.name | default('unnamed') }}"
+    quiet: true
+  loop: "{{ wg_peers }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+# Catches an allowed_ips entry built from an unset variable, which would
+# otherwise render as a bare "/32" and produce a config wg refuses.
+- name: WireGuard | Validate peer allowed_ips are CIDRs
+  ansible.builtin.assert:
+    that:
+      - "'/' in item.1"
+      - item.1 | ansible.utils.ipaddr is truthy
+    fail_msg: >-
+      Peer '{{ item.0.name | default('unnamed') }}' has an invalid allowed_ips
+      entry '{{ item.1 }}'. Each entry must be a CIDR such as 10.60.60.1/32; an
+      empty or partial value means a variable it interpolates is unset.
+    success_msg: "allowed_ips validated: {{ item.1 }}"
+    quiet: true
+  loop: "{{ wg_peers | subelements('allowed_ips') }}"
+  loop_control:
+    label: "{{ item.0.name | default('unnamed') }}: {{ item.1 }}"
+
+### Warnings: real conditions worth surfacing, but not this role's to enforce
+
+- name: WireGuard | Warn on peers carrying a default route
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: peer '{{ item.name | default('unnamed') }}' lists 0.0.0.0/0 in
+      allowed_ips. This host terminates connections and must not take a default
+      route through the tunnel.
+  loop: "{{ wg_peers }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+  when: "'0.0.0.0/0' in item.allowed_ips"
+
+# Read-only probe, so it runs under --check too and the warning reflects live state.
+- name: WireGuard | Read IP forwarding state
+  ansible.builtin.command: sysctl -n net.ipv4.ip_forward
+  register: __wg_ip_forward
+  changed_when: false
+  check_mode: false
+
+# wg-quick never enables forwarding, so a 1 here was set by something else,
+# typically Docker. Reported rather than corrected: this host should terminate
+# connections, not route, but owning that policy belongs to the firewall role.
+- name: WireGuard | Warn when IP forwarding is enabled
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: net.ipv4.ip_forward is 1 on this host. This relay should not
+      route. Something else enabled it, commonly Docker.
+  when: __wg_ip_forward.stdout | default('0') | trim == '1'

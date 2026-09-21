@@ -15,6 +15,13 @@
 - name: Configure NTP (systemd-timesyncd)
   when: net_ntp_configure | bool
   block:
+    # Not every Debian image ships it (RackNerd's 13 template does not); apt
+    # removes a conflicting chrony/ntpsec if one is present.
+    - name: Install systemd-timesyncd
+      ansible.builtin.apt:
+        name: systemd-timesyncd
+        state: present
+
     - name: Ensure systemd-timesyncd drop-in directory exists
       ansible.builtin.file:
         path: /etc/systemd/timesyncd.conf.d

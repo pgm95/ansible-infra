@@ -22,6 +22,8 @@
         'interface' in ansible_run_tags or
         'hostname' in ansible_run_tags or
         'tailscale' in ansible_run_tags or
+        'wireguard' in ansible_run_tags or
+        'firewall' in ansible_run_tags or
         'all' in ansible_run_tags
       tags: ["always"]
     - name: Display user configuration status
@@ -43,6 +45,8 @@
       when: hostname_configure
     - role: common/packages
       tags: [packages]
+    - role: common/timezone
+      tags: [timezone]
     - role: common/swap
       tags: [swap]
     - role: common/dotfiles
@@ -55,6 +59,12 @@
     - role: network/interface
       tags: [interface]
       when: net_iface_configure
+    - role: network/wireguard
+      tags: [wireguard]
+      when: wg_enabled
+    - role: network/firewall
+      tags: [firewall]
+      when: firewall_enabled
     - role: applications/tailscale
       tags: [tailscale]
       when:

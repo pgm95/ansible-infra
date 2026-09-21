@@ -44,8 +44,12 @@ docker_packages: # (list) Docker packages to install
 docker_packages_hold: false # (boolean) Apply dpkg hold to docker_packages
 
 # Data & Storage
-docker_data_root: /var/lib/docker # (string) Docker root data directory (data-root)
-docker_containerd_root: "" # (string) Containerd root directory (empty = default /var/lib/containerd)
+docker_data_root: "" # (string) Docker root data directory (empty = Docker default /var/lib/docker)
+docker_containerd_root: "" # (string) Containerd root directory (empty = containerd default /var/lib/containerd)
+# When either root is set, the daemon is ordered after the mount that provides
+# it (RequiresMountsFor) and the role verifies the daemon's open state files
+# live on that mount. A daemon that starts before a `nofail` data mount
+# otherwise initialises on the root disk under the empty mountpoint.
 docker_storage_driver: "" # (string) Storage driver: overlay2, btrfs, zfs, etc (empty = auto)
 
 # Networking
@@ -101,24 +105,24 @@ docker_wait_for_tailscale: false # (boolean) Drop in After=/Wants=tailscaled.ser
 docker_swarm_enabled: false # (boolean) Enable Swarm mode on this host
 docker_swarm_role: worker # (string) Node role: manager or worker
 docker_swarm_init: false # (boolean) Initialize new swarm (true ONLY on first manager)
+docker_swarm_availability: active # (string) Node availability: active, pause, drain
+docker_swarm_labels: {} # (dict) Node labels for placement constraints
 
 # Swarm Network Settings & Overlay Network Defaults
 docker_swarm_advertise_addr: "" # (string) Advertise address (empty = auto-detect)
 docker_swarm_listen_addr: "" # (string) Listen address (empty = docker default 0.0.0.0:2377)
 docker_swarm_data_path_addr: "" # (string) Address/interface for data traffic (empty = auto)
 docker_swarm_data_path_port: 4789 # (integer) UDP port for VXLAN overlay traffic
+docker_swarm_vxlan_interface: "" # (string) Restrict VXLAN to interface (e.g., "tailscale0")
 docker_swarm_default_addr_pool: [] # (list) Overlay network pools ["10.10.0.0/16"]
 docker_swarm_subnet_size: 24 # (integer) Default subnet size for overlay networks
 
 # Swarm Security & Raft
 docker_swarm_autolock: false # (boolean) Encrypt Raft logs at rest (requires unlock on restart)
-docker_swarm_election_tick: 10 # (integer) Raft election timeout in ticks
-docker_swarm_heartbeat_tick: 1 # (integer) Raft heartbeat interval in ticks
+docker_swarm_election_tick: 10 # (integer) Amount of ticks (in seconds) needed without a leader to trigger a new election. Docker default value is 10 seconds.
+docker_swarm_heartbeat_tick: 1 # (integer) Amount of ticks (in seconds) between each heartbeat. Docker default value is 1 seconds.
 docker_swarm_cert_expiry: "" # (string) Node certificate expiry (e.g., "2160h" for 90 days)
-docker_swarm_timeout: 120 # (integer) Docker API timeout in seconds (increase for WAN/Tailscale)
-docker_swarm_vxlan_interface: "" # (string) e.g., "tailscale0"
-docker_swarm_labels: {} # (dict) Node labels for placement constraints
-docker_swarm_availability: active # (string) Node availability: active, pause, drain
+docker_swarm_timeout: 60 # (integer) The maximum amount of time in seconds to wait on a response from the API. Default: 60s.
 
 # Swarm Join
 docker_swarm_manager_token: "" # (string) Manager join token
