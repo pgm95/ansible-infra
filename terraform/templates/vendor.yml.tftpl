@@ -1,6 +1,6 @@
 #cloud-config
 
-# Disk Configuration - Templated
+# VM Disk Configuration
 # Host ZFS handles: compression, checksums, snapshots, TRIM (if autotrim=on)
 # Guest optimizations: noatime to reduce CoW write amplification
 # Device paths use /dev/disk/by-id/ for deterministic references
@@ -41,8 +41,6 @@ bootcmd:
 %{ endfor ~}
 %{ endif ~}
 
-# Other Configuration - Hardcoded
-timezone: America/New_York
 disable_root: false
 
 package_reboot_if_required: true
@@ -51,27 +49,5 @@ packages:
 
 runcmd:
   - systemctl enable --now qemu-guest-agent
-  - systemctl restart systemd-resolved
   # Re-DHCP after cloud-init sets the hostname so the lease registers it rather than the image default
   - systemctl restart systemd-networkd
-
-write_files:
-  - path: /etc/systemd/resolved.conf.d/99-terraform-cicustom-dns.conf
-    owner: root:root
-    permissions: '0644'
-    content: |
-      [Resolve]
-      DNSStubListener=no
-      MulticastDNS=no
-      LLMNR=no
-
-  # Honor the DHCP-provided search domain (Debian defaults UseDomains=no and drops it).
-  - path: /etc/systemd/networkd.conf.d/99-terraform-cicustom-dhcp.conf
-    owner: root:root
-    permissions: '0644'
-    content: |
-      [DHCPv4]
-      UseDomains=yes
-
-      [DHCPv6]
-      UseDomains=yes

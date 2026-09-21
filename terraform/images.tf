@@ -1,22 +1,21 @@
 # For LXC: Verify via `pveam available` on the PVE host.
-
-resource "proxmox_download_file" "debian_12_lxc" {
-  content_type = "vztmpl"
-  datastore_id = var.pve_download_storage
-  node_name    = var.pve_node_name
-  url          = "http://download.proxmox.com/images/system/debian-12-standard_12.12-1_amd64.tar.zst"
-  overwrite    = false
-}
+#
+# Each download is gated on `local.used_lxc_os` / `local.used_vm_os`, which are
+# derived from the workspace-filtered guest definitions. A node only stores the
+# images its own guests reference; adding the first guest of a new OS pulls the
+# image in, removing the last one drops it.
 
 resource "proxmox_download_file" "debian_13_lxc" {
+  count        = contains(local.used_lxc_os, "debian-13") ? 1 : 0
   content_type = "vztmpl"
   datastore_id = var.pve_download_storage
   node_name    = var.pve_node_name
-  url          = "http://download.proxmox.com/images/system/debian-13-standard_13.1-2_amd64.tar.zst"
+  url          = "http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst"
   overwrite    = false
 }
 
 resource "proxmox_download_file" "debian_13_cloud" {
+  count        = contains(local.used_vm_os, "debian-13") ? 1 : 0
   content_type = "import"
   datastore_id = var.pve_download_storage
   node_name    = var.pve_node_name
@@ -26,6 +25,7 @@ resource "proxmox_download_file" "debian_13_cloud" {
 }
 
 resource "proxmox_download_file" "ubuntu_26_cloud" {
+  count        = contains(local.used_vm_os, "ubuntu-26") ? 1 : 0
   content_type = "import"
   datastore_id = var.pve_download_storage
   node_name    = var.pve_node_name

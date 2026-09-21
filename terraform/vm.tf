@@ -72,18 +72,22 @@ resource "proxmox_virtual_environment_vm" "vm" {
     backup       = lookup(each.value.disks[0], "backup", true)
   }
 
-  # Additional disks
+  # Additional disks. A floating entry attaches the data holder's disk by
+  # path instead of allocating one; it keeps its own scsi index so the by-id
+  # device path in the vendor data stays valid across rebuilds.
   dynamic "disk" {
     for_each = slice(each.value.disks, 1, length(each.value.disks))
     content {
-      datastore_id = each.value.disk_datastore_id
-      interface    = "scsi${disk.key + 1}"
-      size         = disk.value.size
-      cache        = disk.value.cache
-      ssd          = disk.value.ssd
-      discard      = disk.value.discard
-      iothread     = disk.value.iothread
-      backup       = lookup(disk.value, "backup", true)
+      datastore_id      = lookup(disk.value, "floating", false) ? local.vm_floating["${each.key}/${disk.value.slot}"].datastore_id : each.value.disk_datastore_id
+      path_in_datastore = try(local.vm_holder_disks["scsi${disk.value.slot}"].path_in_datastore, null)
+      file_format       = try(local.vm_holder_disks["scsi${disk.value.slot}"].file_format, null)
+      interface         = "scsi${disk.key + 1}"
+      size              = disk.value.size
+      cache             = disk.value.cache
+      ssd               = disk.value.ssd
+      discard           = disk.value.discard
+      iothread          = disk.value.iothread
+      backup            = lookup(disk.value, "backup", true)
     }
   }
 
@@ -124,11 +128,13 @@ resource "proxmox_virtual_environment_vm" "vm" {
     }
 
     # Render dns only when set; an empty dns block is a perpetual diff under DHCP.
+    # domain feeds the cloud-init `fqdn:` Proxmox generates, which is what lands
+    # in /etc/hosts. Resolution itself comes from DHCP.
     dynamic "dns" {
-      for_each = (lookup(each.value.cloudinit, "servers", "") != "" || lookup(each.value.cloudinit, "domain", "") != "") ? [1] : []
+      for_each = (lookup(each.value.cloudinit, "servers", "") != "" || local.vm_domain[each.key] != null) ? [1] : []
       content {
         servers = lookup(each.value.cloudinit, "servers", "") != "" ? [each.value.cloudinit.servers] : null
-        domain  = lookup(each.value.cloudinit, "domain", null)
+        domain  = local.vm_domain[each.key]
       }
     }
 
@@ -166,5 +172,47 @@ resource "proxmox_virtual_environment_vm" "vm" {
     # Vendor cloud-init is consumed only at first boot
     # re-rendering the template must never recreate a live VM
     ignore_changes = [initialization[0].vendor_data_file_id]
+  }
+}
+
+# Data holder: a never-started VM with no OS that owns every floating VM disk in
+# this workspace. Guests attach the disks by path; Proxmox refuses to free a
+# disk whose owner id differs from the guest being destroyed. Disk flags mirror
+# the guest entry so an imported, reassigned disk is diff-free.
+resource "proxmox_virtual_environment_vm" "data_holder" {
+  for_each = length(local.vm_floating) > 0 ? { holder = true } : {}
+
+  node_name   = var.pve_node_name
+  vm_id       = local.data_holder_vm_id
+  name        = "data-holder-vm"
+  description = "Floating data volumes (VM)"
+  tags        = ["terraform", "data-holder"]
+
+  started = false
+  on_boot = false
+
+  agent {
+    enabled = false
+  }
+
+  dynamic "disk" {
+    for_each = local.vm_floating_by_slot
+    content {
+      datastore_id = disk.value.datastore_id
+      interface    = "scsi${disk.value.slot}"
+      size         = disk.value.size
+      cache        = disk.value.cache
+      ssd          = disk.value.ssd
+      discard      = disk.value.discard
+      iothread     = disk.value.iothread
+      backup       = false
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(distinct([for f in local.vm_floating_by_slot : f.slot])) == length(local.vm_floating_by_slot)
+      error_message = "VM floating disk slots must be unique (got: ${join(", ", [for f in local.vm_floating_by_slot : "${f.guest}=${f.slot}"])})."
+    }
   }
 }

@@ -49,14 +49,30 @@ resource "proxmox_virtual_environment_container" "lxc" {
     size         = each.value.disks[0].size
   }
 
-  # Additional storage mount points (disks after index 0 that have mp)
+  # Additional storage mount points (disks after index 0 that have mp),
+  # allocated by and owned by this container.
   dynamic "mount_point" {
     for_each = [
       for i, d in slice(each.value.disks, 1, length(each.value.disks)) : d
-      if lookup(d, "mp", "") != ""
+      if lookup(d, "mp", "") != "" && !lookup(d, "floating", false)
     ]
     content {
       volume = "${each.value.disk_datastore_id}:${mount_point.value.size}"
+      path   = mount_point.value.mp
+      size   = "${mount_point.value.size}G"
+      backup = lookup(mount_point.value, "backup", true)
+    }
+  }
+
+  # Floating storage mount points: owned by the data holder, attached by
+  # volume id. Destroying or replacing this container leaves them untouched.
+  dynamic "mount_point" {
+    for_each = [
+      for i, d in slice(each.value.disks, 1, length(each.value.disks)) : d
+      if lookup(d, "mp", "") != "" && lookup(d, "floating", false)
+    ]
+    content {
+      volume = local.lxc_holder_volumes["/${each.key}${mount_point.value.mp}"]
       path   = mount_point.value.mp
       size   = "${mount_point.value.size}G"
       backup = lookup(mount_point.value, "backup", true)
@@ -116,8 +132,11 @@ resource "proxmox_virtual_environment_container" "lxc" {
   # Initialization
   initialization {
     hostname = each.key
+    # domain drives the FQDN Proxmox writes into the container's /etc/hosts.
+    # Resolution itself comes from DHCP; servers stays unset unless a guest
+    # explicitly overrides it.
     dns {
-      domain  = try(each.value.dns.domain, null)
+      domain  = local.lxc_domain[each.key]
       servers = try(each.value.dns.servers, "") != "" ? [each.value.dns.servers] : null
     }
     ip_config {
@@ -141,28 +160,58 @@ resource "proxmox_virtual_environment_container" "lxc" {
   }
 }
 
-# Unprivileged idmap is written via SSH at create but only takes effect after a
-# reboot: the first boot comes up on the default map, so bind mounts show
-# nobody:nogroup. The provider has no native post-create reboot. Gated to started
-# containers; started=false guests pick up the idmap on their first real start.
-resource "terraform_data" "lxc_idmap_reboot" {
-  for_each = {
-    for name, cfg in local.active_lxc : name => cfg
-    if lookup(cfg, "idmap_uid", null) != null && lookup(cfg, "started", true)
+# Data holder: a never-started container that owns every floating LXC volume in
+# this workspace. Guests attach the volumes by id; Proxmox refuses to free a
+# volume whose owner id differs from the guest being destroyed. The template
+# and rootfs exist only because Proxmox cannot create a container without them,
+# so they are ignored after creation: neither a template bump nor an import
+# mismatch may ever replace the holder.
+resource "proxmox_virtual_environment_container" "data_holder" {
+  for_each = length(local.lxc_floating) > 0 ? { holder = true } : {}
+
+  node_name   = var.pve_node_name
+  vm_id       = local.data_holder_lxc_id
+  description = "Floating data volumes (LXC)"
+  tags        = ["terraform", "data-holder"]
+
+  unprivileged  = true
+  start_on_boot = false
+  started       = false
+
+  operating_system {
+    template_file_id = local.os_template[local.data_holder_os]
+    type             = "debian"
   }
 
-  triggers_replace = [
-    each.value.idmap_uid,
-    each.value.idmap_gid,
-  ]
+  disk {
+    datastore_id = local.lxc_holder_datastore
+    size         = 2
+  }
+
+  # Slot order is list order: mp<slot>. Slots must therefore be contiguous
+  # from 0 on the LXC holder (checked below).
+  dynamic "mount_point" {
+    for_each = local.lxc_floating_by_slot
+    content {
+      volume = "${mount_point.value.datastore_id}:${mount_point.value.size}"
+      path   = mount_point.value.holder_path
+      size   = "${mount_point.value.size}G"
+      backup = false
+    }
+  }
+
+  initialization {
+    hostname = "data-holder-lxc"
+  }
 
   lifecycle {
-    replace_triggered_by = [
-      proxmox_virtual_environment_container.lxc[each.key],
-    ]
-  }
+    ignore_changes = [operating_system, disk]
 
-  provisioner "local-exec" {
-    command = "ssh -o StrictHostKeyChecking=no root@${var.pve_host_addr} 'pct reboot ${each.value.vm_id}'"
+    precondition {
+      condition = alltrue([
+        for i in range(length(local.lxc_floating_by_slot)) : local.lxc_floating_by_slot[i].slot == i
+      ])
+      error_message = "LXC floating disk slots must be unique and contiguous from 0 (got: ${join(", ", [for f in local.lxc_floating_by_slot : "${f.guest}=${f.slot}"])})."
+    }
   }
 }
