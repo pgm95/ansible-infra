@@ -10,7 +10,7 @@ net_dns_configure: true
 net_dns_mode: dhcp
 
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash nano"
+dotfiles_components: [bash, nano]
 
 docker_enabled: true
 docker_dns_servers: []

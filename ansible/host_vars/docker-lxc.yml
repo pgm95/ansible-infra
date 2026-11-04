@@ -18,7 +18,7 @@ packages_fullupgrade: true
 
 # Dotfiles
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash claude nano"
+dotfiles_components: [bash, claude, nano]
 
 # Tailscale
 tailscale_enabled: false

@@ -1,13 +1,13 @@
 # Dotfiles Role
 
-Deploys dotfiles from a private GitHub repository by cloning locally, syncing to the remote host, and invoking the repository's own `deploy.sh` script. The role is intentionally agnostic to `deploy.sh` internals - components and flags are passed through verbatim so the role never needs updating when the script grows.
+Deploys dotfiles from a private GitHub repository by cloning locally, syncing to the remote host, and invoking the repository's own `deploy.sh` entrypoint. Hosts choose components with `dotfiles_components`; file content and rendering stay in the dotfiles repo, and the role never lists individual files.
 
 ## Features
 
 - **Script-driven**: All file placement logic lives in the dotfiles repo's `deploy.sh`
-- **Idempotent**: Git change detection + script's own `[CHANGED]`/`[UNCHANGED]` output
+- **Idempotent**: Change detection comes from the script's JSON result
+- **Drift reporting**: `--check` compares each home against the last deployed source, without writing to the host
 - **Persistent cache**: Repository cached locally on the control node, updated via git pull
-- **Passthrough args**: `dotfiles_deploy_args` sent verbatim to `deploy.sh`
 - GitHub OAuth token authentication (never logged)
 - Deployment to root and/or regular users
 - Error handling with continue-on-error option
@@ -36,27 +36,25 @@ Deploys dotfiles from a private GitHub repository by cloning locally, syncing to
 |----------|---------|-------------|
 | `dotfiles_deploy_to_root` | `true` | Deploy to root user's home directory |
 | `dotfiles_deploy_to_users` | `false` | Deploy to regular users from `users_list` |
-| `dotfiles_deploy_args` | `""` | Arguments passed verbatim to `deploy.sh` |
+| `dotfiles_components` | `[]` | Components to deploy; required when enabled |
 | `dotfiles_force_update` | `true` | Force git pull (overwrite local changes in cache) |
-| `dotfiles_continue_on_error` | `true` | Don't fail playbook on dotfiles failure |
+| `dotfiles_continue_on_error` | `false` | Don't fail playbook on dotfiles failure |
 
 ### Directory Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `dotfiles_cache_dir` | `{{ lookup('config', 'ANSIBLE_HOME') }}/cache/dotfiles` | Local cache for git clone (control node) |
-| `dotfiles_staging_dir` | `/root/.dotfiles` | Remote staging directory for repository sync |
+| `dotfiles_staging_dir` | `/var/lib/dotfiles` | Persistent remote source directory; check mode reads it |
 
-### `dotfiles_deploy_args` Examples
+### `dotfiles_components` Examples
 
 ```yaml
-dotfiles_deploy_args: ""                    # Deploy all components (script default)
-dotfiles_deploy_args: "bash nano claude"    # Deploy only specific components
-dotfiles_deploy_args: "--force bash"        # Force-deploy bash without backups
-dotfiles_deploy_args: "--verbose"           # Deploy all with verbose output
+dotfiles_components: [bash, nano, claude]   # Specific components
+dotfiles_components: [all]                  # Every component
 ```
 
-The role does not parse or validate this string. Whatever `deploy.sh` supports today or in the future works without role changes.
+A component is a directory in the dotfiles repo's `dotfiles/`. The role checks each name against the cached repository before deploying.
 
 ## Authentication
 
@@ -75,17 +73,21 @@ Token is never logged (`no_log: true` on git tasks).
 
 1. **Clone/Update**: Clone repository to local cache (or `git pull` if cache exists)
 2. **Sync**: rsync entire repository to remote `dotfiles_staging_dir` (excluding `.git`)
-3. **Deploy root**: Run `deploy.sh` with `dotfiles_deploy_args` (if `deploy_to_root`)
-4. **Deploy users**: Run `deploy.sh --home /home/{user}` for each user (if `deploy_to_users`)
+3. **Apply root**: Run `deploy.sh apply` (if `deploy_to_root`)
+4. **Apply users**: Run `deploy.sh apply --home <home>` for each user (if `deploy_to_users`)
 5. **Fix ownership**: Correct file ownership for non-root user deployments
 
 ### Change Detection
 
-The role detects changes via `deploy.sh` output:
+`deploy.sh --json` prints one result line on stdout, and Ansible reports `changed` from its `changed` field.
 
-- Script prints `[CHANGED]` for files that were updated
-- Script prints `[UNCHANGED]` for files already in sync
-- Ansible reports `changed` only when `[CHANGED]` appears in stdout
+### Drift Reporting
+
+Under `--check`, the role skips clone, sync and apply, then runs `deploy.sh check` against the source from the last deploy. Drifted hosts report `changed` and list the files for root. The source stays in `dotfiles_staging_dir` for this reason. It answers "has this host changed since its last deploy", not "is a newer repo commit pending".
+
+```bash
+mise run vps:check --tags dotfiles
+```
 
 ## Usage
 
@@ -104,7 +106,7 @@ mise run vps:deploy --tags dotfiles
 
 ```yaml
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash nano"  # Only deploy bash and nano configs
+dotfiles_components: [bash, nano]  # Only deploy bash and nano configs
 ```
 
 ### Deploy to All Users
@@ -125,19 +127,20 @@ When `dotfiles_deploy_to_users: true`, only users with home directories receive 
 
 ## deploy.sh Contract
 
-The role expects `deploy.sh` to exist at the repository root and support:
+The role expects `deploy.sh` at the repository root and supports:
 
-- **Positional args**: Component names (e.g., `bash`, `nano`, `all`)
+- **Commands**: `apply`, `check`
+- **`--components a,b`**: Host selection
 - **`--home DIR`**: Override target home directory (used for non-root user deployment)
-- **Exit code 0**: Success
-- **stdout**: `[CHANGED]` / `[UNCHANGED]` markers for Ansible change detection
-
-Any additional flags (`--force`, `--verbose`, `--dry-run`, etc.) are the script's concern and passed through via `dotfiles_deploy_args`.
+- **`--json`**: One line on stdout: `{"changed":bool,"drift":bool,"files":[...],"components":[...]}`
+- **Exit codes**: `0` success or clean, `1` drift (`check`), `2` usage error, `3` runtime error
 
 ## Error Handling
 
-If `dotfiles_continue_on_error: true` (default): failures are logged but playbook continues.
-If `dotfiles_continue_on_error: false`: failures stop playbook execution.
+If `dotfiles_continue_on_error: false` (default): failures stop playbook execution.
+If `dotfiles_continue_on_error: true`: failures are logged but the playbook continues.
+
+An empty or unknown `dotfiles_components` always fails, whatever this is set to.
 
 ## Security Considerations
 
@@ -149,10 +152,11 @@ If `dotfiles_continue_on_error: false`: failures stop playbook execution.
 ## Directory Structure
 
 ```text
-.cache/dotfiles/                 # Persistent local cache (control node, gitignored)
-/root/.dotfiles/                 # Remote staging directory (synced repo)
-/root/.bashrc                    # Deployed dotfiles (root, managed by deploy.sh)
-/home/user/.bashrc               # Deployed dotfiles (users, managed by deploy.sh)
+.ansible/cache/dotfiles/         # Persistent local cache (control node, gitignored)
+/var/lib/dotfiles/               # Remote source directory (synced repo)
+/root/.bashrc                    # Deployed dotfiles (root, copied by deploy.sh)
+/root/.dotfiles_backup/          # Files replaced by apply
+/home/user/.bashrc               # Deployed dotfiles (users, copied by deploy.sh)
 ```
 
 ## Dependencies

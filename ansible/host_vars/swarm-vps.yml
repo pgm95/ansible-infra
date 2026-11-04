@@ -10,7 +10,7 @@ packages_extra_list:
   - "cifs-utils"
 
 dotfiles_enabled: true
-dotfiles_deploy_args: "bash nano"
+dotfiles_components: [bash, nano]
 
 wg_enabled: true
 # wg_address: "10.60.60.x02/32" Defined in inventory hosts.yml

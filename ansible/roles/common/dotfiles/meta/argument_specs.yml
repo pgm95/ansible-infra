@@ -11,7 +11,8 @@ argument_specs:
     description:
       - Clones dotfiles repository to local cache
       - Synchronizes repository to remote staging directory
-      - Invokes deploy.sh with configurable arguments
+      - Invokes deploy.sh for the components selected per host
+      - Reports drift in check mode
       - Supports deployment to root and regular users
 
 
@@ -56,13 +57,13 @@ argument_specs:
         type: bool
         default: false
 
-      dotfiles_deploy_args:
+      dotfiles_components:
         description: >-
-          Arguments passed verbatim to deploy.sh. Supports both components
-          (bash, nano, claude, etc.) and options (--force, --verbose).
-          Empty string deploys all components (script default).
-        type: str
-        default: ""
+          Components to deploy, required when enabled. A component is a directory
+          in the dotfiles repo's dotfiles/, and "all" selects every one.
+        type: list
+        elements: str
+        default: []
 
       dotfiles_force_update:
         description: Force git pull (overwrite local changes in cache)
@@ -72,7 +73,7 @@ argument_specs:
       dotfiles_continue_on_error:
         description: Continue playbook execution on dotfiles failure
         type: bool
-        default: true
+        default: false
 
       # ========================================================================
       # Directory Configuration
@@ -80,9 +81,9 @@ argument_specs:
       dotfiles_cache_dir:
         description: Local cache directory for git clone on the control node
         type: str
-        default: "{{ playbook_dir | dirname }}/.cache/dotfiles"
+        default: "{{ lookup('config', 'ANSIBLE_HOME') }}/cache/dotfiles"
 
       dotfiles_staging_dir:
-        description: Remote directory where the repository is synced before deployment
+        description: Persistent remote source directory; drift checks in check mode read it
         type: str
-        default: /root/.dotfiles
+        default: /var/lib/dotfiles

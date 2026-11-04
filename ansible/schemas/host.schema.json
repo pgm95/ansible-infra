@@ -130,11 +130,16 @@
     "dotfiles_repo_branch": { "type": "string", "description": "Branch to checkout" },
     "dotfiles_deploy_to_root": { "type": "boolean", "description": "Deploy dotfiles to root user" },
     "dotfiles_deploy_to_users": { "type": "boolean", "description": "Deploy dotfiles to users_list users" },
-    "dotfiles_deploy_args": { "type": "string", "description": "Arguments for deploy.sh" },
+    "dotfiles_components": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "description": "Directories in the dotfiles repo's dotfiles/, or all"
+    },
     "dotfiles_force_update": { "type": "boolean", "description": "Force git pull on each run" },
     "dotfiles_continue_on_error": { "type": "boolean", "description": "Continue on deployment failure" },
     "dotfiles_cache_dir": { "type": "string", "description": "Local cache directory" },
-    "dotfiles_staging_dir": { "type": "string", "description": "Remote staging directory" },
+    "dotfiles_staging_dir": { "type": "string", "description": "Persistent remote source directory" },
 
     "swap_disable": { "type": "boolean", "description": "Disable swap" },
 
