@@ -1,0 +1,81 @@
+---
+# ============================================================================
+# HAProxy Role - User-Configurable Variables
+# ============================================================================
+# Purpose: TCP mode ingress relay. Accepts public TCP and forwards each
+# connection over a tunnel to one backend, prefixed with a PROXY protocol v2
+# header so the far end sees the real client address.
+#
+# Deliberately never terminates TLS and never runs the public frontend in HTTP
+# mode: this host must not be able to read the traffic it relays.
+
+haproxy_enabled: false # (boolean) Enable HAProxy
+
+# ---------------------------------------------------------------------------
+# Packaging
+# ---------------------------------------------------------------------------
+# Debian's own haproxy is older than we want, so the vendor repo at
+# haproxy.debian.net is used. Its suites carry NotAutomatic, so the branch
+# suite has to be named explicitly at install time rather than being picked up
+# as a normal upgrade candidate.
+
+haproxy_branch: "3.4" # (string) HAProxy LTS branch to track
+haproxy_apt_uri: "http://haproxy.debian.net" # (string) Vendor repository
+haproxy_apt_key: "https://haproxy.debian.net/haproxy-archive-keyring.gpg"
+
+# ---------------------------------------------------------------------------
+# Public frontend
+# ---------------------------------------------------------------------------
+
+haproxy_frontend_address: "" # (string) REQUIRED. Public address to bind
+haproxy_frontend_port: 443 # (integer) Public port. Use a spare port while
+                                                    # the old path is still serving, 443 at cutover
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+
+haproxy_backend_address: "" # (string) REQUIRED. Host at the far end of the
+                                                    # tunnel that receives the traffic
+haproxy_backend_port: 8443 # (integer) Port there. Not 443: the gateway at the
+                                                    # far end already uses that
+haproxy_backend_name: manager # (string) Server label, shows up in logs and metrics
+
+haproxy_check_interval: "5s" # (string) Active TCP health check interval. The
+haproxy_check_fall: 3 # (integer) check is what makes clients fail fast
+haproxy_check_rise: 2 # (integer) while the tunnel is down, instead of
+                                                    # hanging until the connect timeout
+
+# ---------------------------------------------------------------------------
+# Timeouts
+# ---------------------------------------------------------------------------
+# The far end serves media streams and websockets that stay open for hours, so
+# the tunnel timeout is what governs an established relay, not client/server.
+
+haproxy_timeout_connect: "5s"
+haproxy_timeout_client: "30s"
+haproxy_timeout_server: "30s"
+haproxy_timeout_tunnel: "12h" # (string) Must match or exceed the far end's own
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+# Prometheus exporter, reachable from home over the tunnel only. Debian builds
+# HAProxy with USE_PROMEX=1, so no extra package is involved.
+
+haproxy_metrics_enabled: true # (boolean) Expose the Prometheus exporter
+haproxy_metrics_address: "" # (string) Tunnel address to bind. Never public
+haproxy_metrics_port: 8405 # (integer) Exporter port
+
+# Lets HAProxy bind the tunnel address before the tunnel interface exists, so a
+# reboot does not leave the service dead waiting for wg0. Same mechanism the
+# tailscale role uses for sshd.
+haproxy_nonlocal_bind: true # (boolean) Set net.ipv4.ip_nonlocal_bind=1
+
+haproxy_maxconn: 2048 # (integer) Global connection limit
+
+# ============================================================================
+# Internal Variables (Computed at Runtime)
+# ============================================================================
+# _haproxy_config_path: ""                          # /etc/haproxy/haproxy.cfg
+# __haproxy_pkg: {}                                 # Registered install result

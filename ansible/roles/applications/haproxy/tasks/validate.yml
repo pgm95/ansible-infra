@@ -1,0 +1,82 @@
+---
+# Pre-configuration validation.
+
+- name: HAProxy | Validate platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'Debian'
+    fail_msg: >-
+      applications/haproxy supports Debian family hosts only
+      (got: {{ ansible_facts.os_family | default('undetected') }}).
+    success_msg: "Platform validated"
+    quiet: true
+
+- name: HAProxy | Validate frontend binding
+  ansible.builtin.assert:
+    that:
+      - haproxy_frontend_address | length > 0
+      - haproxy_frontend_address | ansible.utils.ipaddr is truthy
+      - haproxy_frontend_port | int > 0
+      - haproxy_frontend_port | int < 65536
+    fail_msg: >-
+      haproxy_frontend_address must be the public address to bind and
+      haproxy_frontend_port a valid port (got:
+      {{ haproxy_frontend_address | default('undefined') }}:{{ haproxy_frontend_port | default('?') }}).
+    success_msg: "Frontend validated: {{ haproxy_frontend_address }}:{{ haproxy_frontend_port }}"
+    quiet: true
+
+- name: HAProxy | Validate backend
+  ansible.builtin.assert:
+    that:
+      - haproxy_backend_address | length > 0
+      - haproxy_backend_address | ansible.utils.ipaddr is truthy
+      - haproxy_backend_port | int > 0
+      - haproxy_backend_port | int < 65536
+    fail_msg: >-
+      haproxy_backend_address must be the address reached over the tunnel and
+      haproxy_backend_port a valid port (got:
+      {{ haproxy_backend_address | default('undefined') }}:{{ haproxy_backend_port | default('?') }}).
+      An empty value usually means the variable it interpolates is unset.
+    success_msg: "Backend validated: {{ haproxy_backend_address }}:{{ haproxy_backend_port }}"
+    quiet: true
+
+- name: HAProxy | Validate metrics binding
+  when: haproxy_metrics_enabled | bool
+  ansible.builtin.assert:
+    that:
+      - haproxy_metrics_address | length > 0
+      - haproxy_metrics_address | ansible.utils.ipaddr is truthy
+      - haproxy_metrics_port | int > 0
+      - haproxy_metrics_port | int < 65536
+    fail_msg: >-
+      haproxy_metrics_address must be this host's tunnel address
+      (got: {{ haproxy_metrics_address | default('undefined') }}). The exporter
+      must never be bound to a public address; set haproxy_metrics_enabled to
+      false if it is not wanted.
+    success_msg: "Metrics validated: {{ haproxy_metrics_address }}:{{ haproxy_metrics_port }}"
+    quiet: true
+
+# The relay exists to hand the far end a real client address. Binding the
+# exporter to the same address the public frontend uses would publish it.
+- name: HAProxy | Refuse to expose metrics publicly
+  when: haproxy_metrics_enabled | bool
+  ansible.builtin.assert:
+    that:
+      - haproxy_metrics_address != haproxy_frontend_address
+    fail_msg: >-
+      haproxy_metrics_address is the same as haproxy_frontend_address
+      ({{ haproxy_frontend_address }}), which would publish the exporter. Bind
+      it to the tunnel address instead.
+    success_msg: "Metrics are not on the public address"
+    quiet: true
+
+- name: HAProxy | Validate tunnel timeout is set
+  ansible.builtin.assert:
+    that:
+      - haproxy_timeout_tunnel | length > 0
+    fail_msg: >-
+      haproxy_timeout_tunnel is empty. Established relayed connections would
+      then fall back to the much shorter client and server timeouts, cutting
+      long lived streams.
+    success_msg: "Tunnel timeout: {{ haproxy_timeout_tunnel }}"
+    quiet: true

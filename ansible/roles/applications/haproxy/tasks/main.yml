@@ -1,0 +1,133 @@
+---
+# HAProxy TCP relay.
+#
+# The config is validated with `haproxy -c` before it is written, and changes
+# are applied with a reload, so long lived relayed connections survive.
+
+- name: HAProxy | Resolve paths
+  ansible.builtin.set_fact:
+    _haproxy_config_path: /etc/haproxy/haproxy.cfg
+
+- name: HAProxy | Validate configuration
+  ansible.builtin.import_tasks: validate.yml
+
+# Gates the tasks that need a real binary or unit. On a host that already has
+# HAProxy these all run normally, including under --check.
+- name: HAProxy | Check for an existing HAProxy binary
+  ansible.builtin.stat:
+    path: /usr/sbin/haproxy
+  register: __haproxy_bin
+
+# True on any real run, because the install below provides the unit. Under
+# --check it is only true where HAProxy is already present, since the install is
+# reported rather than performed. Consumed by the service task and the handler.
+- name: HAProxy | Record whether the service will exist
+  ansible.builtin.set_fact:
+    _haproxy_service_present: "{{ __haproxy_bin.stat.exists or not ansible_check_mode }}"
+
+- name: HAProxy | Add the HAProxy repository
+  ansible.builtin.deb822_repository:
+    name: haproxy
+    types: [deb]
+    uris: "{{ haproxy_apt_uri }}"
+    suites: "{{ ansible_facts.distribution_release }}-backports-{{ haproxy_branch }}"
+    components: [main]
+    signed_by: "{{ haproxy_apt_key }}"
+    state: present
+  register: __haproxy_repo
+
+# A separate refresh, not update_cache on the install below. The apt module
+# validates default_release when it opens the cache, which happens before it
+# runs the update, so a suite added moments ago is rejected as unknown no matter
+# what update_cache says. Fetching the InRelease first is what makes -t resolve.
+#
+# Not a handler despite running on change: handlers fire at flush time, after
+# the install below has already failed. The ordering is the whole point.
+- name: HAProxy | Refresh the apt cache for the new repository # noqa: no-handler
+  when: __haproxy_repo is changed
+  ansible.builtin.apt:
+    update_cache: true
+
+# The vendor suite is marked NotAutomatic, so apt will not choose it on its own.
+# default_release names it explicitly for this install.
+#
+# Skipped under --check when the repository is not on the host yet: the sources
+# file was only reported, never written, so apt cannot resolve the branch suite
+# and would fail on a release it has never seen.
+- name: HAProxy | Install HAProxy
+  when: not (ansible_check_mode and __haproxy_repo is changed)
+  ansible.builtin.apt:
+    name: haproxy
+    state: present
+    default_release: "{{ ansible_facts.distribution_release }}-backports-{{ haproxy_branch }}"
+  register: __haproxy_pkg
+
+# Without this the metrics frontend cannot bind the tunnel address until the
+# tunnel is up, and a reboot would leave the whole service dead waiting for it.
+# Same mechanism the tailscale role uses for sshd.
+- name: HAProxy | Allow binding addresses that do not exist yet
+  when: haproxy_nonlocal_bind | bool
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-ansible-haproxy.conf
+    content: |
+      # Managed by Ansible - applications.haproxy role
+      # Lets HAProxy bind the tunnel address before the tunnel interface exists.
+      net.ipv4.ip_nonlocal_bind = 1
+    owner: root
+    group: root
+    mode: "0644"
+  notify: HAProxy | Apply nonlocal bind sysctl
+
+- name: HAProxy | Apply pending sysctl now
+  ansible.builtin.meta: flush_handlers
+
+# validate runs haproxy -c against the rendered file, so a config that does not
+# parse is never written and never reloaded.
+- name: HAProxy | Deploy configuration
+  ansible.builtin.template:
+    src: haproxy_haproxy.cfg.j2
+    dest: "{{ _haproxy_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    backup: true
+    # haproxy -c needs the binary. Where it is absent the config is still
+    # rendered and diffed, just not parsed; on any real run the install above
+    # has already provided it.
+    validate: "{{ 'haproxy -c -f %s' if __haproxy_bin.stat.exists else omit }}"
+  notify: HAProxy | Reload haproxy
+
+# The unit ships with the package, so under --check on a host without it there
+# is nothing to enable; the install above was only reported.
+- name: HAProxy | Enable and start HAProxy
+  when: _haproxy_service_present | bool
+  ansible.builtin.systemd_service:
+    name: haproxy
+    enabled: true
+    state: started
+
+- name: HAProxy | Apply pending configuration changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: HAProxy | Verify the relay
+  when: not ansible_check_mode
+  block:
+    - name: HAProxy | Read listeners
+      ansible.builtin.command: ss -Hltn
+      register: __haproxy_listeners
+      changed_when: false
+
+    # The backend is expected to be DOWN whenever the tunnel is down. That is
+    # the designed behaviour, so only the frontend bind is asserted here.
+    - name: HAProxy | Assert the public frontend is listening
+      ansible.builtin.assert:
+        that:
+          - __haproxy_listeners.stdout is search(haproxy_frontend_address | regex_escape
+            ~ ':' ~ haproxy_frontend_port)
+        fail_msg: >-
+          Nothing is listening on {{ haproxy_frontend_address }}:{{ haproxy_frontend_port }}.
+          Check `journalctl -u haproxy` on {{ inventory_hostname }}.
+        success_msg: >-
+          Relay listening on {{ haproxy_frontend_address }}:{{ haproxy_frontend_port }},
+          backend {{ haproxy_backend_address }}:{{ haproxy_backend_port }}
+        quiet: true

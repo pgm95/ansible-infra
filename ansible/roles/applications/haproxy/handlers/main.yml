@@ -1,0 +1,18 @@
+---
+# HAProxy role handlers
+
+# Reload, not restart: established relayed connections survive a reload, and
+# some of them are hours-long streams. The config is validated before it is
+# written, so a reload never picks up a broken file.
+- name: HAProxy | Reload haproxy
+  # Under --check on a host without HAProxy the unit does not exist, and the
+  # service module fails rather than reporting. The task side is gated the same
+  # way; a handler needs its own condition because it runs independently.
+  when: _haproxy_service_present | default(false) | bool
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: reloaded
+
+- name: HAProxy | Apply nonlocal bind sysctl
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-ansible-haproxy.conf
+  changed_when: true

@@ -24,6 +24,7 @@
         'tailscale' in ansible_run_tags or
         'wireguard' in ansible_run_tags or
         'firewall' in ansible_run_tags or
+        'haproxy' in ansible_run_tags or
         'all' in ansible_run_tags
       tags: ["always"]
     - name: Display user configuration status
@@ -65,6 +66,9 @@
     - role: network/firewall
       tags: [firewall]
       when: firewall_enabled
+    - role: applications/haproxy
+      tags: [haproxy]
+      when: haproxy_enabled
     - role: applications/tailscale
       tags: [tailscale]
       when:

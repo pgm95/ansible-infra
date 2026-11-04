@@ -1,0 +1,135 @@
+---
+# ============================================================================
+# HAProxy Role - Argument Specifications
+# ============================================================================
+# Provides IDE autocompletion and validation for role variables
+# Run: ansible-doc -t role roles/applications/haproxy
+
+argument_specs:
+  main:
+    short_description: TCP mode ingress relay with PROXY protocol v2
+    description:
+      - Accepts public TCP and forwards each connection to one backend over a
+        tunnel, prefixed with a PROXY protocol v2 header
+      - Never terminates TLS and never runs the public frontend in HTTP mode
+      - Exposes the built-in Prometheus exporter on the tunnel address only
+      - Validates with haproxy -c before writing, and reloads rather than
+        restarts so long lived connections survive
+
+    options:
+      haproxy_enabled:
+        description: Enable HAProxy
+        type: bool
+        default: false
+
+      haproxy_branch:
+        description: HAProxy LTS branch to track from the vendor repository
+        type: str
+        default: "3.4"
+
+      haproxy_apt_uri:
+        description: Vendor apt repository
+        type: str
+        default: "http://haproxy.debian.net"
+
+      haproxy_apt_key:
+        description: Signing key for the vendor repository
+        type: str
+        default: "https://haproxy.debian.net/haproxy-archive-keyring.gpg"
+
+      haproxy_frontend_address:
+        description: Public address to bind. Required when enabled
+        type: str
+        default: ""
+
+      haproxy_frontend_port:
+        description: |
+          Public port. Use a spare port while the previous path is still
+          serving, and 443 at cutover.
+        type: int
+        default: 443
+
+      haproxy_backend_address:
+        description: |
+          Host at the far end of the tunnel that receives the traffic.
+          Required when enabled.
+        type: str
+        default: ""
+
+      haproxy_backend_port:
+        description: Port on the backend. Not 443, which the far end already uses
+        type: int
+        default: 8443
+
+      haproxy_backend_name:
+        description: Server label, shown in logs and metrics
+        type: str
+        default: manager
+
+      haproxy_check_interval:
+        description: Active TCP health check interval
+        type: str
+        default: "5s"
+
+      haproxy_check_fall:
+        description: Failed checks before the backend is marked down
+        type: int
+        default: 3
+
+      haproxy_check_rise:
+        description: Successful checks before the backend is marked up
+        type: int
+        default: 2
+
+      haproxy_timeout_connect:
+        description: Connect timeout
+        type: str
+        default: "5s"
+
+      haproxy_timeout_client:
+        description: Client inactivity timeout before the connection is established
+        type: str
+        default: "30s"
+
+      haproxy_timeout_server:
+        description: Server inactivity timeout before the connection is established
+        type: str
+        default: "30s"
+
+      haproxy_timeout_tunnel:
+        description: |
+          Governs an established relayed connection. Must match or exceed the
+          far end's own timeouts, since the traffic includes streams and
+          websockets lasting hours.
+        type: str
+        default: "12h"
+
+      haproxy_metrics_enabled:
+        description: Expose the built-in Prometheus exporter
+        type: bool
+        default: true
+
+      haproxy_metrics_address:
+        description: |
+          Tunnel address to bind the exporter to. Never a public address; the
+          role refuses to bind it to haproxy_frontend_address.
+        type: str
+        default: ""
+
+      haproxy_metrics_port:
+        description: Exporter port
+        type: int
+        default: 8405
+
+      haproxy_nonlocal_bind:
+        description: |
+          Set net.ipv4.ip_nonlocal_bind=1 so HAProxy can bind the tunnel
+          address before the tunnel interface exists, which keeps a reboot from
+          leaving the service dead.
+        type: bool
+        default: true
+
+      haproxy_maxconn:
+        description: Global connection limit
+        type: int
+        default: 2048

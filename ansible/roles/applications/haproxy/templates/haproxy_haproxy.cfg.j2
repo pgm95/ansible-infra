@@ -1,0 +1,49 @@
+# Managed by Ansible - applications.haproxy role
+#
+# TCP relay. TLS is never terminated here and the public frontend is never in
+# HTTP mode, so this host cannot read what it relays.
+
+global
+    # `log stdout` hands lines to the systemd unit, which lands them in the
+    # journal. Avoids the /dev/log plus chroot arrangement entirely.
+    log stdout format raw local0
+    maxconn {{ haproxy_maxconn }}
+    user haproxy
+    group haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    option dontlognull
+    timeout connect {{ haproxy_timeout_connect }}
+    timeout client {{ haproxy_timeout_client }}
+    timeout server {{ haproxy_timeout_server }}
+    # Governs an established relayed connection. The far end serves streams and
+    # websockets lasting hours, so this is the timeout that actually matters.
+    timeout tunnel {{ haproxy_timeout_tunnel }}
+
+frontend relay_in
+    bind {{ haproxy_frontend_address }}:{{ haproxy_frontend_port }}
+    mode tcp
+    option tcplog
+    default_backend relay_out
+
+backend relay_out
+    mode tcp
+    # Active check, so clients are refused promptly while the tunnel is down
+    # rather than waiting out the connect timeout.
+    option tcp-check
+    server {{ haproxy_backend_name }} {{ haproxy_backend_address }}:{{ haproxy_backend_port }} send-proxy-v2 check inter {{ haproxy_check_interval }} fall {{ haproxy_check_fall }} rise {{ haproxy_check_rise }}
+{% if haproxy_metrics_enabled %}
+
+# Bound to the tunnel address only. This is the one thing scraped on this host.
+frontend metrics
+    bind {{ haproxy_metrics_address }}:{{ haproxy_metrics_port }}
+    mode http
+    option httplog
+    http-request use-service prometheus-exporter if { path /metrics }
+    http-request deny
+{% endif %}
